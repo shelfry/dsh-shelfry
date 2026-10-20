@@ -132,6 +132,15 @@ export default function App() {
   const visible = filtered.slice(0, shown);
   const canLoadMore = shown < filtered.length || (!hits && !needsFullScan && artifacts !== null && loadedPages < artifacts.pages.count);
 
+  /**
+   * 默认档是边浏览边翻页的，filtered 只包含「已加载」的条目。
+   * 若直接拿 filtered.length 当总数，会显示成「共 60 条匹配」，让人以为全站只有 60 条 ——
+   * 必须用 meta 的三档计数报真实总量，再把已加载量单独标出来。
+   */
+  const totalInScope = !needsFullScan && !hits && meta
+    ? meta.counts.verified + meta.counts.pending
+    : filtered.length;
+
   const loadMore = useCallback(async () => {
     if (shown < filtered.length) { setShown((s) => s + RESULTS_SHOWN_STEP); return; }
     // 全量口径下所有条目都已在内存里，没有「下一页」可拉。
@@ -213,7 +222,7 @@ export default function App() {
               ? `找到 ${filtered.length} 条`
               : needsFullScan
                 ? `共 ${filtered.length} 条匹配（全站）`
-                : `共 ${filtered.length} 条匹配（已加载 ${browseItems.length}）`}
+                : `共 ${totalInScope} 条 · 已显示 ${Math.min(shown, filtered.length)} 条`}
           {status === "primary" && <span className="badge tone-mute">默认隐藏「安装失败」的条目</span>}
         </div>
 
@@ -238,7 +247,9 @@ export default function App() {
         )}
 
         <button className="load-more" onClick={loadMore} disabled={!canLoadMore}>
-          {canLoadMore ? "加载更多" : "没有更多了"}
+          {canLoadMore
+            ? `加载更多（已显示 ${Math.min(shown, filtered.length)} / ${totalInScope}）`
+            : "没有更多了"}
         </button>
       </main>
 
