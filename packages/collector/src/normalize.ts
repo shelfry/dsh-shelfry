@@ -38,18 +38,41 @@ function toType(v: unknown): PluginType {
 }
 
 /**
- * 从上游安装命令里抽取 npm 包名。
- * 上游命令样例：`dsh plugin --profile web add dsh-xxx` / `npm install dsh-xxx` / `./dsh-xxx`。
- * 只认最后一个 token，且必须是合法包名形态 —— 不猜路径、不猜本地目录。
+ * 从上游安装命令里抽取**可验证的依赖规格**。
+ *
+ * 为什么不再用「最后一个 token + 猜」：上游 `name` 是仓库名，不等于 npm 包名。
+ * 拿仓库名当包名去装会 404，于是把「其实能装、只是上游没写清」的插件误判成装不上 ——
+ * 对一个卖点是「只推荐装得上的」站点，假失败比「待验证」更伤。
+ *
+ * 所以只认上游明确写出的安装动作：命令里 `add`/`install` 后面的那个参数。
+ * 支持形态：
+ *   dsh-context / @scope/pkg / dshmarket     → 直接就是 npm 包名
+ *   npm:dsh-context                          → 取冒号后的包名
+ *   github:owner/repo / git+https://…        → pnpm 原生支持，原样透传
+ * 本地路径（link:/file:/./…）需要先 clone，一条命令验不出，返回 null（保持待验证）。
  */
-export function extractPackageName(commands: string[]): string | null {
+export function extractInstallSpec(commands: string[]): string | null {
   for (const cmd of commands) {
     const tokens = cmd.trim().split(/\s+/);
-    const last = tokens[tokens.length - 1];
-    if (!last) continue;
-    if (last.startsWith("./") || last.startsWith("/") || last === "add" || last === "remove") continue;
-    if (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/i.test(last)) return last;
+    const at = Math.max(tokens.lastIndexOf("add"), tokens.lastIndexOf("install"));
+    if (at < 0) continue;
+    const spec = tokens[at + 1];
+    if (!spec) continue;
+    const normalized = normalizeSpec(spec);
+    if (normalized) return normalized;
   }
+  return null;
+}
+
+function normalizeSpec(spec: string): string | null {
+  if (!spec) return null;
+  // 本地路径 / 工作区引用：无法用一条安装命令验证。
+  if (/^(link:|file:|workspace:|portal:|\.{1,2}\/|\/)/.test(spec)) return null;
+  if (spec.startsWith("npm:")) return spec.slice(4) || null;
+  // 远程规格：pnpm 原生支持，原样透传。
+  if (/^(github:|git\+|git:|https?:|ssh:)/.test(spec)) return spec;
+  // 普通 npm 包名（可带 scope）。
+  if (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/i.test(spec)) return spec;
   return null;
 }
 
@@ -59,17 +82,20 @@ function toMethod(v: unknown): InstallMethod {
   return "unknown";
 }
 
-function buildInstall(raw: Record<string, unknown>, name: string): InstallSpec {
+function buildInstall(raw: Record<string, unknown>): InstallSpec {
   const method = toMethod(raw.method);
   const commands = strArr(raw.commands);
-  const packageName = extractPackageName(commands) ?? (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/i.test(name) ? name : null);
+  // 只认上游明确写出的安装动作，绝不用仓库名倒推 npm 包名（会造出假失败）。
+  const packageName = extractInstallSpec(commands);
+  const remote = !!packageName && /^(github:|git\+|git:|https?:|ssh:)/.test(packageName);
   return {
     method,
     command: defaultInstallCommand(method, packageName),
     packageName,
     enginesDsh: str(raw.dshEngines),
     needsConfig: bool(raw.needsConfig) || bool(raw.usageNeedsConfig),
-    risky: bool(raw.risky),
+    // 远程规格要拉整个仓库，比装 npm 包重；上游自己标的 risky 也尊重。
+    risky: bool(raw.risky) || remote,
   };
 }
 
@@ -106,7 +132,7 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
     curated: bool(raw.curated),
     homepage: str(raw.homepage),
     pushedAt: str(raw.pushedAt),
-    install: buildInstall(installRaw, name),
+    install: buildInstall(installRaw),
     verification,
     score: {
       installable: 0, maintenance: 0, utility: 0, popularity: 0, convenience: 0, signal: 0, total: 0,

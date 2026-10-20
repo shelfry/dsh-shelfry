@@ -1,12 +1,12 @@
 name: Build and deploy site
 
 # 触发：主分支推送 / 每天定时刷新数据 / 手动触发。
-# 数据产物不进 git —— 每次都在 CI 里现跑收录管道生成，Pages 只收构建好的静态站。
+# 数据产物不进 git —— 每次都在 CI 里现跑收录管道与验证管道生成，Pages 只收构建好的静态站。
 on:
   push:
     branches: [main]
   schedule:
-    # 每天 UTC 18:17（北京 02:17）刷新收录数据
+    # 每天 UTC 18:17（北京 02:17）刷新收录数据并推进一批验证
     - cron: "17 18 * * *"
   workflow_dispatch:
 
@@ -18,6 +18,14 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
+
+env:
+  # 验证用的 dsh / pnpm 版本固定：结论必须可复现，工具链漂移会改变「装得上」的判定。
+  DSH_VERSION: 0.2.1-rc.2
+  PNPM_VERSION: 11.28.5
+  # 一次构建最多验证多少条（按分数降序，优先把最有价值的插件验出来）。
+  # 首次构建账本是空的：靠每个 push 也验一批，才能在几周内把 13k 条铺开。
+  VERIFY_LIMIT: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '400' || '150' }}
 
 jobs:
   build:
@@ -36,12 +44,30 @@ jobs:
       - name: 类型检查
         run: npm run typecheck
 
-      - name: 跑收录管道并同步产物
+      - name: 跑收录管道
         # GH_SEARCH_TOKEN 未配置时自动降级到镜像种子源（收集器内置 --source auto 兜底）。
-        # github.token 在仓库内可用，可覆盖一部分检索额度。
+        # 这里不 emit：产物要在验证结论写回之后统一生成，否则「已验证」会是空的。
         env:
           GITHUB_TOKEN: ${{ secrets.GH_SEARCH_TOKEN || github.token }}
-        run: npm run collect -- --source auto --build
+        run: npm run collect -- --source auto
+
+      - name: 恢复验证账本
+        # 账本是唯一跨构建存活的验证证据（收录数据每次重建），不缓存就会每天重复验证同一批。
+        uses: actions/cache@v4
+        with:
+          path: .data/verification-ledger.json
+          key: verify-ledger-${{ env.DSH_VERSION }}-${{ github.run_id }}
+          restore-keys: |
+            verify-ledger-${{ env.DSH_VERSION }}-
+            verify-ledger-
+
+      - name: 安装 dsh 验证工具链
+        run: npm i -g @deepseek-ai/dsh@${{ env.DSH_VERSION }} pnpm@${{ env.PNPM_VERSION }}
+
+      - name: 验证插件可装性（第三方插件只在这个一次性沙箱里运行）
+        # 不注入任何 secrets：这一步会执行第三方插件的代码。
+        # 验证本身不 emit；但即使 0 条待验，也靠 --build 把账本结论落进产物。
+        run: npm run verify -- --limit ${{ env.VERIFY_LIMIT }} --concurrency 4 --build
 
       - name: 构建静态站
         run: npm run build
