@@ -56,18 +56,36 @@ const log = (silent: boolean, ...m: unknown[]) => { if (!silent) console.log(...
 
 async function loadRawRecords(args: Args): Promise<{ records: RawRecord[]; sourceLabel: string }> {
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
-  if (args.source === "mirror" || (args.source === "auto" && !token)) {
-    if (args.source === "auto" && !token) console.warn("[collector] 未检测到 GITHUB_TOKEN，自动降级到镜像种子源。");
-    const records = await fetchMirrorRecords(args.limit);
-    return { records, sourceLabel: "mirror" };
+  const fromMirror = async (reason?: string) => {
+    if (reason) console.warn(`[collector] ${reason}，降级到镜像种子源。`);
+    return { records: await fetchMirrorRecords(args.limit), sourceLabel: "mirror" };
+  };
+
+  if (args.source === "mirror") return fromMirror();
+  if (!token) return fromMirror("未检测到 GITHUB_TOKEN");
+  if (args.source === "github") {
+    // 显式指定主源时不兜底：让故障直接暴露出来，便于排查。
+    const records = await fetchGithubRecords({
+      token,
+      perQueryLimit: args.limit,
+      ...(args.queries ? { queries: args.queries } : {}),
+    });
+    return { records, sourceLabel: "github" };
   }
-  if (!token) throw new Error("--source github 需要 GITHUB_TOKEN");
-  const records = await fetchGithubRecords({
-    token,
-    perQueryLimit: args.limit,
-    ...(args.queries ? { queries: args.queries } : {}),
-  });
-  return { records, sourceLabel: "github" };
+
+  // auto：优先自建主源，失败则降级。
+  // 数据源（尤其 CI 内置 token 调不动 Search API）抖一下就整站部署失败是不可接受的，
+  // 种子源足够让站点保持可用，缺失的部分靠下一次成功抓取补齐。
+  try {
+    const records = await fetchGithubRecords({
+      token,
+      perQueryLimit: args.limit,
+      ...(args.queries ? { queries: args.queries } : {}),
+    });
+    return { records, sourceLabel: "github" };
+  } catch (err) {
+    return fromMirror(`GitHub 检索失败（${err instanceof Error ? err.message : String(err)}）`);
+  }
 }
 
 async function main(): Promise<void> {
