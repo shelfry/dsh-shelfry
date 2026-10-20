@@ -25,7 +25,7 @@ env:
   PNPM_VERSION: 11.28.5
   # 一次构建最多验证多少条（按分数降序，优先把最有价值的插件验出来）。
   # 首次构建账本是空的：靠每个 push 也验一批，才能在几周内把 13k 条铺开。
-  VERIFY_LIMIT: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '400' || '150' }}
+  VERIFY_LIMIT: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '600' || '200' }}
 
 jobs:
   build:

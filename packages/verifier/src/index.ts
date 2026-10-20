@@ -108,6 +108,19 @@ function emitAll(entries: PluginEntry[], dshVersion: string | null): void {
   syncToWebPublic();
 }
 
+/** 探测不到 CLI 时（只重生成产物），从既有证据里取最常用的版本，保证 meta 不写 null。 */
+function versionFromEvidence(entries: PluginEntry[]): string | null {
+  const tally = new Map<string, number>();
+  for (const e of entries) {
+    const v = e.verification.dshVersion;
+    if (v) tally.set(v, (tally.get(v) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let max = 0;
+  for (const [v, n] of tally) if (n > max) { max = n; best = v; }
+  return best;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const dshBin = args.dshBin ?? resolveDshBin();
@@ -188,7 +201,7 @@ async function main(): Promise<void> {
   log(silent, `[verifier] store 累计：verified=${stats.verified} pending=${stats.pending} failed=${stats.failed}`);
 
   if (args.build) {
-    emitAll(entries, dshVersion);
+    emitAll(entries, dshVersion ?? versionFromEvidence(entries));
     log(silent, "[verifier] 已重算分数并 emit 产物到 packages/web/public/data");
   } else {
     log(silent, "[verifier] 未加 --build：产物未重生成（分数已随验证结论写入 store）");

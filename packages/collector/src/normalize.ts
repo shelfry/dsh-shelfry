@@ -44,9 +44,10 @@ function toType(v: unknown): PluginType {
  * 拿仓库名当包名去装会 404，于是把「其实能装、只是上游没写清」的插件误判成装不上 ——
  * 对一个卖点是「只推荐装得上的」站点，假失败比「待验证」更伤。
  *
- * 所以只认上游明确写出的安装动作：命令里 `add`/`install` 后面的那个参数。
+ * 所以只认上游明确写出的安装动作：命令里 `add`/`install` 之后的那个非 flag 参数。
  * 支持形态：
  *   dsh-context / @scope/pkg / dshmarket     → 直接就是 npm 包名
+ *   dsh-context@1.2.3                        → 带版本，保留版本（验证必须验上游指定的版本）
  *   npm:dsh-context                          → 取冒号后的包名
  *   github:owner/repo / git+https://…        → pnpm 原生支持，原样透传
  * 本地路径（link:/file:/./…）需要先 clone，一条命令验不出，返回 null（保持待验证）。
@@ -54,10 +55,19 @@ function toType(v: unknown): PluginType {
 export function extractInstallSpec(commands: string[]): string | null {
   for (const cmd of commands) {
     const tokens = cmd.trim().split(/\s+/);
+    // 全局安装的是 CLI 工具，不是 profile 插件；拿它当插件装必然失败，不能算作安装规格。
+    if (/\s(-g|--global)(\s|$)/.test(` ${cmd} `)) continue;
     const at = Math.max(tokens.lastIndexOf("add"), tokens.lastIndexOf("install"));
     if (at < 0) continue;
-    const spec = tokens[at + 1];
+    // 跳过 add 与规格之间的 flag（如 `add -w pkg@1.0.0` 的 -w、`install --save-dev pkg`）：
+    // 不跳过就会把 `-w` 当成包名而整条丢弃。
+    let j = at + 1;
+    while (tokens[j]?.startsWith("-")) j++;
+    // 规格后面的 `@版本` 可能被 shell 拆成第二个 token（`pkg @1.0.0`），补回来。
+    let spec = tokens[j];
     if (!spec) continue;
+    const nextTok = tokens[j + 1];
+    if (nextTok?.startsWith("@") && !spec.includes("@")) spec = `${spec}${nextTok}`;
     const normalized = normalizeSpec(spec);
     if (normalized) return normalized;
   }
@@ -71,8 +81,8 @@ function normalizeSpec(spec: string): string | null {
   if (spec.startsWith("npm:")) return spec.slice(4) || null;
   // 远程规格：pnpm 原生支持，原样透传。
   if (/^(github:|git\+|git:|https?:|ssh:)/.test(spec)) return spec;
-  // 普通 npm 包名（可带 scope）。
-  if (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/i.test(spec)) return spec;
+  // 普通 npm 包名（可带 scope），可带 @版本 / @标签。
+  if (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*(@[a-z0-9][a-z0-9._-]*)?$/i.test(spec)) return spec;
   return null;
 }
 
