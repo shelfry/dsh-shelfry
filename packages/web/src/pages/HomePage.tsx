@@ -12,6 +12,7 @@ import {
   type Category,
 } from "../lib/data";
 import { createSearcher, rankHits, sortItems, type SearchHit, type SortKey } from "../lib/search";
+import { categoryLabel } from "../lib/labels";
 
 /**
  * 首页：浏览 + 检索 + 多维筛选。
@@ -208,7 +209,7 @@ export default function HomePage() {
               aria-pressed={category === c.t}
               onClick={() => setCategory(category === c.t ? "" : c.t)}
             >
-              {c.t} <span className="chip-count">{c.n}</span>
+              {categoryLabel(c.t)} <span className="chip-count">{c.n}</span>
             </button>
           ))}
           {categories.length > 14 && (

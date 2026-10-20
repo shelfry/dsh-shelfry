@@ -3,6 +3,7 @@ import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
 import { copyText } from "../lib/clipboard";
+import { categoryLabel } from "../lib/labels";
 
 /** 「今天/3 天前/5 个月前」——比裸日期更容易判断插件还活不活。 */
 export function relativeTime(iso: string | null): string {
@@ -20,11 +21,9 @@ const ownerOf = (id: string): string => {
   return slash === -1 ? id : id.slice(0, slash);
 };
 
-/** 兼容声明 `^0.1.0-rc.7` / `>=0.1.7` ⇒ `v0.1.0-rc.7` / `v0.1.7`。 */
-export function versionOf(range: string | null): string | null {
-  if (!range) return null;
-  const first = (range.trim().split(/\s+/)[0] ?? "").replace(/^[\^~]/, "").replace(/^>=?/, "");
-  return first ? `v${first}` : null;
+/** 插件自身版本 → `v1.66.44`；没有登记版本就不显示。 */
+export function versionLabel(version: string | null): string | null {
+  return version ? `v${version.replace(/^v/, "")}` : null;
 }
 
 /**
@@ -100,7 +99,7 @@ function InstallButton({
 
 export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
   const [cmd, setCmd] = useState<string | null>(null);
-  const version = versionOf(item.g);
+  const version = versionLabel(item.vr);
   // 分类取 tags 里能被首页分类聚合命中的那个，其余标签继续铺在左下角。
   const category = item.tg.find((t) => categories.has(t)) ?? null;
   const restTags = item.tg.filter((t) => t !== category);
@@ -144,7 +143,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
           {restTags.slice(0, 3).map((t) => <span className="tag" key={t}>{t}</span>)}
           {restTags.length > 3 && <span className="tag tag-more">+{restTags.length - 3}</span>}
         </div>
-        {category && <span className="tag tag-cat" title="分类">{category}</span>}
+        {category && <span className="tag tag-cat" title="分类">{categoryLabel(category)}</span>}
       </div>
     </article>
   );

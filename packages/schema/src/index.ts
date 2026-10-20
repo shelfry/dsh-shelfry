@@ -51,6 +51,8 @@ export interface PluginEntry {
   homepage: string | null;
   /** 上游仓库最后 push 时间（ISO）。 */
   pushedAt: string | null;
+  /** 插件自身发布版本（取自 npm registry 的 latest）。取不到为 null。 */
+  version: string | null;
   install: InstallSpec;
   score: ScoreBreakdown;
   /** 汇聚来源标识，用于溯源。 */
@@ -71,6 +73,7 @@ export interface LiteEntry {
   /** pushedAt */ p: string | null;
   /** score.total */ sc: number;
   /** engines.dsh */ g: string | null;
+  /** version（插件自身版本） */ vr: string | null;
   /** tags */ tg: string[];
   /** descriptionZh ?? description */ d: string;
 }
@@ -181,6 +184,7 @@ export function toLiteEntry(e: PluginEntry): LiteEntry {
     p: e.pushedAt,
     sc: e.score.total,
     g: e.install.enginesDsh,
+    vr: e.version,
     tg: e.tags,
     d: e.descriptionZh ?? e.description,
   };

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadEntryById, siteConfig } from "../lib/data";
-import { Avatar, relativeTime, versionOf } from "../components/PluginCard";
+import { Avatar, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
 
 /**
@@ -64,7 +64,7 @@ export default function DetailPage() {
   if (!entry) return null;
 
   const repoUrl = entry.homepage ?? `https://github.com/${entry.fullName}`;
-  const version = versionOf(entry.install.enginesDsh);
+  const version = versionLabel(entry.version);
   const dims = [
     { label: "生态热度", value: entry.score.popularity },
     { label: "维护活跃", value: entry.score.maintenance },
@@ -97,7 +97,7 @@ export default function DetailPage() {
         <h2>简介</h2>
         <p className="detail-desc">{entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}</p>
         {entry.tags.length > 0 && (
-          <div className="tags" style={{ marginTop: 12 }}>
+          <div className="tags detail-tags">
             {entry.tags.map((t) => <span className="tag" key={t}>{t}</span>)}
           </div>
         )}
@@ -125,6 +125,7 @@ export default function DetailPage() {
 
         <dl className="kv">
           <dt>安装方式</dt><dd>{entry.install.method}</dd>
+          <dt>插件版本</dt><dd>{entry.version ?? "未在 npm 发布"}</dd>
           <dt>兼容范围</dt><dd>{entry.install.enginesDsh ?? "上游未声明"}</dd>
           <dt>需要配置</dt><dd>{entry.install.needsConfig ? "是" : "否"}</dd>
           {entry.install.risky && <><dt>注意</dt><dd>安装路径较重或需额外授权</dd></>}

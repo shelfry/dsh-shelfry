@@ -94,8 +94,8 @@ a { color: inherit; text-decoration: none; }
 }
 .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
-.card-head { display: flex; align-items: flex-start; gap: 10px; }
-.card-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.card-head { display: flex; align-items: center; gap: 10px; height: 30px; }
+.card-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
 .card-name { font-weight: 620; font-size: 15px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .card-name::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-lg); }
 .card-name:hover { color: var(--accent); }
@@ -110,13 +110,14 @@ a { color: inherit; text-decoration: none; }
 .btn-install:hover { opacity: 0.86; }
 .btn-install:active { transform: scale(0.97); }
 
-.card-meta { display: flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: 12px; flex-wrap: wrap; }
+.card-meta { display: flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: 12px; flex-wrap: nowrap; overflow: hidden; height: 18px; }
 .author-name { color: var(--text-dim); }
 .dot { color: var(--text-faint); }
 .card-stars { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.card-meta > span { white-space: nowrap; }
 
 /* 路径 + 版本号：紧跟名字下方，一眼看出是哪个仓库的哪个版本 */
-.card-path { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); min-width: 0; }
+.card-path { display: flex; align-items: center; gap: 6px; height: 18px; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); min-width: 0; }
 .card-path .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-path .ver { flex: none; padding: 1px 6px; border-radius: 5px; background: var(--surface-2); color: var(--text-dim); }
 
@@ -132,7 +133,8 @@ a { color: inherit; text-decoration: none; }
 .card-desc {
   margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.6;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-  min-height: 62px;
+  /* 固定 3 行高度，卡片之间不会因简介长短错开 */
+  height: 62px;
 }
 
 /* 复制被拒时在卡片内展开命令，位置压在整卡链接热区之上以便选中 */
@@ -143,12 +145,18 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--mono); font-size: 11.5px; color: var(--text);
   overflow-x: auto; white-space: nowrap; user-select: text;
 }
-.card-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+/* 底部信息条：无论简介多长都贴在第 3 行简介之下，分类固定在右下角 */
+.card-foot {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: auto; height: 22px; flex-wrap: nowrap; overflow: hidden;
+}
 
-.tags { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
-.tag { padding: 2px 7px; background: var(--surface-2); border-radius: 5px; color: var(--text-dim); font-size: 11.5px; border: 1px solid transparent; }
+.tags { display: flex; gap: 4px; flex-wrap: nowrap; flex: 1; min-width: 0; overflow: hidden; }
+.tag { padding: 2px 7px; background: var(--surface-2); border-radius: 5px; color: var(--text-dim); font-size: 11.5px; border: 1px solid transparent; white-space: nowrap; flex: none; }
 .tag-more { color: var(--text-faint); background: transparent; border-color: var(--border); }
-.tag-cat { margin-left: auto; flex: none; background: var(--accent-soft); color: var(--accent); font-weight: 550; }
+.tag-cat { margin-left: auto; flex: none; background: var(--accent-soft); color: var(--accent); font-weight: 400; }
+/* 详情页的标签不做单行省略，允许换行铺开 */
+.detail-tags { flex-wrap: wrap; overflow: visible; margin-top: 12px; }
 
 .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 550; white-space: nowrap; }
 .pill-type { color: var(--text-dim); background: var(--surface-2); }

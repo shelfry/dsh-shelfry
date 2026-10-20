@@ -15,6 +15,7 @@ import {
 import { normalizeRecord, type RawRecord } from "./normalize.ts";
 import { fetchMirrorRecords } from "./sources/mirror.ts";
 import { fetchGithubRecords } from "./sources/github.ts";
+import { resolveVersions } from "./versions.ts";
 
 /**
  * 收录管道 CLI。
@@ -112,11 +113,16 @@ async function main(): Promise<void> {
   if (rejected > 0) log(args.silent, `[collector] 规整后丢弃 ${rejected} 条（缺 id）`);
 
   const merged = mergeEntries(prev, incoming);
+  const entries = merged.catalog.entries;
+
+  // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
+  const versionHits = await resolveVersions(entries);
+  log(args.silent, `[collector] 版本号命中 ${versionHits} 条`);
+
   const saved = saveCatalog(merged.catalog);
-  log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${merged.catalog.entries.length} 条`);
+  log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${entries.length} 条`);
   log(args.silent, `[collector] store 已写入 ${saved}`);
 
-  const entries = merged.catalog.entries;
   const meta = buildMeta(entries);
   log(args.silent, `[collector] 条目 ${meta.total} 条，类型分布 ${JSON.stringify(meta.types)}`);
 
