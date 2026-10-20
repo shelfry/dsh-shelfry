@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadEntryById, siteConfig } from "../lib/data";
-import { Avatar, relativeTime } from "../components/PluginCard";
+import { Avatar, relativeTime, versionOf } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
 
 /**
@@ -64,6 +64,7 @@ export default function DetailPage() {
   if (!entry) return null;
 
   const repoUrl = entry.homepage ?? `https://github.com/${entry.fullName}`;
+  const version = versionOf(entry.install.enginesDsh);
   const dims = [
     { label: "生态热度", value: entry.score.popularity },
     { label: "维护活跃", value: entry.score.maintenance },
@@ -84,6 +85,7 @@ export default function DetailPage() {
         <div className="detail-sub">
           <Avatar id={entry.id} />
           <a href={repoUrl} target="_blank" rel="noreferrer">{entry.fullName}</a>
+          {version && <span className="detail-ver">{version}</span>}
           <span className="dot">·</span>
           <span>★ {entry.stars}</span>
           <span className="dot">·</span>

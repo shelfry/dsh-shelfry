@@ -178,6 +178,7 @@ export default function HomePage() {
   }
 
   const visibleCategories = showAllCategories ? categories : categories.slice(0, 14);
+  const categorySet = new Set(categories.map((c) => c.t));
 
   return (
     <main className="wrap">
@@ -264,7 +265,9 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="grid">
-          {filtered.slice(0, shown).map((h) => <PluginCard key={h.item.i} item={h.item} />)}
+          {filtered.slice(0, shown).map((h) => (
+            <PluginCard key={h.item.i} item={h.item} categories={categorySet} />
+          ))}
         </div>
       )}
 

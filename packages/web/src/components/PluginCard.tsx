@@ -20,6 +20,13 @@ const ownerOf = (id: string): string => {
   return slash === -1 ? id : id.slice(0, slash);
 };
 
+/** 兼容声明 `^0.1.0-rc.7` / `>=0.1.7` ⇒ `v0.1.0-rc.7` / `v0.1.7`。 */
+export function versionOf(range: string | null): string | null {
+  if (!range) return null;
+  const first = (range.trim().split(/\s+/)[0] ?? "").replace(/^[\^~]/, "").replace(/^>=?/, "");
+  return first ? `v${first}` : null;
+}
+
 /**
  * 作者头像直接用 GitHub 的 .png 头像端点，不额外存字段、不加一次 API 调用；
  * 加载失败（改名/删号/离线）退回首字母占位。
@@ -91,8 +98,12 @@ function InstallButton({
   );
 }
 
-export function PluginCard({ item }: { item: LiteEntry }) {
+export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
   const [cmd, setCmd] = useState<string | null>(null);
+  const version = versionOf(item.g);
+  // 分类取 tags 里能被首页分类聚合命中的那个，其余标签继续铺在左下角。
+  const category = item.tg.find((t) => categories.has(t)) ?? null;
+  const restTags = item.tg.filter((t) => t !== category);
 
   return (
     <article className="card">
@@ -106,6 +117,11 @@ export function PluginCard({ item }: { item: LiteEntry }) {
         <InstallButton id={item.i} cmd={cmd} onCmd={setCmd} />
       </div>
 
+      <div className="card-path">
+        <span className="path">{item.i}</span>
+        {version && <span className="ver">{version}</span>}
+      </div>
+
       <div className="card-meta">
         <Avatar id={item.i} />
         <span className="author-name">{ownerOf(item.i)}</span>
@@ -113,7 +129,6 @@ export function PluginCard({ item }: { item: LiteEntry }) {
         <span>{relativeTime(item.p)}</span>
         <span className="dot">·</span>
         <span className="card-stars" title={`${item.s} 个 star`}>★ {item.s}</span>
-        <span className="card-score" title="综合推荐分">综合 {item.sc.toFixed(1)}</span>
       </div>
 
       <p className="card-desc">{item.d || "（上游未提供简介）"}</p>
@@ -126,10 +141,10 @@ export function PluginCard({ item }: { item: LiteEntry }) {
 
       <div className="card-foot">
         <div className="tags">
-          {item.tg.slice(0, 3).map((t) => <span className="tag" key={t}>{t}</span>)}
-          {item.tg.length > 3 && <span className="tag tag-more">+{item.tg.length - 3}</span>}
+          {restTags.slice(0, 3).map((t) => <span className="tag" key={t}>{t}</span>)}
+          {restTags.length > 3 && <span className="tag tag-more">+{restTags.length - 3}</span>}
         </div>
-        {item.g && <span className="pill pill-compat" title={`上游声明的 dsh 兼容范围：${item.g}`}>dsh {item.g}</span>}
+        {category && <span className="tag tag-cat" title="分类">{category}</span>}
       </div>
     </article>
   );
