@@ -152,11 +152,19 @@ a { color: inherit; text-decoration: none; }
 }
 
 .tags { display: flex; gap: 4px; flex-wrap: nowrap; flex: 1; min-width: 0; overflow: hidden; }
-.tag { padding: 2px 7px; background: var(--surface-2); border-radius: 5px; color: var(--text-dim); font-size: 11.5px; border: 1px solid transparent; white-space: nowrap; flex: none; }
-.tag-more { color: var(--text-faint); background: transparent; border-color: var(--border); }
+.tag {
+  padding: 2px 7px; background: var(--surface-2); border-radius: 5px; color: var(--text-dim);
+  font-size: 11.5px; border: 1px solid transparent;
+  /* 单条放不下时自己省略，绝不整块被父容器裁成半截 */
+  flex: 0 1 auto; min-width: 0; max-width: 116px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* +N 与普通标签同样式（无边框），只把颜色压淡一档 */
+.tag-more { flex: none; color: var(--text-faint); }
 .tag-cat { margin-left: auto; flex: none; background: var(--accent-soft); color: var(--accent); font-weight: 400; }
 /* 详情页的标签不做单行省略，允许换行铺开 */
 .detail-tags { flex-wrap: wrap; overflow: visible; margin-top: 12px; }
+.detail-tags .tag { max-width: none; flex: none; }
 
 .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 550; white-space: nowrap; }
 .pill-type { color: var(--text-dim); background: var(--surface-2); }
