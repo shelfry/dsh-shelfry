@@ -81,7 +81,13 @@ export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promi
   return loadEntryAt(artifacts, index);
 }
 
-/** 详情页 URL。用 hash 路由：GitHub Pages 没有 rewrite，深链刷新也不会 404。 */
+/**
+ * 详情页路径。
+ *
+ * 只返回路径不给 hash 前缀：HashRouter 的 <Link to> 需要纯路径（它自己管 #），
+ * 传 "#/p/xxx" 会被当成普通路径再拼一次，得到 #/#/p/xxx 而匹配不到路由。
+ * id 里的斜杠原样保留，路由端用 /p/* 通配段接住。
+ */
 export function detailPath(id: string): string {
-  return `#/p/${encodeURIComponent(id)}`;
+  return `/p/${id}`;
 }

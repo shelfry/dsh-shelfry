@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadEntryById, siteConfig } from "../lib/data";
-import { relativeTime } from "../components/PluginCard";
+import { Avatar, relativeTime } from "../components/PluginCard";
+import { copyText } from "../lib/clipboard";
 
 /**
  * 插件详情页（独立路由 #/p/owner/repo）。
@@ -41,11 +42,10 @@ export default function DetailPage() {
   const copy = async () => {
     const cmd = entry?.install.command;
     if (!cmd) return;
-    try {
-      await navigator.clipboard.writeText(cmd);
+    if (await copyText(cmd)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch { /* 剪贴板不可用时忽略，用户仍可手动选中 */ }
+    }
   };
 
   if (state === "loading") {
@@ -82,6 +82,7 @@ export default function DetailPage() {
           {entry.curated && <span className="pill pill-curated">精选</span>}
         </div>
         <div className="detail-sub">
+          <Avatar id={entry.id} />
           <a href={repoUrl} target="_blank" rel="noreferrer">{entry.fullName}</a>
           <span className="dot">·</span>
           <span>★ {entry.stars}</span>
