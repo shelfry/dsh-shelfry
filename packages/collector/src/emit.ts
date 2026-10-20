@@ -1,6 +1,6 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry, VerificationStatus } from "@dsh-shelfry/schema";
+import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { INDEX_SHARD_COUNT, SCHEMA_VERSION, indexShardId, toLiteEntry } from "@dsh-shelfry/schema";
 import { DATA_DIR, WEB_PUBLIC_DATA_DIR } from "./config.ts";
 
@@ -25,19 +25,18 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value), "utf8");
 }
 
-export function buildMeta(entries: PluginEntry[], dshVersion: string | null): CatalogMeta {
-  const counts: Record<VerificationStatus, number> = { verified: 0, pending: 0, failed: 0 };
+export function buildMeta(entries: PluginEntry[]): CatalogMeta {
+  const types: Record<string, number> = {};
   const sources = new Set<string>();
   for (const e of entries) {
-    counts[e.verification.status]++;
+    types[e.type] = (types[e.type] ?? 0) + 1;
     for (const s of e.sources) sources.add(s);
   }
   return {
     schemaVersion: SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     total: entries.length,
-    counts,
-    dshVersion,
+    types,
     sources: [...sources].sort(),
   };
 }
@@ -139,6 +138,56 @@ export function writeArtifactIndex(index: ArtifactIndex): string {
 export function writeMeta(meta: CatalogMeta): string {
   const file = resolve(DATA_DIR, "meta.json");
   writeJson(file, meta);
+  return file;
+}
+
+/**
+ * 分类清单：把上游 tags 聚合成「分类 chips」用的数据。
+ *
+ * 为什么要排除一批 tag：dsh / dsh-plugin / deepseek-harness / typescript 这类是
+ * 「它是什么」，不是「它能干什么」。全部保留会让分类行挤满同义词，用户仍然无从选择。
+ * 只留描述用途的中文/场景标签，并过滤长尾（出现次数太少的分类点进去只有几条）。
+ */
+const CATEGORY_STOP = new Set([
+  "dsh", "dsh-plugin", "dsh-plugins", "dsh-plugin-market", "dsh-bundle",
+  "deepseek", "deepseek-harness", "deepseek-harness-plugin", "deepseek-harness-plugins",
+  "cordis", "cordis-plugin", "plugin", "plugins", "ai", "agent", "ai-agent", "ai-agents",
+  "llm", "typescript", "javascript", "nodejs", "react", "openai", "api", "cli",
+]);
+
+const CATEGORY_MIN_COUNT = 20;
+const CATEGORY_MAX = 48;
+
+export function writeCategories(entries: PluginEntry[]): string {
+  const tally = new Map<string, number>();
+  for (const e of entries) {
+    for (const t of e.tags) {
+      const key = t.trim();
+      if (!key || CATEGORY_STOP.has(key.toLowerCase())) continue;
+      tally.set(key, (tally.get(key) ?? 0) + 1);
+    }
+  }
+  const list = [...tally.entries()]
+    .filter(([, n]) => n >= CATEGORY_MIN_COUNT)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, CATEGORY_MAX)
+    .map(([t, n]) => ({ t, n }));
+
+  const file = resolve(DATA_DIR, "categories.json");
+  writeJson(file, list);
+  return file;
+}
+
+/**
+ * id → 全局序号 的反查表。
+ * 详情页是可分享的独立 URL（#/p/owner/repo），直接打开时手上只有 id；
+ * 明细分片是按序号切的，所以需要这张表把 id 翻成序号。仅在直达详情页时加载，约几十 KB。
+ */
+export function writeIdMap(entries: PluginEntry[]): string {
+  const map: Record<string, number> = {};
+  entries.forEach((e, i) => { map[e.id] = i; });
+  const file = resolve(DATA_DIR, "idmap.json");
+  writeJson(file, map);
   return file;
 }
 

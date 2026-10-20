@@ -43,14 +43,16 @@ export function createSearcher(lite: LiteEntry[]): Searcher {
   };
 }
 
-/** 排序：已验证优先 → 综合分 → 模糊分。搜索命中时模糊分参与排序。 */
+/** 排序：模糊分优先，其次综合分。 */
 export function rankHits(hits: SearchHit[]): SearchHit[] {
-  return [...hits].sort((a, b) => {
-    const va = a.item.v;
-    const vb = b.item.v;
-    // 只显示前两档的默认口径下，failed 排最后。
-    if (va !== vb) return va === 2 ? 1 : vb === 2 ? -1 : va - vb;
-    if (b.item.sc !== a.item.sc) return b.item.sc - a.item.sc;
-    return a.fuzzyScore - b.fuzzyScore;
-  });
+  return [...hits].sort((a, b) => a.fuzzyScore - b.fuzzyScore || b.item.sc - a.item.sc);
+}
+
+/** 列表排序口径（全部基于用户可见信息，不再有安装验证这类隐藏维度）。 */
+export type SortKey = "score" | "stars" | "recent";
+
+export function sortItems(items: SearchHit[], key: SortKey): SearchHit[] {
+  if (key === "score") return [...items].sort((a, b) => b.item.sc - a.item.sc || b.item.s - a.item.s);
+  if (key === "stars") return [...items].sort((a, b) => b.item.s - a.item.s || b.item.sc - a.item.sc);
+  return [...items].sort((a, b) => (b.item.p ?? "").localeCompare(a.item.p ?? "") || b.item.sc - a.item.sc);
 }

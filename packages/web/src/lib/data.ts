@@ -4,7 +4,8 @@ import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-sh
  * 数据层：只读静态产物，无后端。
  *
  * 路径全部走 BASE_URL（base './'）⇒ 换域名 / 换子路径部署都不需要改一行代码。
- * 首屏只拉「清单 + 第 0 页」两个小文件；全量切片与明细都在真正需要时才拉。
+ * 首屏只拉「清单 + 元信息 + 分类 + 第 0 页」四个小文件；
+ * 全量切片只在搜索/筛选时才拉，明细分片只在打开详情页时才拉。
  */
 
 const BASE = import.meta.env.BASE_URL;
@@ -30,12 +31,29 @@ export interface SiteConfig {
 
 export const siteConfig: SiteConfig = __SITE__;
 
-export const loadArtifacts = () => getJson<ArtifactIndex>("artifacts.json");
-export const loadMeta = () => getJson<CatalogMeta>("meta.json");
+/** 分类 chip 的数据形状（构建期由 upstream tags 聚合而成）。 */
+export interface Category {
+  /** 标签原文 */ t: string;
+  /** 条目数 */ n: number;
+}
+
+const artifactsCache = { v: null as ArtifactIndex | null };
+export const loadArtifacts = async (): Promise<ArtifactIndex> => {
+  if (!artifactsCache.v) artifactsCache.v = await getJson<ArtifactIndex>("artifacts.json");
+  return artifactsCache.v;
+};
+
+const metaCache = { v: null as CatalogMeta | null };
+export const loadMeta = async (): Promise<CatalogMeta> => {
+  if (!metaCache.v) metaCache.v = await getJson<CatalogMeta>("meta.json");
+  return metaCache.v;
+};
+
+export const loadCategories = () => getJson<Category[]>("categories.json");
 export const loadPage = (page: number) => getJson<LiteEntry[]>(`pages/${String(page).padStart(4, "0")}.json`);
 
 let liteCache: LiteEntry[] | null = null;
-/** 全量浏览切片（搜索时才需要，首次搜索时加载并缓存）。 */
+/** 全量浏览切片（搜索与筛选时需要，首次使用时加载并缓存）。 */
 export async function loadLite(): Promise<LiteEntry[]> {
   if (!liteCache) liteCache = await getJson<LiteEntry[]>("lite.json");
   return liteCache;
@@ -54,6 +72,16 @@ export async function loadEntryAt(artifacts: ArtifactIndex, globalIndex: number)
   return chunk[globalIndex - shard.from] ?? null;
 }
 
+let idMapCache: Record<string, number> | null = null;
+/** 直达详情页时用：把 owner/repo 翻成全局序号。 */
+export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
+  if (!idMapCache) idMapCache = await getJson<Record<string, number>>("idmap.json");
+  const index = idMapCache[id];
+  if (index === undefined) return null;
+  return loadEntryAt(artifacts, index);
+}
+
+/** 详情页 URL。用 hash 路由：GitHub Pages 没有 rewrite，深链刷新也不会 404。 */
 export function detailPath(id: string): string {
-  return `./p/${encodeURIComponent(id)}/`;
+  return `#/p/${encodeURIComponent(id)}`;
 }

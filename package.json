@@ -6,12 +6,10 @@
   "workspaces": [
     "packages/schema",
     "packages/collector",
-    "packages/verifier",
     "packages/web"
   ],
   "scripts": {
     "collect": "tsx packages/collector/src/index.ts",
-    "verify": "tsx packages/verifier/src/index.ts",
     "build:data": "tsx packages/collector/src/index.ts --build",
     "build:site": "npm run collect -- --source auto --build && npm run build",
     "dev": "npm run dev -w @dsh-shelfry/web",

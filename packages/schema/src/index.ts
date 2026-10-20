@@ -2,43 +2,17 @@
  * 全站数据契约。
  *
  * 设计原则：
- * - schema 是唯一真相源，collector / verifier / web 都从这里取类型。
- * - 三档状态（verified / pending / failed）是整个站点的核心差异点，
- *   所有排序、筛选、徽章都基于它。
+ * - schema 是唯一真相源，collector / web 都从这里取类型。
+ * - 条目只描述「上游仓库是什么样」，不承载安装验证结论 —— 站点不提供验证能力，
+ *   排名口径全部由用户可见的信息构成（星数、最近提交、简介完整度、安装方式）。
  * - 数据不进 git：这些类型只描述「构建期产物」的形状，不描述条目内容。
  */
-
-/** 三档收录状态 —— 站点最高权重的信号。 */
-export type VerificationStatus = "verified" | "pending" | "failed";
 
 /** 插件形态。cordis-plugin 走 pnpm-profile 安装，skill 走 skills-add。 */
 export type PluginType = "cordis-plugin" | "skill" | "unknown";
 
 /** 安装方式。 */
 export type InstallMethod = "pnpm-profile" | "skills-add" | "manual" | "unknown";
-
-/** 验证档位证据：L1 = 能装上（exit 0 且写入 profile 清单），L2 = 能加载（host 挂载完成）。 */
-export interface VerificationLayer {
-  ok: boolean;
-  /** 该层耗时（毫秒）。 */
-  ms: number;
-  /** 失败时的诊断摘要（pnpm 稳定码 / 不兼容 requirements / StartupError 摘要）。 */
-  error?: string;
-}
-
-export interface Verification {
-  status: VerificationStatus;
-  /** ISO 时间，验证执行时刻。 */
-  checkedAt: string | null;
-  /** 执行验证时使用的 dsh CLI 版本。 */
-  dshVersion: string | null;
-  /** 隔离 profile 名（可复现）。 */
-  profile: string | null;
-  l1?: VerificationLayer;
-  l2?: VerificationLayer;
-  /** 验证器输出的原始诊断文本（截断后），用于「数据修正」反馈。 */
-  diagnostics?: string[];
-}
 
 export interface InstallSpec {
   method: InstallMethod;
@@ -53,14 +27,12 @@ export interface InstallSpec {
   risky: boolean;
 }
 
-/** 六维综合分，各维 0..1，total 为加权几何平均 ×100。 */
+/** 综合分，各维 0..1，total 为加权几何平均 ×100。 */
 export interface ScoreBreakdown {
-  installable: number;
   maintenance: number;
   utility: number;
   popularity: number;
   convenience: number;
-  signal: number;
   total: number;
 }
 
@@ -80,9 +52,8 @@ export interface PluginEntry {
   /** 上游仓库最后 push 时间（ISO）。 */
   pushedAt: string | null;
   install: InstallSpec;
-  verification: Verification;
   score: ScoreBreakdown;
-  /** 汇聚来源标识，用于「信号质量」与溯源。 */
+  /** 汇聚来源标识，用于溯源。 */
   sources: string[];
   /** 我方首次收录时间，merge 时保持不变。 */
   firstSeenAt: string;
@@ -99,7 +70,6 @@ export interface LiteEntry {
   /** curated 0/1 */ c: 0 | 1;
   /** pushedAt */ p: string | null;
   /** score.total */ sc: number;
-  /** status: 0=verified 1=pending 2=failed */ v: 0 | 1 | 2;
   /** engines.dsh */ g: string | null;
   /** tags */ tg: string[];
   /** descriptionZh ?? description */ d: string;
@@ -110,10 +80,8 @@ export interface CatalogMeta {
   generatedAt: string;
   /** 条目总数。 */
   total: number;
-  /** 三档计数。 */
-  counts: Record<VerificationStatus, number>;
-  /** 生成本次产物的 dsh CLI 版本。 */
-  dshVersion: string | null;
+  /** 每种类型的条目数（首页筛选直接用它显示规模）。 */
+  types: Record<string, number>;
   /** 数据来源清单。 */
   sources: string[];
 }
@@ -157,18 +125,6 @@ export function indexShardId(token: string): number {
 }
 
 
-export const STATUS_TO_CODE: Record<VerificationStatus, 0 | 1 | 2> = {
-  verified: 0,
-  pending: 1,
-  failed: 2,
-};
-
-export const CODE_TO_STATUS: Record<0 | 1 | 2, VerificationStatus> = {
-  0: "verified",
-  1: "pending",
-  2: "failed",
-};
-
 /**
  * 从 InstallMethod 推导我方规范化安装命令。
  *
@@ -207,11 +163,6 @@ export function validateEntry(input: unknown): string[] {
   req("type", "string");
   req("description", "string");
   if (!Array.isArray(e.tags)) errs.push("tags 应为数组");
-  if (typeof e.verification !== "object" || e.verification === null) errs.push("verification 缺失");
-  else {
-    const v = e.verification as Record<string, unknown>;
-    if (!["verified", "pending", "failed"].includes(String(v.status))) errs.push(`verification.status 非法: ${String(v.status)}`);
-  }
   if (typeof e.score !== "object" || e.score === null) errs.push("score 缺失");
   else {
     const s = e.score as Record<string, unknown>;
@@ -229,7 +180,6 @@ export function toLiteEntry(e: PluginEntry): LiteEntry {
     c: e.curated ? 1 : 0,
     p: e.pushedAt,
     sc: e.score.total,
-    v: STATUS_TO_CODE[e.verification.status],
     g: e.install.enginesDsh,
     tg: e.tags,
     d: e.descriptionZh ?? e.description,

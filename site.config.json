@@ -1,8 +1,8 @@
 {
   "siteName": "DSH Shelfry",
   "siteNameZh": "DSH 插件集市",
-  "tagline": "只推荐装得上的 DSH 插件",
-  "taglineZh": "每一条收录都经过真实安装验证",
+  "tagline": "把 DSH 生态的插件收进一个集市",
+  "taglineZh": "按星标与更新活跃度排序，一页看清哪个插件值得装",
   "domain": "shelfry.app",
   "basePath": "",
   "repoUrl": "https://github.com/shelfry/dsh-shelfry",

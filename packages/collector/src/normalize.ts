@@ -3,7 +3,6 @@ import type {
   InstallSpec,
   PluginEntry,
   PluginType,
-  Verification,
 } from "@dsh-shelfry/schema";
 import { defaultInstallCommand } from "@dsh-shelfry/schema";
 import { scoreEntry } from "./score.ts";
@@ -38,19 +37,16 @@ function toType(v: unknown): PluginType {
 }
 
 /**
- * 从上游安装命令里抽取**可验证的依赖规格**。
+ * 从上游安装命令里抽取规范化依赖规格。
  *
- * 为什么不再用「最后一个 token + 猜」：上游 `name` 是仓库名，不等于 npm 包名。
- * 拿仓库名当包名去装会 404，于是把「其实能装、只是上游没写清」的插件误判成装不上 ——
- * 对一个卖点是「只推荐装得上的」站点，假失败比「待验证」更伤。
- *
- * 所以只认上游明确写出的安装动作：命令里 `add`/`install` 之后的那个非 flag 参数。
- * 支持形态：
+ * 不用「最后一个 token + 猜」：上游 `name` 是仓库名，不等于 npm 包名，拿仓库名当
+ * 包名会造出一条根本装不上的命令。只认上游明确写出的安装动作：`add`/`install` 之后
+ * 的那个非 flag 参数。支持形态：
  *   dsh-context / @scope/pkg / dshmarket     → 直接就是 npm 包名
- *   dsh-context@1.2.3                        → 带版本，保留版本（验证必须验上游指定的版本）
+ *   dsh-context@1.2.3                        → 带版本，保留版本
  *   npm:dsh-context                          → 取冒号后的包名
  *   github:owner/repo / git+https://…        → pnpm 原生支持，原样透传
- * 本地路径（link:/file:/./…）需要先 clone，一条命令验不出，返回 null（保持待验证）。
+ * 本地路径（link:/file:/./…）需要先 clone，一条命令装不上，返回 null。
  */
 export function extractInstallSpec(commands: string[]): string | null {
   for (const cmd of commands) {
@@ -111,7 +107,7 @@ function buildInstall(raw: Record<string, unknown>): InstallSpec {
 
 /**
  * 把一条上游记录规整成我们的 PluginEntry。
- * `prev` 为该条目的上一版（若存在）：验证结论与收录时间沿用，避免每次抓取把验证证据清空。
+ * `prev` 为该条目的上一版（若存在）：首次收录时间沿用。
  */
 export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): PluginEntry | null {
   const id = str(raw.id) ?? str(raw.fullName);
@@ -122,13 +118,6 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
   const installRaw = (typeof raw.install === "object" && raw.install !== null ? raw.install : {}) as Record<string, unknown>;
   const sources = strArr(raw.sources);
   const iso = now.toISOString();
-
-  const verification: Verification = prev?.verification ?? {
-    status: "pending",
-    checkedAt: null,
-    dshVersion: null,
-    profile: null,
-  };
 
   const entry: PluginEntry = {
     id,
@@ -143,9 +132,8 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
     homepage: str(raw.homepage),
     pushedAt: str(raw.pushedAt),
     install: buildInstall(installRaw),
-    verification,
     score: {
-      installable: 0, maintenance: 0, utility: 0, popularity: 0, convenience: 0, signal: 0, total: 0,
+      maintenance: 0, utility: 0, popularity: 0, convenience: 0, total: 0,
     },
     sources: sources.length ? sources : ["mirror"],
     firstSeenAt: prev?.firstSeenAt ?? iso,

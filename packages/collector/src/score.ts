@@ -1,23 +1,20 @@
-import type { PluginEntry, ScoreBreakdown, Verification } from "@dsh-shelfry/schema";
+import type { PluginEntry, ScoreBreakdown } from "@dsh-shelfry/schema";
 
 /**
- * 六维综合分：加权几何平均。
- * 权重：可装性 40 / 维护活跃 20 / 实用度 15 / 生态热度 10 / 便捷度 10 / 信号质量 5。
+ * 综合分：加权几何平均。
+ * 权重：生态热度 35 / 维护活跃 35 / 实用度 20 / 便捷度 10。
  *
- * 几何平均的好处：任一维趋近 0 会把总分显著拉低，避免「生态热度高但装不上」的条目霸榜。
+ * 为什么不含「可装性」：站点已停掉安装验证，用户看不到任何验证信号，
+ * 再让一个不可见的维度占 40% 权重，排名就会显得没有依据。
+ * 现在的口径全部由用户可见的信息构成 —— 有星、有最近提交、有简介与安装方式。
  */
-
 const WEIGHTS = {
-  installable: 40,
-  maintenance: 20,
-  utility: 15,
-  popularity: 10,
+  popularity: 35,
+  maintenance: 35,
+  utility: 20,
   convenience: 10,
-  signal: 5,
 } as const;
 
-/** 可装性半衰回归常数：14 天。验证结果随时间回归中性 0.5，避免旧结论被永久信任。 */
-const INSTALL_HALF_LIFE_DAYS = 14;
 /** 维护活跃半衰：180 天。 */
 const MAINTENANCE_HALF_LIFE_DAYS = 180;
 
@@ -29,16 +26,6 @@ function ageDays(iso: string | null, now: number): number | null {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return null;
   return Math.max(0, (now - t) / 86_400_000);
-}
-
-/** 可装性：verified=1 / pending=0.5 / failed=0，并按 14 天半衰回归中性 0.5。 */
-export function installableDimension(v: Verification, now: number): number {
-  const base = v.status === "verified" ? 1 : v.status === "failed" ? 0 : 0.5;
-  const age = ageDays(v.checkedAt, now) ?? INSTALL_HALF_LIFE_DAYS;
-  const decay = 0.5 ** (age / INSTALL_HALF_LIFE_DAYS);
-  // pending 没有实证信号，恒为中性。
-  if (v.status === "pending") return 0.5;
-  return clamp01(0.5 + (base - 0.5) * decay);
 }
 
 /** 维护活跃：最近 push 越新越高。 */
@@ -73,23 +60,12 @@ export function convenienceDimension(e: PluginEntry): number {
   return clamp01(n);
 }
 
-/** 信号质量：独立来源数 + 是否声明兼容范围 + 描述长度。 */
-export function signalDimension(e: PluginEntry): number {
-  let n = 0;
-  n += clamp01(e.sources.length / 3) * 0.5;
-  if (e.install.enginesDsh) n += 0.25;
-  if (e.description.length >= 60) n += 0.25;
-  return clamp01(n);
-}
-
 export function scoreEntry(e: PluginEntry, now: number): ScoreBreakdown {
   const dims = {
-    installable: installableDimension(e.verification, now),
     maintenance: maintenanceDimension(e, now),
     utility: utilityDimension(e),
     popularity: popularityDimension(e),
     convenience: convenienceDimension(e),
-    signal: signalDimension(e),
   } as const;
 
   let logSum = 0;

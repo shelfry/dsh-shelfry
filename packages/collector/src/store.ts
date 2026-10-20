@@ -58,16 +58,10 @@ export function mergeEntries(prev: Catalog, incoming: PluginEntry[]): MergeResul
       added++;
       continue;
     }
-    // 沿用旧的验证结论与首次收录时间（验证要花 180s，不能因为一次抓取就丢）。
-    // 例外：安装规格变了（包名被修正/上游改了安装方式）⇒ 旧结论对新规格无效，必须作废重验，
-    // 否则会把「按错误包名失败」的结论永久钉在条目上。
-    const staleEvidence = old.install.packageName !== next.install.packageName;
+    // 沿用首次收录时间（重算分数不影响它），其余字段一律取最新抓取结果。
     const merged: PluginEntry = {
       ...next,
       firstSeenAt: old.firstSeenAt,
-      verification: staleEvidence
-        ? { status: "pending", checkedAt: null, dshVersion: null, profile: null }
-        : old.verification,
     };
     merged.score = next.score;
     byId.set(next.id, merged);

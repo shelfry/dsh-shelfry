@@ -5,7 +5,9 @@ import {
   buildMeta,
   syncToWebPublic,
   writeArtifactIndex,
+  writeCategories,
   writeDetailShards,
+  writeIdMap,
   writeIndexShards,
   writeLite,
   writeMeta,
@@ -115,8 +117,8 @@ async function main(): Promise<void> {
   log(args.silent, `[collector] store 已写入 ${saved}`);
 
   const entries = merged.catalog.entries;
-  const meta = buildMeta(entries, null);
-  log(args.silent, `[collector] 三档计数 verified=${meta.counts.verified} pending=${meta.counts.pending} failed=${meta.counts.failed}`);
+  const meta = buildMeta(entries);
+  log(args.silent, `[collector] 条目 ${meta.total} 条，类型分布 ${JSON.stringify(meta.types)}`);
 
   const { pages, lite } = writeLite(entries);
   const shards = writeDetailShards(entries);
@@ -131,8 +133,11 @@ async function main(): Promise<void> {
   };
   const artifactFile = writeArtifactIndex(artifacts);
   const metaFile = writeMeta(meta);
+  const categoryFile = writeCategories(entries);
+  const idMapFile = writeIdMap(entries);
   log(args.silent, `[collector] 产物：lite=${lite.length} 条 / 分页 ${pages.count} 页 / 明细 ${shards.length} 片 / 索引 ${index.shards.length} 片`);
   log(args.silent, `[collector] 清单：${artifactFile}  元信息：${metaFile}`);
+  log(args.silent, `[collector] 分类：${categoryFile}  反查表：${idMapFile}`);
   log(args.silent, `[collector] store 路径：${catalogPath()}`);
 
   if (args.sync) {
