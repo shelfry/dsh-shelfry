@@ -33,6 +33,7 @@ const TYPE_LABEL: Record<TypeFilter, string> = {
   skill: "Skill",
   unknown: "未识别",
 };
+const TYPE_ORDER: TypeFilter[] = ["all", "cordis-plugin", "skill", "unknown"];
 
 const STARS_LABEL: Record<StarsFilter, string> = {
   all: "不限星标",
@@ -41,12 +42,15 @@ const STARS_LABEL: Record<StarsFilter, string> = {
   "500": "500+ 星标",
   "1000": "1000+ 星标",
 };
+// 不能用 Object.keys：数字形态的键会被 JS 按数值提前，导致「不限」跑到末尾。
+const STARS_ORDER: StarsFilter[] = ["all", "10", "100", "500", "1000"];
 
 const SORT_LABEL: Record<SortKey, string> = {
   score: "综合推荐",
   stars: "最多星标",
   recent: "最近更新",
 };
+const SORT_ORDER: SortKey[] = ["score", "stars", "recent"];
 
 const needStars = (v: StarsFilter): number => (v === "all" ? 0 : Number(v));
 
@@ -215,14 +219,14 @@ export default function HomePage() {
 
         <div className="filter-row filter-advanced">
           <span className="filter-label">类型</span>
-          {(Object.keys(TYPE_LABEL) as TypeFilter[]).map((key) => (
+          {(TYPE_ORDER).map((key) => (
             <button key={key} className="chip chip-sm" aria-pressed={type === key} onClick={() => setType(key)}>
               {TYPE_LABEL[key]}
             </button>
           ))}
           <span className="filter-sep" />
           <span className="filter-label">星标</span>
-          {(Object.keys(STARS_LABEL) as StarsFilter[]).map((key) => (
+          {(STARS_ORDER).map((key) => (
             <button key={key} className="chip chip-sm" aria-pressed={stars === key} onClick={() => setStars(key)}>
               {STARS_LABEL[key]}
             </button>
@@ -234,7 +238,7 @@ export default function HomePage() {
           <button className="chip chip-sm" aria-pressed={compat === "undeclared"} onClick={() => setCompat("undeclared")}>未声明</button>
           <span className="filter-sep" />
           <span className="filter-label">排序</span>
-          {(Object.keys(SORT_LABEL) as SortKey[]).map((key) => (
+          {(SORT_ORDER).map((key) => (
             <button key={key} className="chip chip-sm" aria-pressed={sort === key} onClick={() => setSort(key)}>
               {SORT_LABEL[key]}
             </button>
