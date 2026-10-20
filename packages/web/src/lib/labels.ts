@@ -20,3 +20,22 @@ const CAT_LABEL: Record<string, string> = {
 };
 
 export const categoryLabel = (tag: string): string => CAT_LABEL[tag] ?? tag;
+
+/**
+ * 卡片上没信息量的通用标签，占位置还挤掉有意义的标签。
+ * 卡片与详情页共用这份过滤口径，否则两处标签数量对不上。
+ */
+const NOISE_TAGS = new Set([
+  "cordis-plugin",
+  "deepseek-harness",
+  "deepseek-harness-plugin",
+  "deepseek-harness-plugins",
+  "dsh-plugin",
+  "dsh-plugins",
+  "dsh",
+  "plugin",
+  "plugins",
+]);
+
+export const meaningfulTags = (tags: string[]): string[] =>
+  tags.filter((t) => !NOISE_TAGS.has(t.toLowerCase()));

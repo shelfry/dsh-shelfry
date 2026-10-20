@@ -4,6 +4,7 @@ import type { PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadEntryById, siteConfig } from "../lib/data";
 import { Avatar, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
+import { meaningfulTags } from "../lib/labels";
 
 /**
  * 插件详情页（独立路由 #/p/owner/repo）。
@@ -65,6 +66,8 @@ export default function DetailPage() {
 
   const repoUrl = entry.homepage ?? `https://github.com/${entry.fullName}`;
   const version = versionLabel(entry.version);
+  // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
+  const detailTags = meaningfulTags(entry.tags);
   const dims = [
     { label: "生态热度", value: entry.score.popularity },
     { label: "维护活跃", value: entry.score.maintenance },
@@ -96,9 +99,9 @@ export default function DetailPage() {
       <section className="panel">
         <h2>简介</h2>
         <p className="detail-desc">{entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}</p>
-        {entry.tags.length > 0 && (
+        {detailTags.length > 0 && (
           <div className="tags detail-tags">
-            {entry.tags.map((t) => <span className="tag" key={t}>{t}</span>)}
+            {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
           </div>
         )}
       </section>

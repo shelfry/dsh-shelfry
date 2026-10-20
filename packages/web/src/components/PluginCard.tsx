@@ -3,7 +3,7 @@ import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
 import { copyText } from "../lib/clipboard";
-import { categoryLabel } from "../lib/labels";
+import { categoryLabel, meaningfulTags } from "../lib/labels";
 
 /** 「今天/3 天前/5 个月前」——比裸日期更容易判断插件还活不活。 */
 export function relativeTime(iso: string | null): string {
@@ -97,30 +97,19 @@ function InstallButton({
   );
 }
 
-/** 卡片上没信息量的通用标签，占位置还挤掉有意义的标签。 */
-const NOISE_TAGS = new Set([
-  "cordis-plugin",
-  "deepseek-harness",
-  "deepseek-harness-plugin",
-  "deepseek-harness-plugins",
-  "dsh-plugin",
-  "dsh-plugins",
-  "dsh",
-  "plugin",
-  "plugins",
-]);
-
 /** 最多铺 2 条标签，其余收进 +N —— 再多就会挤到右下角的分类。 */
 const MAX_TAGS = 2;
 
 export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
   const [cmd, setCmd] = useState<string | null>(null);
   const version = versionLabel(item.vr);
-  // 分类取 tags 里能被首页分类聚合命中的那个，其余标签继续铺在左下角。
-  const category = item.tg.find((t) => categories.has(t)) ?? null;
-  const restTags = item.tg.filter((t) => t !== category && !NOISE_TAGS.has(t.toLowerCase()));
+  // 与详情页同一套标签口径：先去噪声标签，再挑一个分类固定到右下角。
+  const tags = meaningfulTags(item.tg);
+  const category = tags.find((t) => categories.has(t)) ?? null;
+  const restTags = tags.filter((t) => t !== category);
   const shownTags = restTags.slice(0, MAX_TAGS);
-  const hiddenCount = restTags.length - shownTags.length;
+  // +N 要把「分类已显示」也算进去，这样 2 + N + 1 正好等于详情页的标签总数。
+  const hiddenCount = tags.length - shownTags.length - (category ? 1 : 0);
 
   return (
     <article className="card">
