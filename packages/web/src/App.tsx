@@ -23,6 +23,8 @@ export default function App() {
   const [meta, setMeta] = useState<CatalogMeta | null>(null);
   const [browseItems, setBrowseItems] = useState<LiteEntry[]>([]);
   const [loadedPages, setLoadedPages] = useState(0);
+  /** 切到「已验证/待验证/安装失败/全部」时才拉的全量切片。 */
+  const [fullLite, setFullLite] = useState<LiteEntry[] | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("primary");
   const [type, setType] = useState<TypeFilter>("all");
@@ -71,6 +73,41 @@ export default function App() {
 
   useEffect(() => { setShown(RESULTS_SHOWN_STEP); }, [query, status, type]);
 
+  /**
+   * 只有「已验证 + 待验证」这个默认口径可以边浏览边翻页 —— 它天然覆盖分数最高的那批条目。
+   * 但「已验证 / 待验证 / 安装失败」单档筛选必须看全量：数据按分数降序分页，而已验证条目
+   * 分数天然更高（可装性 verified=1.0 vs pending=0.5），只筛已加载的首页必然筛出 0 条 ——
+   * 明明有待验证与失败条目却显示「没有匹配结果」，那是数据错误而不是「没有」。所以这几档
+   * 切过去就拉全量切片（与搜索同一条路，一次拉完缓存复用），筛的是全站而非首页。
+   */
+  const needsFullScan = status !== "primary" || type !== "all";
+  useEffect(() => {
+    if (!needsFullScan || fullLite) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const lite = await loadLite();
+        if (!cancelled) setFullLite(lite);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [needsFullScan, fullLite]);
+
+  // 搜索也用全量切片：首次搜索时一并缓存，之后的筛选切换不必再请求。
+  useEffect(() => {
+    if (!query.trim() || fullLite) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const lite = await loadLite();
+        if (!cancelled && query.trim()) setFullLite(lite);
+      } catch { /* 搜索路径自身会处理错误 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [query, fullLite]);
+
   const filtered = useMemo(() => {
     const keep = (v: LiteEntry) => {
       if (status === "all") return true;
@@ -80,25 +117,30 @@ export default function App() {
       return v.v === 2;
     };
     const typeOk = (t: PluginType) => type === "all" || t === type;
+    const asHit = (item: LiteEntry, index: number): SearchHit => ({ index, item, fuzzyScore: 0 });
 
     if (hits) return hits.filter((h) => keep(h.item) && typeOk(h.item.t));
+    // 全量口径：序号就是它在全量切片中的位置，同时也是明细分片的定位依据。
+    if (fullLite && needsFullScan) return fullLite.map(asHit).filter((h) => keep(h.item) && typeOk(h.item.t));
+    // 默认口径：边浏览边翻页，此时计数只反映已加载部分，靠「加载更多」逐步展开。
     // index 即该条目在全局切片中的序号，同时用于定位明细分片。
     return browseItems
-      .map((item, index) => ({ index, item, fuzzyScore: 0 }))
+      .map(asHit)
       .filter((h) => keep(h.item) && typeOk(h.item.t));
-  }, [hits, browseItems, status, type]);
+  }, [hits, fullLite, needsFullScan, browseItems, status, type]);
 
   const visible = filtered.slice(0, shown);
-  const canLoadMore = shown < filtered.length || (!hits && artifacts !== null && loadedPages < artifacts.pages.count);
+  const canLoadMore = shown < filtered.length || (!hits && !needsFullScan && artifacts !== null && loadedPages < artifacts.pages.count);
 
   const loadMore = useCallback(async () => {
     if (shown < filtered.length) { setShown((s) => s + RESULTS_SHOWN_STEP); return; }
-    if (hits || !artifacts || loadedPages >= artifacts.pages.count) return;
+    // 全量口径下所有条目都已在内存里，没有「下一页」可拉。
+    if (hits || needsFullScan || !artifacts || loadedPages >= artifacts.pages.count) return;
     const next = await loadPage(loadedPages);
     setBrowseItems((prev) => [...prev, ...next]);
     setLoadedPages((p) => p + 1);
     setShown((s) => s + RESULTS_SHOWN_STEP);
-  }, [shown, filtered.length, hits, artifacts, loadedPages]);
+  }, [shown, filtered.length, hits, needsFullScan, artifacts, loadedPages]);
 
   const openDetail = useCallback(async (globalIndex: number) => {
     if (!artifacts) return;
@@ -165,17 +207,27 @@ export default function App() {
         </div>
 
         <div className="result-line">
-          {hits ? `找到 ${filtered.length} 条` : `共 ${filtered.length} 条匹配（已加载 ${browseItems.length}）`}
+          {needsFullScan && !fullLite
+            ? "正在加载全站条目…"
+            : hits
+              ? `找到 ${filtered.length} 条`
+              : needsFullScan
+                ? `共 ${filtered.length} 条匹配（全站）`
+                : `共 ${filtered.length} 条匹配（已加载 ${browseItems.length}）`}
           {status === "primary" && <span className="badge tone-mute">默认隐藏「安装失败」的条目</span>}
         </div>
 
         {visible.length === 0 ? (
           <div className="empty">
-            {meta && meta.counts.verified === 0 && status === "primary"
-              ? "还没有已验证的插件 —— 验证器尚未跑过。切到「全部」可以看到全部收录。"
-              : status === "failed" && meta && meta.counts.failed === 0
-                ? "目前没有实测安装失败的条目 —— 这是个好消息。"
-                : "没有匹配结果。"}
+            {needsFullScan && !fullLite
+              ? "正在加载全站条目…"
+              : meta && meta.counts.verified === 0 && status === "primary"
+                ? "还没有已验证的插件 —— 验证器尚未跑过。切到「全部」可以看到全部收录。"
+                : status === "failed" && meta && meta.counts.failed === 0
+                  ? "目前没有实测安装失败的条目 —— 这是个好消息。"
+                  : type !== "all" && meta
+                    ? "该状态下没有此类型的条目。试试切到「全部类型」。"
+                    : "没有匹配结果。"}
           </div>
         ) : (
           <div className="grid">
