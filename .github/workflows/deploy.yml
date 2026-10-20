@@ -1,0 +1,63 @@
+name: Build and deploy site
+
+# 触发：主分支推送 / 每天定时刷新数据 / 手动触发。
+# 数据产物不进 git —— 每次都在 CI 里现跑收录管道生成，Pages 只收构建好的静态站。
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 每天 UTC 18:17（北京 02:17）刷新收录数据
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 跑收录管道并同步产物
+        # GH_SEARCH_TOKEN 未配置时自动降级到镜像种子源（收集器内置 --source auto 兜底）。
+        # github.token 在仓库内可用，可覆盖一部分检索额度。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_SEARCH_TOKEN || github.token }}
+        run: npm run collect -- --source auto --build
+
+      - name: 构建静态站
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

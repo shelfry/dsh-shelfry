@@ -1,0 +1,11 @@
+{
+  "siteName": "DSH Shelfry",
+  "siteNameZh": "DSH 插件集市",
+  "tagline": "只推荐装得上的 DSH 插件",
+  "taglineZh": "每一条收录都经过真实安装验证",
+  "domain": "shelfry.app",
+  "basePath": "",
+  "repoUrl": "https://github.com/shelfry/dsh-shelfry",
+  "dataBaseUrl": "",
+  "license": "MIT"
+}

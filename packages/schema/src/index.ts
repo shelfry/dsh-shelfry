@@ -1,0 +1,237 @@
+/**
+ * 全站数据契约。
+ *
+ * 设计原则：
+ * - schema 是唯一真相源，collector / verifier / web 都从这里取类型。
+ * - 三档状态（verified / pending / failed）是整个站点的核心差异点，
+ *   所有排序、筛选、徽章都基于它。
+ * - 数据不进 git：这些类型只描述「构建期产物」的形状，不描述条目内容。
+ */
+
+/** 三档收录状态 —— 站点最高权重的信号。 */
+export type VerificationStatus = "verified" | "pending" | "failed";
+
+/** 插件形态。cordis-plugin 走 pnpm-profile 安装，skill 走 skills-add。 */
+export type PluginType = "cordis-plugin" | "skill" | "unknown";
+
+/** 安装方式。 */
+export type InstallMethod = "pnpm-profile" | "skills-add" | "manual" | "unknown";
+
+/** 验证档位证据：L1 = 能装上（exit 0 且写入 profile 清单），L2 = 能加载（host 挂载完成）。 */
+export interface VerificationLayer {
+  ok: boolean;
+  /** 该层耗时（毫秒）。 */
+  ms: number;
+  /** 失败时的诊断摘要（pnpm 稳定码 / 不兼容 requirements / StartupError 摘要）。 */
+  error?: string;
+}
+
+export interface Verification {
+  status: VerificationStatus;
+  /** ISO 时间，验证执行时刻。 */
+  checkedAt: string | null;
+  /** 执行验证时使用的 dsh CLI 版本。 */
+  dshVersion: string | null;
+  /** 隔离 profile 名（可复现）。 */
+  profile: string | null;
+  l1?: VerificationLayer;
+  l2?: VerificationLayer;
+  /** 验证器输出的原始诊断文本（截断后），用于「数据修正」反馈。 */
+  diagnostics?: string[];
+}
+
+export interface InstallSpec {
+  method: InstallMethod;
+  /** 由我方生成的规范化安装命令（不直接照搬上游文案）。 */
+  command: string | null;
+  /** npm 包名（可能带 scope）。 */
+  packageName: string | null;
+  /** 上游声明的 dsh 兼容范围（engines.dsh）。 */
+  enginesDsh: string | null;
+  needsConfig: boolean;
+  /** 需要写配置/授权才能用 —— 提升「便捷度」扣分。 */
+  risky: boolean;
+}
+
+/** 六维综合分，各维 0..1，total 为加权几何平均 ×100。 */
+export interface ScoreBreakdown {
+  installable: number;
+  maintenance: number;
+  utility: number;
+  popularity: number;
+  convenience: number;
+  signal: number;
+  total: number;
+}
+
+/** 完整条目（详情页 + 验证输入）。 */
+export interface PluginEntry {
+  /** 主键：owner/repo。 */
+  id: string;
+  name: string;
+  fullName: string;
+  type: PluginType;
+  stars: number;
+  description: string;
+  descriptionZh: string | null;
+  tags: string[];
+  curated: boolean;
+  homepage: string | null;
+  /** 上游仓库最后 push 时间（ISO）。 */
+  pushedAt: string | null;
+  install: InstallSpec;
+  verification: Verification;
+  score: ScoreBreakdown;
+  /** 汇聚来源标识，用于「信号质量」与溯源。 */
+  sources: string[];
+  /** 我方首次收录时间，merge 时保持不变。 */
+  firstSeenAt: string;
+  /** 我方最近一次刷新时间。 */
+  updatedAt: string;
+}
+
+/** 浏览切片（首屏用）：短键名压体积，全站 13k 条也要足够小。 */
+export interface LiteEntry {
+  /** id */ i: string;
+  /** name */ n: string;
+  /** type */ t: PluginType;
+  /** stars */ s: number;
+  /** curated 0/1 */ c: 0 | 1;
+  /** pushedAt */ p: string | null;
+  /** score.total */ sc: number;
+  /** status: 0=verified 1=pending 2=failed */ v: 0 | 1 | 2;
+  /** engines.dsh */ g: string | null;
+  /** tags */ tg: string[];
+  /** descriptionZh ?? description */ d: string;
+}
+
+export interface CatalogMeta {
+  schemaVersion: number;
+  generatedAt: string;
+  /** 条目总数。 */
+  total: number;
+  /** 三档计数。 */
+  counts: Record<VerificationStatus, number>;
+  /** 生成本次产物的 dsh CLI 版本。 */
+  dshVersion: string | null;
+  /** 数据来源清单。 */
+  sources: string[];
+}
+
+/** 拼接产物索引。 */
+export interface ArtifactIndex {
+  schemaVersion: number;
+  generatedAt: string;
+  /** 明细文件分片：每片包含的 id 区间描述 + 文件名。 */
+  shards: Array<{ file: string; from: number; to: number; count: number }>;
+  /** 倒排索引分片：token 哈希取模落片。 */
+  index: { shardCount: number; shards: Array<{ id: number; file: string; tokens: number }> };
+  /** 浏览分页文件：首屏只拉第 0 页。 */
+  pages: { size: number; count: number; filePattern: string };
+  /** 中文意图词典文件（零 token 自建）。 */
+  intents: string | null;
+}
+
+export const SCHEMA_VERSION = 1;
+
+/**
+ * 倒排索引分片数：固定 128 片，token 按哈希落片。
+ *
+ * 为什么不用「前缀切片」：实测按 2 字符前缀切会产生 1.3 万个分片文件，静态托管与部署都不划算。
+ * 固定片数下，一次查询只会命中「查询词所在的 1~N 片」，既保证首屏只拉小片，又让文件数有界。
+ */
+export const INDEX_SHARD_COUNT = 128;
+
+/** FNV-1a 32bit：客户端与服务端必须用同一实现，故放在 schema 里共用。 */
+export function hashToken(token: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < token.length; i++) {
+    h ^= token.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+export function indexShardId(token: string): number {
+  return hashToken(token) % INDEX_SHARD_COUNT;
+}
+
+
+export const STATUS_TO_CODE: Record<VerificationStatus, 0 | 1 | 2> = {
+  verified: 0,
+  pending: 1,
+  failed: 2,
+};
+
+export const CODE_TO_STATUS: Record<0 | 1 | 2, VerificationStatus> = {
+  0: "verified",
+  1: "pending",
+  2: "failed",
+};
+
+/**
+ * 从 InstallMethod 推导我方规范化安装命令。
+ *
+ * 已实测（dsh 0.2.1-rc.2）：
+ * - `dsh plugin --profile <name> <pnpm-args>` 的 `--profile` 是**必填**，缺了就报
+ *   `required option '--profile <name>' not specified`。所以命令必须带 profile，
+ *   且 profile 名因用户而异 ⇒ 用 `<profile>` 占位而非硬编码某个 profile。
+ * - **不存在** `dsh skill add`：`dsh skill` 会被当成名为 "skill" 的 profile 而报错。
+ *   skill 类内容由 skill provider（如 dsh-skill-filesystem）扫描目录/插件提供，
+ *   没有等价的 CLI 安装动作 ⇒ 返回 null，由 UI 说明，不杜撰命令。
+ */
+export function defaultInstallCommand(method: InstallMethod, packageName: string | null): string | null {
+  if (!packageName) return null;
+  switch (method) {
+    case "pnpm-profile":
+      return `dsh plugin --profile <profile> add ${packageName}`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * 轻量结构校验（不引第三方依赖，保持管道零负担）。
+ * 返回空数组代表通过。
+ */
+export function validateEntry(input: unknown): string[] {
+  const errs: string[] = [];
+  if (typeof input !== "object" || input === null) return ["entry 不是对象"];
+  const e = input as Record<string, unknown>;
+  const req = (k: string, t: string) => {
+    if (typeof e[k] !== t) errs.push(`${k} 应为 ${t}，实际 ${typeof e[k]}`);
+  };
+  req("id", "string");
+  req("name", "string");
+  req("fullName", "string");
+  req("type", "string");
+  req("description", "string");
+  if (!Array.isArray(e.tags)) errs.push("tags 应为数组");
+  if (typeof e.verification !== "object" || e.verification === null) errs.push("verification 缺失");
+  else {
+    const v = e.verification as Record<string, unknown>;
+    if (!["verified", "pending", "failed"].includes(String(v.status))) errs.push(`verification.status 非法: ${String(v.status)}`);
+  }
+  if (typeof e.score !== "object" || e.score === null) errs.push("score 缺失");
+  else {
+    const s = e.score as Record<string, unknown>;
+    if (typeof s.total !== "number" || !Number.isFinite(s.total)) errs.push("score.total 应为有限数字");
+  }
+  return errs;
+}
+
+export function toLiteEntry(e: PluginEntry): LiteEntry {
+  return {
+    i: e.id,
+    n: e.name,
+    t: e.type,
+    s: e.stars,
+    c: e.curated ? 1 : 0,
+    p: e.pushedAt,
+    sc: e.score.total,
+    v: STATUS_TO_CODE[e.verification.status],
+    g: e.install.enginesDsh,
+    tg: e.tags,
+    d: e.descriptionZh ?? e.description,
+  };
+}

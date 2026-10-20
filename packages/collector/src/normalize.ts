@@ -1,0 +1,121 @@
+import type {
+  InstallMethod,
+  InstallSpec,
+  PluginEntry,
+  PluginType,
+  Verification,
+} from "@dsh-shelfry/schema";
+import { defaultInstallCommand } from "@dsh-shelfry/schema";
+import { scoreEntry } from "./score.ts";
+
+/** 上游 lite 记录的松散形状（我们只读取需要的字段，不做强校验）。 */
+export interface RawRecord {
+  id?: unknown;
+  type?: unknown;
+  name?: unknown;
+  fullName?: unknown;
+  stars?: unknown;
+  description?: unknown;
+  descriptionZh?: unknown;
+  tags?: unknown;
+  curated?: unknown;
+  homepage?: unknown;
+  pushedAt?: unknown;
+  install?: unknown;
+  sources?: unknown;
+}
+
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+const bool = (v: unknown): boolean => v === true;
+const strArr = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim()) : [];
+
+function toType(v: unknown): PluginType {
+  const s = str(v);
+  if (s === "cordis-plugin" || s === "skill") return s;
+  return "unknown";
+}
+
+/**
+ * 从上游安装命令里抽取 npm 包名。
+ * 上游命令样例：`dsh plugin --profile web add dsh-xxx` / `npm install dsh-xxx` / `./dsh-xxx`。
+ * 只认最后一个 token，且必须是合法包名形态 —— 不猜路径、不猜本地目录。
+ */
+export function extractPackageName(commands: string[]): string | null {
+  for (const cmd of commands) {
+    const tokens = cmd.trim().split(/\s+/);
+    const last = tokens[tokens.length - 1];
+    if (!last) continue;
+    if (last.startsWith("./") || last.startsWith("/") || last === "add" || last === "remove") continue;
+    if (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/i.test(last)) return last;
+  }
+  return null;
+}
+
+function toMethod(v: unknown): InstallMethod {
+  const s = str(v);
+  if (s === "pnpm-profile" || s === "skills-add" || s === "manual") return s;
+  return "unknown";
+}
+
+function buildInstall(raw: Record<string, unknown>, name: string): InstallSpec {
+  const method = toMethod(raw.method);
+  const commands = strArr(raw.commands);
+  const packageName = extractPackageName(commands) ?? (/^(@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/i.test(name) ? name : null);
+  return {
+    method,
+    command: defaultInstallCommand(method, packageName),
+    packageName,
+    enginesDsh: str(raw.dshEngines),
+    needsConfig: bool(raw.needsConfig) || bool(raw.usageNeedsConfig),
+    risky: bool(raw.risky),
+  };
+}
+
+/**
+ * 把一条上游记录规整成我们的 PluginEntry。
+ * `prev` 为该条目的上一版（若存在）：验证结论与收录时间沿用，避免每次抓取把验证证据清空。
+ */
+export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): PluginEntry | null {
+  const id = str(raw.id) ?? str(raw.fullName);
+  const fullName = str(raw.fullName) ?? id;
+  if (!id || !fullName) return null;
+
+  const name = str(raw.name) ?? fullName.split("/").pop() ?? id;
+  const installRaw = (typeof raw.install === "object" && raw.install !== null ? raw.install : {}) as Record<string, unknown>;
+  const sources = strArr(raw.sources);
+  const iso = now.toISOString();
+
+  const verification: Verification = prev?.verification ?? {
+    status: "pending",
+    checkedAt: null,
+    dshVersion: null,
+    profile: null,
+  };
+
+  const entry: PluginEntry = {
+    id,
+    name,
+    fullName,
+    type: toType(raw.type),
+    stars: num(raw.stars),
+    description: str(raw.description) ?? "",
+    descriptionZh: str(raw.descriptionZh),
+    tags: strArr(raw.tags),
+    curated: bool(raw.curated),
+    homepage: str(raw.homepage),
+    pushedAt: str(raw.pushedAt),
+    install: buildInstall(installRaw, name),
+    verification,
+    score: {
+      installable: 0, maintenance: 0, utility: 0, popularity: 0, convenience: 0, signal: 0, total: 0,
+    },
+    sources: sources.length ? sources : ["mirror"],
+    firstSeenAt: prev?.firstSeenAt ?? iso,
+    updatedAt: iso,
+  };
+
+  entry.score = scoreEntry(entry, now.getTime());
+  return entry;
+}

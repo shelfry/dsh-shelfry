@@ -1,0 +1,129 @@
+import type { ArtifactIndex } from "@dsh-shelfry/schema";
+import { SCHEMA_VERSION } from "@dsh-shelfry/schema";
+import { loadCatalog, mergeEntries, saveCatalog, catalogPath } from "./store.ts";
+import {
+  buildMeta,
+  syncToWebPublic,
+  writeArtifactIndex,
+  writeDetailShards,
+  writeIndexShards,
+  writeLite,
+  writeMeta,
+} from "./emit.ts";
+import { normalizeRecord, type RawRecord } from "./normalize.ts";
+import { fetchMirrorRecords } from "./sources/mirror.ts";
+import { fetchGithubRecords } from "./sources/github.ts";
+
+/**
+ * 收录管道 CLI。
+ *
+ *   npm run collect -- --source mirror --limit 200
+ *   npm run collect -- --source github --limit 500        # 需 GITHUB_TOKEN
+ *   npm run collect -- --source auto                      # 有 token 走 GitHub，否则镜像兜底
+ *   npm run collect -- --source mirror --build            # 顺带把产物同步到 web/public/data
+ */
+
+interface Args {
+  source: "mirror" | "github" | "auto";
+  limit: number;
+  queries: string[] | null;
+  sync: boolean;
+  silent: boolean;
+}
+
+function parseArgs(argv: string[]): Args {
+  const args: Args = { source: "auto", limit: 20000, queries: null, sync: false, silent: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    const next = () => argv[++i];
+    switch (a) {
+      case "--source": {
+        const v = next();
+        if (v === "mirror" || v === "github" || v === "auto") args.source = v;
+        break;
+      }
+      case "--limit": args.limit = Number(next()) || args.limit; break;
+      case "--queries": args.queries = (next() ?? "").split(",").map((s) => s.trim()).filter(Boolean); break;
+      case "--build": args.sync = true; break;
+      case "--silent": args.silent = true; break;
+      default: break;
+    }
+  }
+  return args;
+}
+
+const log = (silent: boolean, ...m: unknown[]) => { if (!silent) console.log(...m); };
+
+async function loadRawRecords(args: Args): Promise<{ records: RawRecord[]; sourceLabel: string }> {
+  const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
+  if (args.source === "mirror" || (args.source === "auto" && !token)) {
+    if (args.source === "auto" && !token) console.warn("[collector] 未检测到 GITHUB_TOKEN，自动降级到镜像种子源。");
+    const records = await fetchMirrorRecords(args.limit);
+    return { records, sourceLabel: "mirror" };
+  }
+  if (!token) throw new Error("--source github 需要 GITHUB_TOKEN");
+  const records = await fetchGithubRecords({
+    token,
+    perQueryLimit: args.limit,
+    ...(args.queries ? { queries: args.queries } : {}),
+  });
+  return { records, sourceLabel: "github" };
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const now = new Date();
+
+  const prev = loadCatalog();
+  log(args.silent, `[collector] 已有条目 ${prev.entries.length} 条`);
+
+  const { records, sourceLabel } = await loadRawRecords(args);
+  log(args.silent, `[collector] 来源=${sourceLabel}，抓到原始记录 ${records.length} 条`);
+
+  const prevById = new Map(prev.entries.map((e) => [e.id, e]));
+  const incoming = [];
+  let rejected = 0;
+  for (const raw of records) {
+    const id = String(raw.id ?? raw.fullName ?? "");
+    const entry = normalizeRecord(raw, now, prevById.get(id));
+    if (!entry) { rejected++; continue; }
+    incoming.push(entry);
+  }
+  if (rejected > 0) log(args.silent, `[collector] 规整后丢弃 ${rejected} 条（缺 id）`);
+
+  const merged = mergeEntries(prev, incoming);
+  const saved = saveCatalog(merged.catalog);
+  log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${merged.catalog.entries.length} 条`);
+  log(args.silent, `[collector] store 已写入 ${saved}`);
+
+  const entries = merged.catalog.entries;
+  const meta = buildMeta(entries, null);
+  log(args.silent, `[collector] 三档计数 verified=${meta.counts.verified} pending=${meta.counts.pending} failed=${meta.counts.failed}`);
+
+  const { pages, lite } = writeLite(entries);
+  const shards = writeDetailShards(entries);
+  const index = writeIndexShards(entries);
+  const artifacts: ArtifactIndex = {
+    schemaVersion: SCHEMA_VERSION,
+    generatedAt: meta.generatedAt,
+    shards,
+    index,
+    pages,
+    intents: null,
+  };
+  const artifactFile = writeArtifactIndex(artifacts);
+  const metaFile = writeMeta(meta);
+  log(args.silent, `[collector] 产物：lite=${lite.length} 条 / 分页 ${pages.count} 页 / 明细 ${shards.length} 片 / 索引 ${index.shards.length} 片`);
+  log(args.silent, `[collector] 清单：${artifactFile}  元信息：${metaFile}`);
+  log(args.silent, `[collector] store 路径：${catalogPath()}`);
+
+  if (args.sync) {
+    syncToWebPublic();
+    log(args.silent, `[collector] 已同步产物到 packages/web/public/data`);
+  }
+}
+
+main().catch((err) => {
+  console.error(`[collector] 失败：${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+});

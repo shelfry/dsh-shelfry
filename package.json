@@ -1,0 +1,28 @@
+{
+  "name": "dsh-shelfry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/schema",
+    "packages/collector",
+    "packages/web"
+  ],
+  "scripts": {
+    "collect": "tsx packages/collector/src/index.ts",
+    "build:data": "tsx packages/collector/src/index.ts --build",
+    "build:site": "npm run collect -- --source auto --build && npm run build",
+    "dev": "npm run dev -w @dsh-shelfry/web",
+    "build": "npm run build -w @dsh-shelfry/web",
+    "preview": "npm run preview -w @dsh-shelfry/web",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

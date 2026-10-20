@@ -1,0 +1,17 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# 生成数据：不进 git（构建期生成 → Pages artifact / Release 快照）
+.data/
+packages/web/public/data/
+
+# build output
+packages/web/dist/
+dist/
+
+# local
+.DS_Store
+*.log
+.env
+.env.local
