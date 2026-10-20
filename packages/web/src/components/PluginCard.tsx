@@ -97,12 +97,51 @@ function InstallButton({
   );
 }
 
+/** 卡片上没信息量的通用标签，占位置还挤掉有意义的标签。 */
+const NOISE_TAGS = new Set([
+  "cordis-plugin",
+  "deepseek-harness",
+  "deepseek-harness-plugin",
+  "deepseek-harness-plugins",
+  "dsh-plugin",
+  "dsh-plugins",
+  "dsh",
+  "plugin",
+  "plugins",
+]);
+
+/**
+ * 标签行可用宽度约 200px（卡片 340px 起，右下的分类要占位）。
+ * 按估算宽度贪心取整条标签，超了就停止 —— 绝不让某条标签被裁掉半截。
+ */
+const TAG_BUDGET = 200;
+const tagWidth = (t: string): number => {
+  const text = [...t].reduce((w, ch) => w + (/[\u4e00-\u9fa5]/.test(ch) ? 12 : 6.6), 0);
+  return text + 18; // 左右内边距
+};
+
+function pickTags(tags: string[], budget: number): string[] {
+  const picked: string[] = [];
+  let used = 0;
+  for (const t of tags) {
+    const w = tagWidth(t) + 4;
+    if (used + w > budget) break;
+    picked.push(t);
+    used += w;
+  }
+  return picked;
+}
+
 export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
   const [cmd, setCmd] = useState<string | null>(null);
   const version = versionLabel(item.vr);
   // 分类取 tags 里能被首页分类聚合命中的那个，其余标签继续铺在左下角。
   const category = item.tg.find((t) => categories.has(t)) ?? null;
-  const restTags = item.tg.filter((t) => t !== category);
+  const restTags = item.tg.filter((t) => t !== category && !NOISE_TAGS.has(t.toLowerCase()));
+  // 分类标签宽度也要从预算里扣掉，否则最后一条标签会顶到分类下面。
+  const budget = category ? TAG_BUDGET - tagWidth(categoryLabel(category)) : TAG_BUDGET;
+  const shownTags = pickTags(restTags, Math.max(60, budget));
+  const hiddenCount = restTags.length - shownTags.length;
 
   return (
     <article className="card">
@@ -140,8 +179,8 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
 
       <div className="card-foot">
         <div className="tags">
-          {restTags.slice(0, 3).map((t) => <span className="tag" key={t}>{t}</span>)}
-          {restTags.length > 3 && <span className="tag tag-more">+{restTags.length - 3}</span>}
+          {shownTags.map((t) => <span className="tag" key={t}>{t}</span>)}
+          {hiddenCount > 0 && <span className="tag tag-more">+{hiddenCount}</span>}
         </div>
         {category && <span className="tag tag-cat" title="分类">{categoryLabel(category)}</span>}
       </div>
