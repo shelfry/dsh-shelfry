@@ -1,4 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { PluginEntry } from "@dsh-shelfry/schema";
+import { DATA_DIR } from "./config.ts";
 
 /**
  * 补全 npm 近一周下载量。
@@ -23,6 +26,46 @@ const HEADERS = {
 const TOP_N = 3000;
 /** scoped 包只能逐个查，数量必须封顶，否则一次收录会多几百个请求。 */
 const SCOPED_LIMIT = 400;
+
+/**
+ * 下载量缓存：`.data/downloads-cache.json`，形如 `{ "包名": { d: 1234, t: "2026-10-21" } }`。
+ *
+ * 缓存文件跟 catalog.json 一起放在 .data 里（CI 用 actions/cache 持久化），
+ * 未过期的包直接回填、不再打 npm —— 否则每天都要重新买一遍 300+ 个 scoped 包的查单。
+ * TTL 取 7 天：这个指标本身就是「近一周下载量」，再频繁刷新意义不大。
+ */
+const CACHE_FILE = resolve(DATA_DIR, "downloads-cache.json");
+const TTL_DAYS = 7;
+
+interface CacheRow {
+  /** downloads */
+  d: number;
+  /** 采集日期 YYYY-MM-DD */
+  t: string;
+}
+
+type Cache = Record<string, CacheRow>;
+
+function loadCache(): Cache {
+  if (!existsSync(CACHE_FILE)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(CACHE_FILE, "utf8")) as unknown;
+    return typeof parsed === "object" && parsed !== null ? (parsed as Cache) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCache(cache: Cache): void {
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(CACHE_FILE, JSON.stringify(cache), "utf8");
+}
+
+const isFresh = (day: string): boolean => {
+  const at = Date.parse(`${day}T00:00:00Z`);
+  if (!Number.isFinite(at)) return false;
+  return Date.now() - at < TTL_DAYS * 86_400_000;
+};
 
 /** 从安装规格里取出 npm 包名；非 npm 形态（github:/git+/本地路径）返回 null。 */
 function npmNameOf(spec: string | null): string | null {
@@ -105,8 +148,17 @@ async function fetchOne(pkg: string): Promise<OneResult> {
   return { kind: "blocked" };
 }
 
-/** 就地写入 entry.downloads。返回命中条数。 */
-export async function resolveDownloads(entries: PluginEntry[]): Promise<number> {
+export interface DownloadsResult {
+  /** 最终带上下载量的条目数（含命中缓存的）。 */
+  hits: number;
+  /** 其中直接回填缓存、没有发请求的包数。 */
+  cached: number;
+  /** 本轮实际发起查询的包数。 */
+  queried: number;
+}
+
+/** 就地写入 entry.downloads。 */
+export async function resolveDownloads(entries: PluginEntry[]): Promise<DownloadsResult> {
   // 先按 star 取前 TOP_N：榜单和首页首屏都在这个区间，长尾条目本来也无人关心下载量
   const scoped = [...entries].sort((a, b) => b.stars - a.stars).slice(0, TOP_N);
   const byPkg = new Map<string, PluginEntry[]>();
@@ -125,10 +177,29 @@ export async function resolveDownloads(entries: PluginEntry[]): Promise<number> 
   };
 
   let hits = 0;
-  const pkgs = [...byPkg.keys()];
+  const all = [...byPkg.keys()];
+  const cache = loadCache();
+  // 缓存未过期的包直接回填，一次网络请求都不发 —— 这是 CI 时长的主要抓手
+  const stale: string[] = [];
+  let cached = 0;
+  for (const pkg of all) {
+    const row = cache[pkg];
+    if (row && isFresh(row.t)) {
+      hits += apply(pkg, row.d);
+      cached++;
+    } else {
+      stale.push(pkg);
+    }
+  }
+
+  const remember = (pkg: string, downloads: number): void => {
+    hits += apply(pkg, downloads);
+    cache[pkg] = { d: downloads, t: new Date().toISOString().slice(0, 10) };
+  };
+
   // scoped 包走单查，其余走批量：单查放后面且限流，避免拖慢整体收录
-  const plain = pkgs.filter((p) => !p.startsWith("@"));
-  const scopedPkgs = pkgs.filter((p) => p.startsWith("@")).slice(0, SCOPED_LIMIT);
+  const plain = stale.filter((p) => !p.startsWith("@"));
+  const scopedPkgs = stale.filter((p) => p.startsWith("@")).slice(0, SCOPED_LIMIT);
 
   const chunks: string[][] = [];
   for (let i = 0; i < plain.length; i += BATCH) chunks.push(plain.slice(i, i + BATCH));
@@ -140,7 +211,7 @@ export async function resolveDownloads(entries: PluginEntry[]): Promise<number> 
     const retry: string[][] = [];
     for (const chunk of pending) {
       const { found, blocked } = await fetchChunk(chunk);
-      for (const [pkg, downloads] of found) hits += apply(pkg, downloads);
+      for (const [pkg, downloads] of found) remember(pkg, downloads);
       if (blocked) retry.push(chunk);
     }
     pending = retry;
@@ -153,7 +224,7 @@ export async function resolveDownloads(entries: PluginEntry[]): Promise<number> 
     const r = await fetchOne(pkg);
     if (r.kind === "ok") {
       blocked = 0;
-      hits += apply(pkg, r.downloads);
+      remember(pkg, r.downloads);
     } else if (r.kind === "blocked") {
       blocked++;
     }
@@ -161,5 +232,6 @@ export async function resolveDownloads(entries: PluginEntry[]): Promise<number> 
     await new Promise((res) => setTimeout(res, 350));
   }
 
-  return hits;
+  saveCache(cache);
+  return { hits, cached, queried: plain.length + scopedPkgs.length };
 }

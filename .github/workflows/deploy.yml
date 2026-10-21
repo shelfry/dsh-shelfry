@@ -40,6 +40,15 @@ jobs:
       - name: 类型检查
         run: npm run typecheck
 
+      - name: 恢复收录缓存
+        # .data 里存着上一轮的 catalog 与 npm 下载量缓存：
+        # 版本号/下载量未过期就跳过查询，避免每天重查几百个 scoped 包（单次 CI 从 9 分钟回到 1 分钟级）。
+        uses: actions/cache@v4
+        with:
+          path: .data
+          key: data-${{ github.run_id }}
+          restore-keys: data-
+
       - name: 跑收录管道
         # GH_SEARCH_TOKEN 未配置时自动降级到镜像种子源（收集器内置 --source auto 兜底）。
         env:

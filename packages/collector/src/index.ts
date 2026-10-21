@@ -121,8 +121,11 @@ async function main(): Promise<void> {
   log(args.silent, `[collector] 版本号命中 ${versionHits} 条`);
 
   // 下载量同样要在写产物之前补全 —— lite 切片要带 dl 字段。
-  const downloadHits = await resolveDownloads(entries);
-  log(args.silent, `[collector] npm 周下载量命中 ${downloadHits} 条`);
+  const downloads = await resolveDownloads(entries);
+  log(
+    args.silent,
+    `[collector] npm 周下载量命中 ${downloads.hits} 条（缓存回填 ${downloads.cached} 个包 / 实际查询 ${downloads.queried} 个包）`,
+  );
 
   const saved = saveCatalog(merged.catalog);
   log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${entries.length} 条`);
