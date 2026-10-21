@@ -68,6 +68,10 @@ interface LoadedRecords {
 
 async function loadRawRecords(args: Args): Promise<LoadedRecords> {
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
+  if (token) {
+    // 只打形状（长度/前缀/是否含空白），值一律不落日志 —— 用来排查 Secret 粘贴脏了的情况
+    console.log(`[collector] token 形状：长度 ${token.length}，前缀 ${token.slice(0, 4)}，含空白 ${/\s/.test(token)}`);
+  }
   const fromMirror = async (reason?: string): Promise<LoadedRecords> => {
     if (reason) console.warn(`[collector] ${reason}，降级到镜像种子源。`);
     return { records: await fetchMirrorRecords(args.limit), sourceLabel: "mirror", ...(reason ? { reason } : {}) };

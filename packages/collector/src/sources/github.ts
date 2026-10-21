@@ -89,9 +89,15 @@ async function searchPage(query: string, page: number, token: string): Promise<G
     const reset = res.headers.get("x-ratelimit-reset");
     throw new Error(`GitHub 限流（${res.status}），reset=${reset ?? "unknown"}`);
   }
-  // 422 说明翻过了 1000 条的上限，不是配置错误 —— 当作这一词到头处理
-  if (res.status === 422) return null;
-  if (!res.ok) throw new Error(`GitHub 检索失败: HTTP ${res.status}`);
+  // 首页就 422 说明是请求被拒（token/参数问题），不能当成「没有结果」吞掉；
+  // 只有翻页到第 2 页及以后撞 422，才当作超出 1000 条上限、这个词到底了。
+  if (res.status === 422 && page > 1) return null;
+  if (!res.ok) {
+    // 把响应体带出来：422/401 的真实原因只有 GitHub 自己的 message 说得清
+    let detail = "";
+    try { detail = (await res.text()).slice(0, 200); } catch { /* 读不到就只报状态码 */ }
+    throw new Error(`GitHub 检索失败: HTTP ${res.status} ${detail}`);
+  }
   const body = (await res.json()) as { items?: GhRepo[] };
   return body.items ?? [];
 }
@@ -116,5 +122,7 @@ export async function fetchGithubRecords(opts: GithubSearchOptions): Promise<Raw
     }
     console.log(`[collector] 检索词「${q}」命中 ${found} 条`);
   }
+  // 一条都没抓到说明检索整体没生效：宁可抛错让 auto 源降级，也不要返回空集把数据悄悄停更
+  if (seen.size === 0) throw new Error("GitHub 检索结果为 0 条");
   return [...seen.values()];
 }
