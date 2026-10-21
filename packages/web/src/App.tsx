@@ -4,11 +4,12 @@ import type { CatalogMeta } from "@dsh-shelfry/schema";
 import { loadMeta, siteConfig } from "./lib/data";
 import HomePage, { SiteHeader } from "./pages/HomePage";
 import DetailPage from "./pages/DetailPage";
+import TopPage from "./pages/TopPage";
 
 /**
  * 应用外壳：头部 + 路由 + 页脚。
  *
- * 只有两个路由：列表（/）与详情（/p/:id）。用 hash 路由是因为 GitHub Pages
+ * 路由：列表（/）、详情（/p/:id）、榜单（/top）。用 hash 路由是因为 GitHub Pages
  * 没有服务端 rewrite —— 用 history 路由刷新 /p/xxx 会直接 404。
  */
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
       <SiteHeader meta={meta} />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/top" element={<TopPage />} />
         {/* id 形如 owner/repo，含斜杠，必须用通配段接住 */}
         <Route path="/p/*" element={<DetailPage />} />
         <Route path="*" element={<HomePage />} />

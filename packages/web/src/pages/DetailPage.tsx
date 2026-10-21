@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { PluginEntry } from "@dsh-shelfry/schema";
-import { loadArtifacts, loadEntryById, siteConfig } from "../lib/data";
-import { Avatar, relativeTime, versionLabel } from "../components/PluginCard";
+import type { LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
+import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, type Category } from "../lib/data";
+import { Avatar, formatDownloads, formatStars, PluginCard, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
 import { meaningfulTags } from "../lib/labels";
+import { loadReadme, type ReadmeResult } from "../lib/readme";
 
 /**
  * 插件详情页（独立路由 #/p/owner/repo）。
@@ -22,6 +23,10 @@ export default function DetailPage() {
   const [entry, setEntry] = useState<PluginEntry | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing" | "error">("loading");
   const [copied, setCopied] = useState(false);
+  const [copiedPkg, setCopiedPkg] = useState(false);
+  const [readme, setReadme] = useState<ReadmeResult | null | "loading">("loading");
+  const [similar, setSimilar] = useState<LiteEntry[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,12 +45,60 @@ export default function DetailPage() {
     return () => { cancelled = true; };
   }, [decoded]);
 
+  // README 与相似插件都依赖 entry，进页面后再异步补 —— 主信息先出来，别让用户干等
+  useEffect(() => {
+    if (!entry) return;
+    let cancelled = false;
+    setReadme("loading");
+    loadReadme(entry.fullName)
+      .then((r) => { if (!cancelled) setReadme(r); })
+      .catch(() => { if (!cancelled) setReadme(null); });
+    return () => { cancelled = true; };
+  }, [entry]);
+
+  useEffect(() => {
+    if (!entry) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [lite, cats] = await Promise.all([loadLite(), loadCategories()]);
+        if (cancelled) return;
+        setCategories(cats);
+        const myTags = new Set(meaningfulTags(entry.tags).map((t) => t.toLowerCase()));
+        const picked = lite
+          .filter((v) => v.i !== entry.id)
+          .map((v) => ({
+            v,
+            // 同一个标签算 3 分，同类型再加 1 分：标签重合比类型更能说明「是同类插件」
+            weight: v.tg.filter((t) => myTags.has(t.toLowerCase())).length * 3 + (v.t === entry.type ? 1 : 0),
+          }))
+          .filter((x) => x.weight >= 3)
+          .sort((a, b) => b.weight - a.weight || b.v.s - a.v.s)
+          .slice(0, 4)
+          .map((x) => x.v);
+        setSimilar(picked);
+      } catch {
+        // 推荐只是锦上添花，失败就留空
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [entry]);
+
   const copy = async () => {
     const cmd = entry?.install.command;
     if (!cmd) return;
     if (await copyText(cmd)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
+    }
+  };
+
+  const copyPkg = async () => {
+    const pkg = entry?.install.packageName;
+    if (!pkg) return;
+    if (await copyText(pkg)) {
+      setCopiedPkg(true);
+      setTimeout(() => setCopiedPkg(false), 1600);
     }
   };
 
@@ -90,7 +143,13 @@ export default function DetailPage() {
           <a href={repoUrl} target="_blank" rel="noreferrer">{entry.fullName}</a>
           {version && <span className="detail-ver">{version}</span>}
           <span className="dot">·</span>
-          <span>★ {entry.stars}</span>
+          <span>★ {formatStars(entry.stars)}</span>
+          {entry.downloads !== null && (
+            <>
+              <span className="dot">·</span>
+              <span title="npm 近一周下载量">↓ {formatDownloads(entry.downloads)}/周</span>
+            </>
+          )}
           <span className="dot">·</span>
           <span>{relativeTime(entry.pushedAt)}</span>
         </div>
@@ -128,11 +187,39 @@ export default function DetailPage() {
 
         <dl className="kv">
           <dt>安装方式</dt><dd>{entry.install.method}</dd>
+          <dt>npm 包名</dt>
+          <dd>
+            {entry.install.packageName ? (
+              <span className="kv-copy">
+                <code>{entry.install.packageName}</code>
+                <button className="btn-copy-sm" onClick={copyPkg}>{copiedPkg ? "已复制" : "复制"}</button>
+              </span>
+            ) : "无（非 npm 分发）"}
+          </dd>
           <dt>插件版本</dt><dd>{entry.version ?? "未在 npm 发布"}</dd>
+          <dt>周下载量</dt><dd>{entry.downloads !== null ? `${entry.downloads.toLocaleString("en-US")} 次` : "未在 npm 统计"}</dd>
           <dt>兼容范围</dt><dd>{entry.install.enginesDsh ?? "上游未声明"}</dd>
           <dt>需要配置</dt><dd>{entry.install.needsConfig ? "是" : "否"}</dd>
           {entry.install.risky && <><dt>注意</dt><dd>安装路径较重或需额外授权</dd></>}
         </dl>
+      </section>
+
+      <section className="panel">
+        <h2>README</h2>
+        {readme === "loading" && <p className="hint" style={{ marginTop: 0 }}>正在读取仓库 README…</p>}
+        {readme === null && (
+          <p className="hint" style={{ marginTop: 0 }}>
+            这个仓库没有可直接渲染的 README，<a href={`https://github.com/${entry.fullName}`} target="_blank" rel="noreferrer">去 GitHub 看看</a>。
+          </p>
+        )}
+        {readme && readme !== "loading" && (
+          <>
+            <div className="readme" dangerouslySetInnerHTML={{ __html: readme.html }} />
+            <p className="hint">
+              README 来自上游仓库，<a href={readme.url} target="_blank" rel="noreferrer">在 GitHub 查看原文</a>。
+            </p>
+          </>
+        )}
       </section>
 
       <section className="panel">
@@ -150,6 +237,17 @@ export default function DetailPage() {
           ))}
         </div>
       </section>
+
+      {similar.length > 0 && (
+        <section className="panel">
+          <h2>相似插件</h2>
+          <div className="grid grid-similar">
+            {similar.map((v) => (
+              <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <h2>来源</h2>

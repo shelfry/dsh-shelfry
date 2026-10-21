@@ -290,6 +290,8 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
         </Link>
         <div className="header-spacer" />
         <div className="header-stat">{meta ? `已收录 ${meta.total} 个插件` : "加载中…"}</div>
+        <Link className="header-link" to="/top">榜单</Link>
+        <a className="header-link" href={`${siteConfig.repoUrl}/issues/new`} target="_blank" rel="noreferrer">提交插件</a>
         <a className="header-link" href={siteConfig.repoUrl} target="_blank" rel="noreferrer">GitHub</a>
       </div>
     </header>

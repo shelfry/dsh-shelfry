@@ -16,6 +16,7 @@ import { normalizeRecord, type RawRecord } from "./normalize.ts";
 import { fetchMirrorRecords } from "./sources/mirror.ts";
 import { fetchGithubRecords } from "./sources/github.ts";
 import { resolveVersions } from "./versions.ts";
+import { resolveDownloads } from "./downloads.ts";
 
 /**
  * 收录管道 CLI。
@@ -118,6 +119,10 @@ async function main(): Promise<void> {
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
   const versionHits = await resolveVersions(entries);
   log(args.silent, `[collector] 版本号命中 ${versionHits} 条`);
+
+  // 下载量同样要在写产物之前补全 —— lite 切片要带 dl 字段。
+  const downloadHits = await resolveDownloads(entries);
+  log(args.silent, `[collector] npm 周下载量命中 ${downloadHits} 条`);
 
   const saved = saveCatalog(merged.catalog);
   log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${entries.length} 条`);

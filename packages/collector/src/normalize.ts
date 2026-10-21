@@ -133,6 +133,8 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
     pushedAt: str(raw.pushedAt),
     // 版本号由 versions.ts 事后从 npm registry 补全，镜像与检索结果里都没有。
     version: prev?.version ?? null,
+    // 下载量同样事后补全；复用上一轮结论，避免每次全量重查。
+    downloads: prev?.downloads ?? null,
     install: buildInstall(installRaw),
     score: {
       maintenance: 0, utility: 0, popularity: 0, convenience: 0, total: 0,

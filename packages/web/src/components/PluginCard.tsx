@@ -26,6 +26,20 @@ export function versionLabel(version: string | null): string | null {
   return version ? `v${version.replace(/^v/, "")}` : null;
 }
 
+/** 下载量：1.2k / 34.5k / 1.2M，太大就直接用 M。 */
+export function formatDownloads(n: number | null): string | null {
+  if (n === null || !Number.isFinite(n)) return null;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+/** 星数同样做压缩，避免五位数把一行撑开。 */
+export function formatStars(n: number): string {
+  if (n >= 10000) return `${(n / 1000).toFixed(1)}k`;
+  return n.toLocaleString("en-US");
+}
+
 /**
  * 作者头像直接用 GitHub 的 .png 头像端点，不额外存字段、不加一次 API 调用；
  * 加载失败（改名/删号/离线）退回首字母占位。
@@ -133,11 +147,20 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
         <span className="author-name">{ownerOf(item.i)}</span>
         <span className="dot">·</span>
         <span>{relativeTime(item.p)}</span>
-        <span className="dot">·</span>
-        <span className="card-stars" title={`${item.s} 个 star`}>★ {item.s}</span>
       </div>
 
       <p className="card-desc">{item.d || "（上游未提供简介）"}</p>
+
+      {/* 三项硬指标固定一行：星数、npm 周下载量、综合分，空值也占位，保证卡片等高 */}
+      <div className="card-stats">
+        <span className="stat" title={`${item.s} 个 star`}>
+          <span className="stat-k">★</span>{formatStars(item.s)}
+        </span>
+        <span className="stat" title="npm 近一周下载量">
+          <span className="stat-k">↓</span>{formatDownloads(item.dl) ?? "—"}
+        </span>
+        <span className="stat stat-end" title="综合推荐分">综合 {item.sc.toFixed(1)}</span>
+      </div>
 
       {cmd && (
         <div className="card-cmd" onClick={(e) => e.stopPropagation()}>
