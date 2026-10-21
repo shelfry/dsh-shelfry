@@ -254,6 +254,8 @@ export async function resolveEvidence(
   for (const e of entries) {
     if (nameSaysDsh(e.fullName, e.description)) {
       result.named++;
+      // 名称本身就自证生态：缓存里的旧「判无关」结论一律作废，否则补录回来的条目会被再次剔除
+      if (cache[e.fullName]?.v === "drop") delete cache[e.fullName];
       continue;
     }
     const hit = cache[e.fullName];
@@ -288,7 +290,8 @@ export async function resolveEvidence(
   await Promise.all(workers);
 
   saveCache(cache);
-  const dropped = entries.filter((e) => cache[e.fullName]?.v === "drop");
+  // 只有「名称不自证」的条目才可能被判无关；名称自证的那批即使缓存里残留 drop 也不算
+  const dropped = entries.filter((e) => !nameSaysDsh(e.fullName, e.description) && cache[e.fullName]?.v === "drop");
   return { result, dropped };
 }
 
