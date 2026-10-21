@@ -357,11 +357,13 @@ a { color: inherit; text-decoration: none; }
 /* ---------- footer ---------- */
 .site-footer { border-top: 1px solid var(--border); padding: 26px 0 40px; color: var(--text-faint); font-size: 12.5px; }
 .site-footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; }
+.footer-warn { color: #8a5a00; background: #fdf3e0; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; }
 
 @media (max-width: 640px) {
   .hero { padding: 28px 0 18px; }
   .hero h1 { font-size: 22px; }
   .grid { grid-template-columns: 1fr; }
+  .grid-similar { grid-template-columns: 1fr; }
   .filters { padding: 12px; }
   .filter-sep { display: none; }
   .card-desc { min-height: auto; }
@@ -373,6 +375,8 @@ a { color: inherit; text-decoration: none; }
   .rank-desc { -webkit-line-clamp: 3; }
   .readme pre { font-size: 11.5px; }
   .kv { grid-template-columns: 78px 1fr; }
+  .detail-title h1 { font-size: 22px; }
+  .detail { padding-top: 18px; }
   .field-row { grid-template-columns: 1fr; gap: 0; }
   .panel { padding: 16px; }
   .form-actions .btn-primary, .form-actions .btn-ghost { flex: 1; justify-content: center; }

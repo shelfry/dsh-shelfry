@@ -36,6 +36,12 @@ export default function App() {
           <span>{siteConfig.siteName} · {siteConfig.license}</span>
           <span>收录数据来自 GitHub，每日自动刷新</span>
           <span>数据 {meta?.generatedAt.slice(0, 16).replace("T", " ") ?? "—"} 更新</span>
+          {/* 没拿到 token 或检索失败时收录走镜像兜底，数据可能滞后，别让用户以为它是新鲜的 */}
+          {meta?.collectSource?.label === "mirror" && (
+            <span className="footer-warn" title={meta.collectSource.reason ?? "未启用 GitHub 检索"}>
+              数据源：镜像兜底
+            </span>
+          )}
         </div>
       </footer>
     </>

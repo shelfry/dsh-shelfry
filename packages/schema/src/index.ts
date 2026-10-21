@@ -90,6 +90,11 @@ export interface CatalogMeta {
   types: Record<string, number>;
   /** 数据来源清单。 */
   sources: string[];
+  /**
+   * 本轮收录实际用的检索源。
+   * mirror 表示没拿到 GitHub token 或检索失败、走了镜像兜底 —— 站上要让用户知道数据可能滞后。
+   */
+  collectSource?: { label: "github" | "mirror"; reason?: string };
 }
 
 /** 拼接产物索引。 */

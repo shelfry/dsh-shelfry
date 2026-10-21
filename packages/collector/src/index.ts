@@ -59,11 +59,18 @@ function parseArgs(argv: string[]): Args {
 
 const log = (silent: boolean, ...m: unknown[]) => { if (!silent) console.log(...m); };
 
-async function loadRawRecords(args: Args): Promise<{ records: RawRecord[]; sourceLabel: string }> {
+interface LoadedRecords {
+  records: RawRecord[];
+  sourceLabel: string;
+  /** 走了兜底时的原因，写进 meta.json 让站上能显示出来。 */
+  reason?: string;
+}
+
+async function loadRawRecords(args: Args): Promise<LoadedRecords> {
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
-  const fromMirror = async (reason?: string) => {
+  const fromMirror = async (reason?: string): Promise<LoadedRecords> => {
     if (reason) console.warn(`[collector] ${reason}，降级到镜像种子源。`);
-    return { records: await fetchMirrorRecords(args.limit), sourceLabel: "mirror" };
+    return { records: await fetchMirrorRecords(args.limit), sourceLabel: "mirror", ...(reason ? { reason } : {}) };
   };
 
   if (args.source === "mirror") return fromMirror();
@@ -100,7 +107,7 @@ async function main(): Promise<void> {
   const prev = loadCatalog();
   log(args.silent, `[collector] 已有条目 ${prev.entries.length} 条`);
 
-  const { records, sourceLabel } = await loadRawRecords(args);
+  const { records, sourceLabel, reason } = await loadRawRecords(args);
   log(args.silent, `[collector] 来源=${sourceLabel}，抓到原始记录 ${records.length} 条`);
 
   const prevById = new Map(prev.entries.map((e) => [e.id, e]));
@@ -136,7 +143,10 @@ async function main(): Promise<void> {
   log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${entries.length} 条`);
   log(args.silent, `[collector] store 已写入 ${saved}`);
 
-  const meta = buildMeta(entries);
+  const meta = buildMeta(entries, {
+    label: sourceLabel === "github" ? "github" : "mirror",
+    ...(reason ? { reason } : {}),
+  });
   log(args.silent, `[collector] 条目 ${meta.total} 条，类型分布 ${JSON.stringify(meta.types)}`);
 
   const { pages, lite } = writeLite(entries);

@@ -25,7 +25,10 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value), "utf8");
 }
 
-export function buildMeta(entries: PluginEntry[]): CatalogMeta {
+export function buildMeta(
+  entries: PluginEntry[],
+  collectSource?: CatalogMeta["collectSource"],
+): CatalogMeta {
   const types: Record<string, number> = {};
   const sources = new Set<string>();
   for (const e of entries) {
@@ -38,6 +41,7 @@ export function buildMeta(entries: PluginEntry[]): CatalogMeta {
     total: entries.length,
     types,
     sources: [...sources].sort(),
+    ...(collectSource ? { collectSource } : {}),
   };
 }
 
