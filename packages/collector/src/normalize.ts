@@ -123,16 +123,14 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
   // 否则一次 GitHub 检索就会把镜像源已经解析好的安装命令和 skill 类型冲掉。
   const freshInstall = buildInstall(installRaw);
   const install = freshInstall.command ? freshInstall : (prev?.install ?? freshInstall);
-  // 类型同上。skill 的判据只用安装方式（skills-add）：话题里的 skill 太普遍
-  // —— 实测按话题推断会把 474 个普通插件误判成 skill，宁可漏标也不误标。
+  // 类型不用 prev.type：被污染过的结论会永久固化（实测 703 条 skill 里 463 条是误判，
+  // 撤规则后 prev 仍把它们当 skill）。改用唯一可靠判据 —— 安装方式 skills-add。
   const tags = strArr(raw.tags);
-  const looksSkill =
-    install.method === "skills-add" || prev?.install.method === "skills-add";
   const type: PluginType = str(raw.type)
     ? toType(raw.type)
-    : looksSkill
+    : install.method === "skills-add"
       ? "skill"
-      : (prev?.type ?? "cordis-plugin");
+      : "cordis-plugin";
 
   const entry: PluginEntry = {
     id,
