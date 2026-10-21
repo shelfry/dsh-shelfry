@@ -76,3 +76,48 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # 失败告警：构建或部署挂了就在仓库里开 Issue。
+  # 定时任务（凌晨 2:17）失败时没人盯着页面，只能靠 Issue 把问题推到眼前。
+  notify-failure:
+    needs: [build, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const label = 'ci-failure';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `**工作流**：${context.workflow}`,
+              `**触发方式**：${context.eventName}`,
+              `**提交**：\`${context.sha.slice(0, 7)}\``,
+              `**运行记录**：${runUrl}`,
+              '',
+              '收录或部署失败后站点不会更新，请打开运行记录看日志。修复后关掉这个 Issue 即可，下次再失败会重新开一条。',
+            ].join('\n');
+
+            // 标签不存在时 create 会 422，先补一个
+            try {
+              await github.rest.issues.getLabel({ ...context.repo, name: label });
+            } catch {
+              await github.rest.issues.createLabel({ ...context.repo, name: label, color: 'd0453c' });
+            }
+
+            // 已有未关闭的告警就追加评论：每天定时失败不该刷出一堆重复 Issue
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: label, per_page: 1,
+            });
+            if (open.length > 0) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number, body });
+            } else {
+              await github.rest.issues.create({
+                ...context.repo,
+                title: `CI 失败：${context.workflow}（${context.eventName}）`,
+                body,
+                labels: [label],
+              });
+            }
