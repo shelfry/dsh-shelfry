@@ -85,7 +85,8 @@ function toRaw(repo: GhRepo): RawRecord {
   const topics = [...(repo.topics ?? []), ...(repo.topic ? [repo.topic] : [])];
   return {
     id: repo.full_name,
-    type: "cordis-plugin",
+    // 不写 type：检索结果没有类型信息，写死 cordis-plugin 会把上一轮已知的 skill
+    // 在 merge 时覆盖掉（实测 skill 从 240 掉到 170）。
     name: repo.name,
     fullName: repo.full_name,
     stars: repo.stargazers_count,

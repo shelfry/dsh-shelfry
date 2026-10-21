@@ -119,11 +119,17 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
   const sources = strArr(raw.sources);
   const iso = now.toISOString();
 
+  // 检索源给不出安装规格与类型：这两种字段缺失时沿用上一轮结论，
+  // 否则一次 GitHub 检索就会把镜像源已经解析好的安装命令和 skill 类型冲掉。
+  const freshInstall = buildInstall(installRaw);
+  const install = freshInstall.command ? freshInstall : (prev?.install ?? freshInstall);
+  const type = str(raw.type) ? toType(raw.type) : (prev?.type ?? "cordis-plugin");
+
   const entry: PluginEntry = {
     id,
     name,
     fullName,
-    type: toType(raw.type),
+    type,
     stars: num(raw.stars),
     description: str(raw.description) ?? "",
     descriptionZh: str(raw.descriptionZh),
@@ -135,7 +141,7 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
     version: prev?.version ?? null,
     // 下载量同样事后补全；复用上一轮结论，避免每次全量重查。
     downloads: prev?.downloads ?? null,
-    install: buildInstall(installRaw),
+    install,
     score: {
       maintenance: 0, utility: 0, popularity: 0, convenience: 0, total: 0,
     },
