@@ -79,7 +79,7 @@ function InstallButton({
   cmd: string | null;
   onCmd: (cmd: string | null) => void;
 }) {
-  const [state, setState] = useState<"idle" | "busy" | "copied" | "manual">("idle");
+  const [state, setState] = useState<"idle" | "busy" | "copied" | "manual" | "repo">("idle");
 
   const onClick = async () => {
     if (state === "busy") return;
@@ -90,8 +90,17 @@ function InstallButton({
         const artifacts = await loadArtifacts();
         const entry = await loadEntryById(artifacts, id);
         command = entry?.install.command ?? null;
-        if (!command) { setState("idle"); return; }
-        onCmd(command);
+        if (command) onCmd(command);
+      }
+      // 还没读到安装说明的仓库没有安装规格：复制仓库地址，比点了没反应有用
+      if (!command) {
+        if (await copyText(`https://github.com/${id}`)) {
+          setState("repo");
+          setTimeout(() => setState("idle"), 1600);
+        } else {
+          setState("manual");
+        }
+        return;
       }
       if (await copyText(command)) {
         setState("copied");
@@ -106,7 +115,15 @@ function InstallButton({
 
   return (
     <button className="btn-install" onClick={onClick} title="复制安装命令">
-      {state === "copied" ? "已复制" : state === "busy" ? "读取中" : state === "manual" ? "手动复制" : "安装"}
+      {state === "copied"
+        ? "已复制"
+        : state === "busy"
+          ? "读取中"
+          : state === "manual"
+            ? "手动复制"
+            : state === "repo"
+              ? "已复制地址"
+              : "安装"}
     </button>
   );
 }

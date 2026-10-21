@@ -19,13 +19,47 @@ const SEARCH_ENDPOINT = "https://api.github.com/search/repositories";
  */
 const MAX_PAGES = 10;
 
-/** 检索词：话题标签为主，配合仓库名匹配，先去重再交下游。 */
+/**
+ * 检索词：每个词最多只能拿到 1000 条（Search API 上限），所以靠「多词覆盖」扩总量。
+ * 实测命中数（2026-10）：topic:dsh-plugin 21345 / topic:deepseek-harness 17001 /
+ * dsh in:name 48277 —— 话题词精准但天花板低，名字词杂但能捞到大片长尾，
+ * 因此两类都保留，杂质由 isDshRelated 过滤。
+ */
 export const DEFAULT_QUERIES = [
+  // 话题词：上游自己打标签的，准确度最高
   "topic:dsh-plugin",
-  "topic:deepseek-harness",
   "topic:dsh-plugins",
+  "topic:dsh",
+  "topic:deepseek-harness",
+  "topic:cordis-plugin",
+  "topic:dsh-skill",
+  "topic:deepseek-plugin",
+  // 名字词：捞话题没打全的插件
   "dsh-plugin in:name",
+  "dsh-plugins in:name",
+  "dsh-skill in:name",
+  "cordis-plugin in:name",
+  "dsh in:name",
+  "deepseek-harness in:name",
+  "dsh-theme in:name",
 ];
+
+/** Search API 鉴权后是 30 次/分，实测超过就 403；留一点余量做匀速。 */
+const MIN_INTERVAL_MS = 2100;
+let lastRequestAt = 0;
+
+/**
+ * GitHub 的话题检索很脏：`topic:dsh-plugin` 首页就混着 35 万星的二进制分析工具、
+ * nocobase、Wegent 这类拿话题刷曝光的大项目（实测 100 条里 13 条与 DSH 无关）。
+ * 只靠话题判断会被它们带进来，所以只看仓库名与描述 —— 话题是刷出来的，名字和
+ * 简介不容易撒谎。代价是漏掉少数「名字不带 dsh、简介也没提」的真插件，
+ * 这类可以靠站内提交入口补录，比把 nocobase 当插件展示可接受得多。
+ */
+const RELEVANT = /(^|[^a-z0-9])dsh([^a-z0-9]|$)|dsh[-_]?market|cordis|deepseek[-_ ]?harness/i;
+
+export function isDshRelated(repo: GhRepo): boolean {
+  return RELEVANT.test(`${repo.full_name} ${repo.description ?? ""}`);
+}
 
 export interface GithubSearchOptions {
   token: string;
@@ -65,17 +99,28 @@ function toRaw(repo: GhRepo): RawRecord {
       method: "pnpm-profile",
       needsConfig: false,
       risky: false,
-      commands: [`dsh plugin add ${repo.name}`],
+      // 检索阶段没读 README，不知道上游真正的安装规格；拿仓库名拼命令必然装不上，
+      // 所以这里只留空，等原文安装说明的补全阶段再填。
+      commands: [],
     },
     sources: ["github-search"],
   };
 }
 
 /**
- * 拉一页搜索结果。
- * 返回 null 表示这个检索词已经翻到底（422：超出 1000 条上限），调用方直接换下一个词。
+ * 拉一页搜索结果。返回 null 表示这个检索词已经翻到底（422：超出 1000 条上限）。
+ * 顺带把 total_count 带出来，用真实总量决定要翻几页 —— 否则 14 个词全按 10 页跑
+ * 就是 140 次请求，既慢又容易触发 403。
  */
-async function searchPage(query: string, page: number, token: string): Promise<GhRepo[] | null> {
+async function searchPage(
+  query: string,
+  page: number,
+  token: string,
+): Promise<{ items: GhRepo[]; total: number } | null> {
+  const wait = MIN_INTERVAL_MS - (Date.now() - lastRequestAt);
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastRequestAt = Date.now();
+
   const url = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100&page=${page}`;
   const res = await fetch(url, {
     headers: {
@@ -98,29 +143,37 @@ async function searchPage(query: string, page: number, token: string): Promise<G
     try { detail = (await res.text()).slice(0, 200); } catch { /* 读不到就只报状态码 */ }
     throw new Error(`GitHub 检索失败: HTTP ${res.status} ${detail}`);
   }
-  const body = (await res.json()) as { items?: GhRepo[] };
-  return body.items ?? [];
+  const body = (await res.json()) as { items?: GhRepo[]; total_count?: number };
+  return { items: body.items ?? [], total: body.total_count ?? 0 };
 }
 
-/** 按多个检索词抓取，按 fullName 去重。 */
+/** 按多个检索词抓取，按 fullName 去重，并过滤掉话题检索混进来的无关仓库。 */
 export async function fetchGithubRecords(opts: GithubSearchOptions): Promise<RawRecord[]> {
   const queries = opts.queries ?? DEFAULT_QUERIES;
   const perQueryLimit = opts.perQueryLimit ?? 100;
   const seen = new Map<string, RawRecord>();
-  const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(perQueryLimit / 100)));
+  const hardCap = Math.min(MAX_PAGES, Math.max(1, Math.ceil(perQueryLimit / 100)));
 
   for (const q of queries) {
     let found = 0;
+    let kept = 0;
+    let pages = hardCap;
     for (let page = 1; page <= pages; page++) {
-      const items = await searchPage(q, page, opts.token);
-      if (items === null) break;
-      for (const repo of items) {
-        if (!seen.has(repo.full_name)) seen.set(repo.full_name, toRaw(repo));
-        found++;
+      const res = await searchPage(q, page, opts.token);
+      if (res === null) break;
+      if (page === 1) {
+        // Search API 最多只给前 1000 条，别为拿不到的结果白跑请求
+        pages = Math.min(hardCap, Math.max(1, Math.ceil(Math.min(res.total, 1000) / 100)));
       }
-      if (items.length < 100) break;
+      for (const repo of res.items) {
+        found++;
+        if (!isDshRelated(repo) || seen.has(repo.full_name)) continue;
+        seen.set(repo.full_name, toRaw(repo));
+        kept++;
+      }
+      if (res.items.length < 100) break;
     }
-    console.log(`[collector] 检索词「${q}」命中 ${found} 条`);
+    console.log(`[collector] 检索词「${q}」命中 ${found} 条，相关 ${kept} 条`);
   }
   // 一条都没抓到说明检索整体没生效：宁可抛错让 auto 源降级，也不要返回空集把数据悄悄停更
   if (seen.size === 0) throw new Error("GitHub 检索结果为 0 条");
