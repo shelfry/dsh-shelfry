@@ -5,6 +5,7 @@ import { loadMeta, siteConfig } from "./lib/data";
 import HomePage, { SiteHeader } from "./pages/HomePage";
 import DetailPage from "./pages/DetailPage";
 import TopPage from "./pages/TopPage";
+import SubmitPage from "./pages/SubmitPage";
 
 /**
  * 应用外壳：头部 + 路由 + 页脚。
@@ -25,6 +26,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/top" element={<TopPage />} />
+        <Route path="/submit" element={<SubmitPage />} />
         {/* id 形如 owner/repo，含斜杠，必须用通配段接住 */}
         <Route path="/p/*" element={<DetailPage />} />
         <Route path="*" element={<HomePage />} />
