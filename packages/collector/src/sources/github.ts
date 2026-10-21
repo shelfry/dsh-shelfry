@@ -12,6 +12,13 @@ import type { RawRecord } from "../normalize.ts";
 
 const SEARCH_ENDPOINT = "https://api.github.com/search/repositories";
 
+/**
+ * Search API 每次查询最多只能翻到前 1000 条（10 页 × 100 条），
+ * 第 11 页起直接返回 422「Only the first 1000 search results are available」。
+ * 之前按 COLLECT_LIMIT=20000 算页数，第一次跑就撞 422 整源降级，必须在这里钳死。
+ */
+const MAX_PAGES = 10;
+
 /** 检索词：话题标签为主，配合仓库名匹配，先去重再交下游。 */
 export const DEFAULT_QUERIES = [
   "topic:dsh-plugin",
@@ -64,7 +71,11 @@ function toRaw(repo: GhRepo): RawRecord {
   };
 }
 
-async function searchPage(query: string, page: number, token: string): Promise<GhRepo[]> {
+/**
+ * 拉一页搜索结果。
+ * 返回 null 表示这个检索词已经翻到底（422：超出 1000 条上限），调用方直接换下一个词。
+ */
+async function searchPage(query: string, page: number, token: string): Promise<GhRepo[] | null> {
   const url = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100&page=${page}`;
   const res = await fetch(url, {
     headers: {
@@ -78,6 +89,8 @@ async function searchPage(query: string, page: number, token: string): Promise<G
     const reset = res.headers.get("x-ratelimit-reset");
     throw new Error(`GitHub 限流（${res.status}），reset=${reset ?? "unknown"}`);
   }
+  // 422 说明翻过了 1000 条的上限，不是配置错误 —— 当作这一词到头处理
+  if (res.status === 422) return null;
   if (!res.ok) throw new Error(`GitHub 检索失败: HTTP ${res.status}`);
   const body = (await res.json()) as { items?: GhRepo[] };
   return body.items ?? [];
@@ -88,16 +101,20 @@ export async function fetchGithubRecords(opts: GithubSearchOptions): Promise<Raw
   const queries = opts.queries ?? DEFAULT_QUERIES;
   const perQueryLimit = opts.perQueryLimit ?? 100;
   const seen = new Map<string, RawRecord>();
-  const pages = Math.max(1, Math.ceil(perQueryLimit / 100));
+  const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(perQueryLimit / 100)));
 
   for (const q of queries) {
+    let found = 0;
     for (let page = 1; page <= pages; page++) {
       const items = await searchPage(q, page, opts.token);
+      if (items === null) break;
       for (const repo of items) {
         if (!seen.has(repo.full_name)) seen.set(repo.full_name, toRaw(repo));
+        found++;
       }
       if (items.length < 100) break;
     }
+    console.log(`[collector] 检索词「${q}」命中 ${found} 条`);
   }
   return [...seen.values()];
 }
