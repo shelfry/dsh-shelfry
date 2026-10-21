@@ -148,6 +148,40 @@ async function searchPage(
   return { items: body.items ?? [], total: body.total_count ?? 0 };
 }
 
+/**
+ * 按仓库全名精确补录（一次性修复用）。
+ *
+ * 检索有 1000 条硬上限，历史条目一旦被误剔，很难靠检索自然回流。
+ * CI 里通过 `workflow_dispatch` 的 rescue 输入把名单传进来，逐个取仓库详情后
+ * 交给同一条处理链路，跑完即恢复，不需要把数据写进仓库。
+ */
+export async function fetchReposByNames(names: string[], token: string): Promise<RawRecord[]> {
+  const out: RawRecord[] = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(8, names.length) }, async () => {
+    while (cursor < names.length) {
+      const fullName = names[cursor++]!;
+      try {
+        const res = await fetch(`https://api.github.com/repos/${fullName}`, {
+          headers: {
+            accept: "application/vnd.github+json",
+            authorization: `Bearer ${token}`,
+            "user-agent": "dsh-shelfry-collector",
+            "x-github-api-version": "2022-11-28",
+          },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) continue;
+        out.push(toRaw((await res.json()) as GhRepo));
+      } catch {
+        // 单个仓库失败不影响整体补录
+      }
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 /** 按多个检索词抓取，按 fullName 去重，并过滤掉话题检索混进来的无关仓库。 */
 export async function fetchGithubRecords(opts: GithubSearchOptions): Promise<RawRecord[]> {
   const queries = opts.queries ?? DEFAULT_QUERIES;

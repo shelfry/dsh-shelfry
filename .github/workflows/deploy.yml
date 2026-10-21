@@ -9,6 +9,11 @@ on:
     # 每天 UTC 18:17（北京 02:17）刷新收录数据
     - cron: "17 18 * * *"
   workflow_dispatch:
+    inputs:
+      rescue:
+        description: "一次性补录：逗号分隔的 owner/repo 列表（留空则正常收录）"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -53,6 +58,7 @@ jobs:
         # GH_SEARCH_TOKEN 未配置时自动降级到镜像种子源（收集器内置 --source auto 兜底）。
         env:
           GITHUB_TOKEN: ${{ secrets.GH_SEARCH_TOKEN || github.token }}
+          RESCUE_REPOS: ${{ inputs.rescue || '' }}
         run: npm run collect -- --source auto --limit ${{ env.COLLECT_LIMIT }} --build
 
       - name: 构建静态站

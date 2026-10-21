@@ -14,7 +14,7 @@ import {
 } from "./emit.ts";
 import { normalizeRecord, type RawRecord } from "./normalize.ts";
 import { fetchMirrorRecords } from "./sources/mirror.ts";
-import { fetchGithubRecords } from "./sources/github.ts";
+import { fetchGithubRecords, fetchReposByNames } from "./sources/github.ts";
 import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
@@ -112,8 +112,20 @@ async function main(): Promise<void> {
   const prev = loadCatalog();
   log(args.silent, `[collector] 已有条目 ${prev.entries.length} 条`);
 
-  const { records, sourceLabel, reason } = await loadRawRecords(args);
+  const { records, sourceLabel } = await loadRawRecords(args);
   log(args.silent, `[collector] 来源=${sourceLabel}，抓到原始记录 ${records.length} 条`);
+
+  // 一次性补录：CI 用 workflow_dispatch 的 rescue 输入传入仓库全名，逐条取详情后并入本轮。
+  const rescueNames = (process.env.RESCUE_REPOS ?? "")
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (rescueNames.length > 0) {
+    const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
+    const rescued = token ? await fetchReposByNames(rescueNames, token) : [];
+    log(args.silent, `[collector] 补录 ${rescueNames.length} 个仓库，成功取回 ${rescued.length} 条`);
+    records.push(...rescued);
+  }
 
   const prevById = new Map(prev.entries.map((e) => [e.id, e]));
   const incoming = [];
