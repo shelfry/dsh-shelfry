@@ -17,6 +17,7 @@ import { fetchMirrorRecords } from "./sources/mirror.ts";
 import { fetchGithubRecords } from "./sources/github.ts";
 import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
+import { clearBorrowedPackageInfo } from "./identity.ts";
 
 /**
  * 收录管道 CLI。
@@ -126,6 +127,10 @@ async function main(): Promise<void> {
     args.silent,
     `[collector] npm 周下载量命中 ${downloads.hits} 条（缓存回填 ${downloads.cached} 个包 / 实际查询 ${downloads.queried} 个包）`,
   );
+
+  // 清洗「借来的包名」：同一个包被多个仓库认领时，只给名字对得上的那条留版本/下载量
+  const borrowed = clearBorrowedPackageInfo(entries);
+  if (borrowed > 0) log(args.silent, `[collector] 清除 ${borrowed} 条借用的版本号/下载量`);
 
   const saved = saveCatalog(merged.catalog);
   log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${entries.length} 条`);
