@@ -14,5 +14,9 @@
   },
   "dependencies": {
     "@dsh-shelfry/schema": "*"
+  },
+  "scripts": {
+    "collect": "tsx src/index.ts",
+    "preview:evidence": "tsx src/preview-evidence.ts"
   }
 }

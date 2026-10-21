@@ -18,6 +18,7 @@ import { fetchGithubRecords } from "./sources/github.ts";
 import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
+import { resolveEvidence, writeDroppedList } from "./evidence.ts";
 
 /**
  * 收录管道 CLI。
@@ -128,34 +129,46 @@ async function main(): Promise<void> {
   const merged = mergeEntries(prev, incoming);
   const entries = merged.catalog.entries;
 
+  // 生态归属实证：名字/简介里看不出 DSH 的条目逐条取证据，三层全空才剔除。
+  // 放在版本号与下载量之前，避免给注定要删的条目白花几百次请求。
+  const verdict = await resolveEvidence(entries);
+  log(
+    args.silent,
+    `[collector] 生态判定：名称自带 ${verdict.result.named} 条 / 缓存命中 ${verdict.result.cached} 条 / 实测 ${verdict.result.probed} 条（保留 ${verdict.result.kept} 条，判无关 ${verdict.result.dropped} 条）`,
+  );
+  const dropIds = new Set(verdict.dropped.map((e) => e.id));
+  const active = dropIds.size > 0 ? entries.filter((e) => !dropIds.has(e.id)) : entries;
+  if (dropIds.size > 0) {
+    merged.catalog.entries = active;
+    const droppedFile = writeDroppedList(verdict.dropped);
+    log(args.silent, `[collector] 剔除 ${dropIds.size} 条非 DSH 条目，清单：${droppedFile}`);
+  }
+
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
-  const versionHits = await resolveVersions(entries);
+  const versionHits = await resolveVersions(active);
   log(args.silent, `[collector] 版本号命中 ${versionHits} 条`);
 
   // 下载量同样要在写产物之前补全 —— lite 切片要带 dl 字段。
-  const downloads = await resolveDownloads(entries);
+  const downloads = await resolveDownloads(active);
   log(
     args.silent,
     `[collector] npm 周下载量命中 ${downloads.hits} 条（缓存回填 ${downloads.cached} 个包 / 实际查询 ${downloads.queried} 个包）`,
   );
 
   // 清洗「借来的包名」：同一个包被多个仓库认领时，只给名字对得上的那条留版本/下载量
-  const borrowed = clearBorrowedPackageInfo(entries);
+  const borrowed = clearBorrowedPackageInfo(active);
   if (borrowed > 0) log(args.silent, `[collector] 清除 ${borrowed} 条借用的版本号/下载量`);
 
   const saved = saveCatalog(merged.catalog);
-  log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${entries.length} 条`);
+  log(args.silent, `[collector] 合并完成：新增 ${merged.added} / 覆盖 ${merged.updated} / 合计 ${active.length} 条`);
   log(args.silent, `[collector] store 已写入 ${saved}`);
 
-  const meta = buildMeta(entries, {
-    label: sourceLabel === "github" ? "github" : "mirror",
-    ...(reason ? { reason } : {}),
-  });
+  const meta = buildMeta(active);
   log(args.silent, `[collector] 条目 ${meta.total} 条，类型分布 ${JSON.stringify(meta.types)}`);
 
-  const { pages, lite } = writeLite(entries);
-  const shards = writeDetailShards(entries);
-  const index = writeIndexShards(entries);
+  const { pages, lite } = writeLite(active);
+  const shards = writeDetailShards(active);
+  const index = writeIndexShards(active);
   const artifacts: ArtifactIndex = {
     schemaVersion: SCHEMA_VERSION,
     generatedAt: meta.generatedAt,
