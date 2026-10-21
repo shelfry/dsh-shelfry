@@ -123,7 +123,18 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
   // 否则一次 GitHub 检索就会把镜像源已经解析好的安装命令和 skill 类型冲掉。
   const freshInstall = buildInstall(installRaw);
   const install = freshInstall.command ? freshInstall : (prev?.install ?? freshInstall);
-  const type = str(raw.type) ? toType(raw.type) : (prev?.type ?? "cordis-plugin");
+  // 类型同上。skill 的判据：上游显式标注、skills-add 安装方式、或话题里带 skill
+  // —— 上一轮被检索源覆盖成 cordis-plugin 的条目靠最后这条能自愈。
+  const tags = strArr(raw.tags);
+  const looksSkill =
+    install.method === "skills-add" ||
+    prev?.install.method === "skills-add" ||
+    tags.some((t) => /skill/i.test(t));
+  const type: PluginType = str(raw.type)
+    ? toType(raw.type)
+    : looksSkill
+      ? "skill"
+      : (prev?.type ?? "cordis-plugin");
 
   const entry: PluginEntry = {
     id,
@@ -133,7 +144,7 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
     stars: num(raw.stars),
     description: str(raw.description) ?? "",
     descriptionZh: str(raw.descriptionZh),
-    tags: strArr(raw.tags),
+    tags,
     curated: bool(raw.curated),
     homepage: str(raw.homepage),
     pushedAt: str(raw.pushedAt),
