@@ -53,7 +53,9 @@ const HEADERS = {
 
 const SKILL_CMD = /dsh\s+skill\s+add/i;
 const PLUGIN_CMD = /dsh\s+plugin\s+add/i;
-const LOOSE = /dsh[-_]plugin|dsh[-_]market|deepseek[-_ ]?harness|cordis/i;
+// 单独的 dsh 词也算（dsh_workflow、dsh-client-ui-custom 这类名字），
+// 少了这条会把自证生态的仓库当成模糊条目去探测，白白增加剔除误伤。
+const LOOSE = /(^|[^a-z0-9])dsh([^a-z0-9]|$)|dsh[-_]plugin|dsh[-_]market|deepseek[-_ ]?harness|cordis/i;
 
 /**
  * 从 README 里抓现成的安装规格。
