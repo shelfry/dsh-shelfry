@@ -51,14 +51,21 @@ let lastRequestAt = 0;
 /**
  * GitHub 的话题检索很脏：`topic:dsh-plugin` 首页就混着 35 万星的二进制分析工具、
  * nocobase、Wegent 这类拿话题刷曝光的大项目（实测 100 条里 13 条与 DSH 无关）。
- * 只靠话题判断会被它们带进来，所以只看仓库名与描述 —— 话题是刷出来的，名字和
- * 简介不容易撒谎。代价是漏掉少数「名字不带 dsh、简介也没提」的真插件，
- * 这类可以靠站内提交入口补录，比把 nocobase 当插件展示可接受得多。
+ * 只看仓库名与描述 —— 话题是刷出来的，名字和简介不容易撒谎。
+ *
+ * 但「名字/简介不提 dsh、只打了话题」的仓库里有一类必须捞：phi 这种独立 CLI，
+ * 把 DSH 集成当成附带能力，本体不是插件。它们交给证据阶段判定 ——
+ * README 有 DSH 证据才算插件，只有独立安装命令就归到「工具」，两者都没有则剔除。
  */
 const RELEVANT = /(^|[^a-z0-9])dsh([^a-z0-9]|$)|dsh[-_]?market|cordis|deepseek[-_ ]?harness/i;
 
+/** 这些话题视为「上游自己声明与 DSH 有关」，允许进入证据阶段复核。 */
+const RELATED_TOPIC = /^(dsh|dsh-plugin|dsh-plugins|dsh-skill|dsh-skills|dsh-theme|dsh-market|deepseek-harness|deepseek-plugin|cordis-plugin)$/i;
+
 export function isDshRelated(repo: GhRepo): boolean {
-  return RELEVANT.test(`${repo.full_name} ${repo.description ?? ""}`);
+  if (RELEVANT.test(`${repo.full_name} ${repo.description ?? ""}`)) return true;
+  const topics = [...(repo.topics ?? []), ...(repo.topic ? [repo.topic] : [])];
+  return topics.some((t) => RELATED_TOPIC.test(t));
 }
 
 export interface GithubSearchOptions {
