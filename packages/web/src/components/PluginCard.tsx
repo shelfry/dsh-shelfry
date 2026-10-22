@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
@@ -63,68 +63,86 @@ export function Avatar({ id }: { id: string }) {
   );
 }
 
-/**
- * 卡片上的「安装」按钮：点一下把安装命令复制走。
- *
- * 命令不在 lite 切片里（那会给全量浏览数据多背几百 KB），所以按需拉一次明细分片。
- * 异步取数会让浏览器丢掉「用户手势」，剪贴板可能被拒 —— 这时不跳走，
- * 改成在卡片里展开命令让用户手动复制。
- */
-function InstallButton({
-  id,
-  cmd,
-  onCmd,
-}: {
-  id: string;
-  cmd: string | null;
-  onCmd: (cmd: string | null) => void;
-}) {
-  const [state, setState] = useState<"idle" | "busy" | "copied" | "manual" | "repo">("idle");
+/** 同一时刻只允许一张卡片打开安装浮层。 */
+const SHEET_EVENT = "dsh-install-sheet";
 
-  const onClick = async () => {
-    if (state === "busy") return;
-    setState("busy");
-    try {
-      let command = cmd;
-      if (!command) {
+/**
+ * 卡片上的「安装」浮层。
+ *
+ * 命令不再塞进卡片流里 —— 那会把卡片撑高、连带同排其它卡片一起变形。
+ * 浮层绝对定位在卡片本体上，卡片尺寸保持原样；命令不在 lite 切片里，
+ * 打开时按需拉一次明细分片，拿到前先显示读取中。
+ */
+function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void }) {
+  const [cmd, setCmd] = useState<string | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "missing" | "copied" | "manual">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
         const artifacts = await loadArtifacts();
-        const entry = await loadEntryById(artifacts, id);
-        command = entry?.install.command ?? null;
-        if (command) onCmd(command);
+        const entry = await loadEntryById(artifacts, item.i);
+        if (cancelled) return;
+        const command = entry?.install.command ?? null;
+        setCmd(command);
+        setState(command ? "ready" : "missing");
+      } catch {
+        if (!cancelled) setState("missing");
       }
-      // 还没读到安装说明的仓库没有安装规格：复制仓库地址，比点了没反应有用
-      if (!command) {
-        if (await copyText(`https://github.com/${id}`)) {
-          setState("repo");
-          setTimeout(() => setState("idle"), 1600);
-        } else {
-          setState("manual");
-        }
-        return;
-      }
-      if (await copyText(command)) {
-        setState("copied");
-        setTimeout(() => setState("idle"), 1600);
-      } else {
-        setState("manual");
-      }
-    } catch {
-      setState("idle");
-    }
+    })();
+    return () => { cancelled = true; };
+  }, [item.i]);
+
+  // ESC 或点浮层之外的任何地方都关闭，避免浮层粘在卡片上挡住浏览
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (!el?.closest(".install-sheet")) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
+  }, [onClose]);
+
+  const copy = async () => {
+    if (!cmd) return;
+    const ok = await copyText(cmd);
+    setState(ok ? "copied" : "manual");
+    if (ok) setTimeout(() => setState("ready"), 1600);
   };
 
   return (
-    <button className="btn-install" onClick={onClick} title="复制安装命令">
-      {state === "copied"
-        ? "已复制"
-        : state === "busy"
-          ? "读取中"
-          : state === "manual"
-            ? "手动复制"
-            : state === "repo"
-              ? "已复制地址"
-              : "安装"}
-    </button>
+    <div className="install-sheet" onClick={(e) => e.stopPropagation()}>
+      <div className="install-sheet-head">
+        <span className="install-sheet-title">{item.n}</span>
+        <button className="install-sheet-close" onClick={onClose} aria-label="关闭">×</button>
+      </div>
+
+      {state === "loading" && <p className="hint">正在读取安装命令…</p>}
+      {state === "missing" && (
+        <p className="hint">上游没写安装命令，请按仓库 README 手动安装，或去 GitHub 查看。</p>
+      )}
+      {cmd && (
+        <>
+          <div className="code">
+            <code>{cmd}</code>
+            <button onClick={copy}>{state === "copied" ? "已复制" : "复制"}</button>
+          </div>
+          <p className="hint">
+            {state === "manual"
+              ? "浏览器拒绝了剪贴板写入，请手动选中命令复制。"
+              : <>把 <code>&lt;profile&gt;</code> 换成 profile 名（如 web）；桌面版请在 DSH App 里添加。</>}
+          </p>
+        </>
+      )}
+
+      <Link className="install-sheet-more" to={detailPath(item.i)}>查看详情 →</Link>
+    </div>
   );
 }
 
@@ -132,8 +150,25 @@ function InstallButton({
 const MAX_TAGS = 2;
 
 export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
-  const [cmd, setCmd] = useState<string | null>(null);
+  const [installOpen, setInstallOpen] = useState(false);
   const version = versionLabel(item.vr);
+
+  // 别的卡片打开浮层时，这一张自动收起
+  useEffect(() => {
+    const onOther = (ev: Event) => {
+      if ((ev as CustomEvent<string>).detail !== item.i) setInstallOpen(false);
+    };
+    window.addEventListener(SHEET_EVENT, onOther);
+    return () => window.removeEventListener(SHEET_EVENT, onOther);
+  }, [item.i]);
+
+  const toggleInstall = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !installOpen;
+    setInstallOpen(next);
+    if (next) window.dispatchEvent(new CustomEvent(SHEET_EVENT, { detail: item.i }));
+  };
+
   // 与详情页同一套标签口径：先去噪声标签，再挑一个分类固定到右下角。
   const tags = meaningfulTags(item.tg);
   const category = tags.find((t) => categories.has(t)) ?? null;
@@ -151,7 +186,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
           {item.t === "skill" && <span className="pill pill-type">skill</span>}
           {item.c === 1 && <span className="pill pill-curated">精选</span>}
         </div>
-        <InstallButton id={item.i} cmd={cmd} onCmd={setCmd} />
+        <button className="btn-install" onClick={toggleInstall} title="查看安装命令">安装</button>
       </div>
 
       <div className="card-path">
@@ -167,13 +202,6 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
       </div>
 
       <p className="card-desc">{item.d || "（上游未提供简介）"}</p>
-
-      {/* 点安装后展开的命令贴着简介，比压在指标行下面更容易被注意到 */}
-      {cmd && (
-        <div className="card-cmd" onClick={(e) => e.stopPropagation()}>
-          <code>{cmd}</code>
-        </div>
-      )}
 
       {/* 三项硬指标固定一行：星数、npm 周下载量、综合分，空值也占位，保证卡片等高 */}
       <div className="card-stats">
@@ -193,6 +221,8 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
         </div>
         {category && <span className="tag tag-cat" title="分类">{categoryLabel(category)}</span>}
       </div>
+
+      {installOpen && <InstallSheet item={item} onClose={() => setInstallOpen(false)} />}
     </article>
   );
 }
