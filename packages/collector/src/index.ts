@@ -78,7 +78,9 @@ const DESKTOP_TOPIC = /desktop-app|electron-app|tauri-app|desktop-client|desktop
 const PLUGIN_ENHANCER = /widget|pet|theme|skin|statusbar|status|extension|vscode|restart|notice|glass|context|shell/i;
 
 function looksLikeDesktopClient(e: PluginEntry): boolean {
-  if (e.install.command) return false;
+  // DSH 插件有安装命令就说明能装进 profile；独立工具即使有安装命令，
+  // 只要它本身是桌面客户端（名字以 desktop 结尾 + 客户端口径）也要剔除。
+  if (e.install.command && e.ecosystem !== "external") return false;
   const repo = e.id.split("/")[1] ?? e.id;
   if (!/(^|[-_])desktop$/i.test(repo)) return false;
   if (PLUGIN_ENHANCER.test(repo)) return false;
@@ -173,7 +175,7 @@ async function main(): Promise<void> {
   const verdict = await resolveEvidence(entries);
   log(
     args.silent,
-    `[collector] 生态判定：名称自带 ${verdict.result.named} 条 / 缓存命中 ${verdict.result.cached} 条 / 实测 ${verdict.result.probed} 条（保留 ${verdict.result.kept} 条，判无关 ${verdict.result.dropped} 条）`,
+    `[collector] 生态判定：名称自带 ${verdict.result.named} 条 / 缓存命中 ${verdict.result.cached} 条 / 实测 ${verdict.result.probed} 条（保留 ${verdict.result.kept} 条，其中独立工具 ${verdict.result.external} 条，判无关 ${verdict.result.dropped} 条）`,
   );
   const dropIds = new Set(verdict.dropped.map((e) => e.id));
   let active = dropIds.size > 0 ? entries.filter((e) => !dropIds.has(e.id)) : entries;
@@ -255,7 +257,10 @@ async function main(): Promise<void> {
   log(args.silent, `[collector] store 已写入 ${saved}`);
 
   const meta = buildMeta(active);
-  log(args.silent, `[collector] 条目 ${meta.total} 条，类型分布 ${JSON.stringify(meta.types)}`);
+  log(
+    args.silent,
+    `[collector] 条目 ${meta.total} 条（插件 ${meta.total - (meta.external ?? 0)} / 工具 ${meta.external ?? 0}），类型分布 ${JSON.stringify(meta.types)}`,
+  );
 
   const { pages, lite } = writeLite(active);
   const shards = writeDetailShards(active);
@@ -270,11 +275,11 @@ async function main(): Promise<void> {
   };
   const artifactFile = writeArtifactIndex(artifacts);
   const metaFile = writeMeta(meta);
-  const categoryFile = writeCategories(entries);
+  const categoryFiles = writeCategories(entries);
   const idMapFile = writeIdMap(entries);
   log(args.silent, `[collector] 产物：lite=${lite.length} 条 / 分页 ${pages.count} 页 / 明细 ${shards.length} 片 / 索引 ${index.shards.length} 片`);
   log(args.silent, `[collector] 清单：${artifactFile}  元信息：${metaFile}`);
-  log(args.silent, `[collector] 分类：${categoryFile}  反查表：${idMapFile}`);
+  log(args.silent, `[collector] 分类：${categoryFiles.join(" / ")}  反查表：${idMapFile}`);
   log(args.silent, `[collector] store 路径：${catalogPath()}`);
 
   if (args.sync) {

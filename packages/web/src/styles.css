@@ -59,6 +59,26 @@ a { color: inherit; text-decoration: none; }
 .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12); }
 .search-box .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 15px; }
 
+/* 搜索框右侧的范围切换：插件 / 工具。用分段控件而不是导航项，
+   这样「看什么」和「找什么」在同一处，切换后列表与筛选整体跟着走。 */
+.search-row { display: flex; align-items: stretch; gap: 10px; }
+.search-row .search-box { flex: 1; min-width: 0; }
+.scope-switch {
+  display: inline-flex; gap: 2px; padding: 4px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface-2); box-shadow: var(--shadow-sm);
+}
+.scope-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 14px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--text-dim); font-size: 13.5px; font-weight: 500; cursor: pointer;
+  white-space: nowrap; transition: all 0.12s ease;
+}
+.scope-btn:hover { color: var(--text); }
+.scope-btn[aria-selected="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-sm); }
+.scope-count { font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.scope-btn[aria-selected="true"] .scope-count { color: var(--accent); }
+
 /* ---------- filters ---------- */
 .filters { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-lg); padding: 14px 16px; box-shadow: var(--shadow-sm); }
 .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -265,6 +285,8 @@ a { color: inherit; text-decoration: none; }
 .pill-curated { color: #8a5a00; background: #fdf3e0; }
 .pill-compat { color: var(--text-dim); background: var(--surface-2); font-family: var(--mono); font-size: 11px; }
 .pill-soft { color: var(--text-dim); background: var(--surface-2); }
+/* 工具角标：和「精选」区分开，用站点主色而不是警告色 */
+.pill-tool { color: var(--accent); background: var(--accent-soft); }
 
 .load-more {
   margin: 22px 0 56px; padding: 12px; width: 100%;
@@ -517,6 +539,9 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 640px) {
   .hero { padding: 28px 0 18px; }
   .hero h1 { font-size: 22px; }
+  /* 手机宽度放不下一行搜索框 + 分段控件，改为上下排；两个选项各占一半 */
+  .search-row { flex-direction: column; }
+  .scope-btn { flex: 1; height: 38px; }
   /* 1fr 的最小值等于 min-content，长词会把卡片撑出屏幕 ⇒ 显式给 0 下限 */
   .grid { grid-template-columns: minmax(0, 1fr); }
   .grid-similar { grid-template-columns: minmax(0, 1fr); }

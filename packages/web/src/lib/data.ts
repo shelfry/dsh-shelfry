@@ -37,6 +37,9 @@ export interface Category {
   /** 条目数 */ n: number;
 }
 
+/** 首页的两个浏览范围：DSH 插件 / 非 DSH 独立工具。 */
+export type CatalogScope = "plugins" | "tools";
+
 const artifactsCache = { v: null as ArtifactIndex | null };
 export const loadArtifacts = async (): Promise<ArtifactIndex> => {
   if (!artifactsCache.v) artifactsCache.v = await getJson<ArtifactIndex>("artifacts.json");
@@ -49,8 +52,25 @@ export const loadMeta = async (): Promise<CatalogMeta> => {
   return metaCache.v;
 };
 
-export const loadCategories = () => getJson<Category[]>("categories.json");
+const categoryCache = new Map<CatalogScope, Category[]>();
+/** 分类清单按范围分成两份：插件与工具的标签规模差太多，不能共用一张表。 */
+export const loadCategories = (scope: CatalogScope = "plugins"): Promise<Category[]> => {
+  const cached = categoryCache.get(scope);
+  if (cached) return Promise.resolve(cached);
+  const file = scope === "tools" ? "categories-tools.json" : "categories.json";
+  return getJson<Category[]>(file).then((rows) => {
+    categoryCache.set(scope, rows);
+    return rows;
+  });
+};
 export const loadPage = (page: number) => getJson<LiteEntry[]>(`pages/${String(page).padStart(4, "0")}.json`);
+
+/** lite 切片里 external 用短键 ec 标记；缺失即 DSH 插件。 */
+export const isExternal = (e: LiteEntry): boolean => e.ec === "external";
+export const scopeCount = (meta: CatalogMeta | null, scope: CatalogScope): number => {
+  if (!meta) return 0;
+  return scope === "tools" ? meta.external ?? 0 : meta.total - (meta.external ?? 0);
+};
 
 let liteCache: LiteEntry[] | null = null;
 /** 全量浏览切片（搜索与筛选时需要，首次使用时加载并缓存）。 */

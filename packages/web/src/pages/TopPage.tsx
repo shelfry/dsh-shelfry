@@ -41,7 +41,8 @@ export default function TopPage() {
 
   const rows = useMemo(() => {
     if (!lite) return [];
-    const list = [...lite];
+    // 榜单只排 DSH 插件：独立工具不是插件，混进来会把整个榜的语义打乱
+    const list = lite.filter((v) => v.ec !== "external");
     if (tab === "stars") list.sort((a, b) => b.s - a.s || b.sc - a.sc);
     else if (tab === "recent") list.sort((a, b) => (b.p ?? "").localeCompare(a.p ?? "") || b.s - a.s);
     else list.sort((a, b) => b.sc - a.sc || b.s - a.s);
@@ -66,7 +67,7 @@ export default function TopPage() {
               {t.label}
             </button>
           ))}
-          {meta && <span className="filter-label" style={{ marginLeft: "auto" }}>收录 {meta.total} 个 · 展示前 {TOP_N}</span>}
+          {meta && <span className="filter-label" style={{ marginLeft: "auto" }}>收录 {meta.total - (meta.external ?? 0)} 个插件 · 展示前 {TOP_N}</span>}
         </div>
         <p className="hint" style={{ marginTop: 10 }}>{TABS.find((t) => t.key === tab)?.hint}</p>
       </section>

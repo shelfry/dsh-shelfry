@@ -165,7 +165,9 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
               ? "浏览器拒绝了剪贴板写入，请手动选中命令复制。"
               : method === "native"
                 ? "上游自带的安装器：会先给出安装计划，确认后再写入配置。"
-                : <><code>web</code> / <code>tui</code> 是 DSH 自带 profile，首次使用自动创建。</>}
+                : method === "standalone"
+                  ? "非 DSH 独立工具：命令来自上游 README，安装后按仓库说明使用，不走插件 profile。"
+                  : <><code>web</code> / <code>tui</code> 是 DSH 自带 profile，首次使用自动创建。</>}
           </p>
         </>
       )}
@@ -212,6 +214,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
         <div className="card-title">
           {/* 链接::after 铺满整张卡片 ⇒ 卡片任意处可点，按钮靠 z-index 浮在上面 */}
           <Link className="card-name" to={detailPath(item.i)}>{item.n}</Link>
+          {item.ec === "external" && <span className="pill pill-tool">工具</span>}
           {item.t === "skill" && <span className="pill pill-type">skill</span>}
           {item.c === 1 && <span className="pill pill-curated">精选</span>}
         </div>

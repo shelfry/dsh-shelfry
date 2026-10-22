@@ -11,8 +11,15 @@
 /** 插件形态。cordis-plugin 走 pnpm-profile 安装，skill 走 skills-add。 */
 export type PluginType = "cordis-plugin" | "skill" | "unknown";
 
-/** 安装方式。cordis-plugin 走 pnpm-profile 装，skill 走 skills-add，上游自带安装器走 native。 */
-export type InstallMethod = "pnpm-profile" | "skills-add" | "native" | "manual" | "unknown";
+/**
+ * 条目所属生态。
+ * dsh=加载进 DSH profile 的插件 / skill；
+ * external=有独立安装命令、但不经 DSH 加载的工具（brew / curl / go install 等）。
+ */
+export type Ecosystem = "dsh" | "external";
+
+/** 安装方式。cordis-plugin 走 pnpm-profile 装，skill 走 skills-add，上游自带安装器走 native，独立工具走 standalone。 */
+export type InstallMethod = "pnpm-profile" | "skills-add" | "native" | "standalone" | "manual" | "unknown";
 
 export interface InstallSpec {
   method: InstallMethod;
@@ -42,6 +49,8 @@ export interface PluginEntry {
   id: string;
   name: string;
   fullName: string;
+  /** 生态归属：DSH 插件 / 独立工具。 */
+  ecosystem: Ecosystem;
   type: PluginType;
   stars: number;
   description: string;
@@ -79,13 +88,17 @@ export interface LiteEntry {
   /** npm 近一周下载量 */ dl: number | null;
   /** tags */ tg: string[];
   /** descriptionZh ?? description */ d: string;
+  /** external=独立工具；DSH 条目省略该字段以压体积 */
+  ec?: "external";
 }
 
 export interface CatalogMeta {
   schemaVersion: number;
   generatedAt: string;
-  /** 条目总数。 */
+  /** 条目总数（插件 + 工具）。 */
   total: number;
+  /** 非 DSH 独立工具数；插件数 = total - external。 */
+  external?: number;
   /** 每种类型的条目数（首页筛选直接用它显示规模）。 */
   types: Record<string, number>;
   /** 数据来源清单。 */
@@ -111,7 +124,7 @@ export interface ArtifactIndex {
   intents: string | null;
 }
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * 倒排索引分片数：固定 128 片，token 按哈希落片。
@@ -175,6 +188,7 @@ export function validateEntry(input: unknown): string[] {
   req("fullName", "string");
   req("type", "string");
   req("description", "string");
+  if (e.ecosystem !== "dsh" && e.ecosystem !== "external") errs.push("ecosystem 应为 dsh | external");
   if (!Array.isArray(e.tags)) errs.push("tags 应为数组");
   if (typeof e.score !== "object" || e.score === null) errs.push("score 缺失");
   else {
@@ -198,5 +212,6 @@ export function toLiteEntry(e: PluginEntry): LiteEntry {
     dl: e.downloads,
     tg: e.tags,
     d: e.descriptionZh ?? e.description,
+    ...(e.ecosystem === "external" ? { ec: "external" as const } : {}),
   };
 }

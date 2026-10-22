@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { PluginEntry } from "@dsh-shelfry/schema";
 import { DATA_DIR } from "./config.ts";
+import { scoreEntry } from "./score.ts";
+import { findStandaloneCommand, type StandaloneHit } from "./standalone.ts";
 
 /**
  * 生态归属的实证判定。
@@ -20,12 +22,18 @@ import { DATA_DIR } from "./config.ts";
 export type EvidenceKind = "skill" | "plugin";
 
 /** 判定规则版本：规则改动后旧缓存一律重探，避免错误结论被缓存固化。 */
-const RULE_VERSION = 2;
+const RULE_VERSION = 3;
 
 export interface Evidence {
-  /** keep=生态内，drop=判定无关 */
+  /** keep=生态内（含独立工具），drop=判定无关 */
   v: "keep" | "drop";
   kind: EvidenceKind | null;
+  /** external=非 DSH 独立工具：README 写明了自带的安装命令 */
+  eco?: "external";
+  /** 独立工具的安装命令 */
+  cmd?: string;
+  /** 独立工具的 npm 包名（仅 npm 全局安装时有值） */
+  pkg?: string | null;
   /** README 里现成的安装规格（如 @tt-a1i/archify-dsh@1.0.0），没有则为空 */
   spec?: string | null;
   /** 命中的证据短标记，用于抽查 */
@@ -121,19 +129,27 @@ export async function fetchGithubText(url: string): Promise<string | null> {
 async function probeReadme(
   owner: string,
   repo: string,
-): Promise<{ kind: EvidenceKind | null; hit: string | null; spec: string | null }> {
+): Promise<{
+  kind: EvidenceKind | null;
+  hit: string | null;
+  spec: string | null;
+  standalone: StandaloneHit | null;
+}> {
+  let standalone: StandaloneHit | null = null;
   for (const name of README_NAMES) {
     const body = await fetchGithubText(`${RAW}/${owner}/${repo}/HEAD/${name}`);
     if (!body) continue;
     const skill = body.match(SKILL_SPEC);
-    if (skill?.[1]) return { kind: "skill", hit: `${name}:skill-add`, spec: skill[1] };
-    if (SKILL_CMD.test(body)) return { kind: "skill", hit: `${name}:skill-add`, spec: null };
+    if (skill?.[1]) return { kind: "skill", hit: `${name}:skill-add`, spec: skill[1], standalone: null };
+    if (SKILL_CMD.test(body)) return { kind: "skill", hit: `${name}:skill-add`, spec: null, standalone: null };
     const plugin = body.match(PLUGIN_SPEC);
-    if (plugin?.[1]) return { kind: "plugin", hit: `${name}:plugin-add`, spec: plugin[1] };
-    if (PLUGIN_CMD.test(body)) return { kind: "plugin", hit: `${name}:plugin-add`, spec: null };
-    if (LOOSE.test(body)) return { kind: null, hit: `${name}:mention`, spec: null };
+    if (plugin?.[1]) return { kind: "plugin", hit: `${name}:plugin-add`, spec: plugin[1], standalone: null };
+    if (PLUGIN_CMD.test(body)) return { kind: "plugin", hit: `${name}:plugin-add`, spec: null, standalone: null };
+    if (LOOSE.test(body)) return { kind: null, hit: `${name}:mention`, spec: null, standalone: null };
+    // 先记下 README 里的独立安装命令：三层证据都落空时靠它把仓库收进「工具」
+    if (!standalone) standalone = findStandaloneCommand(body, `${owner}/${repo}`);
   }
-  return { kind: null, hit: null, spec: null };
+  return { kind: null, hit: null, spec: null, standalone };
 }
 
 /** 第 2 层：package.json 的依赖与关键词。 */
@@ -223,6 +239,21 @@ export async function probeRepo(owner: string, repo: string): Promise<Evidence> 
     kind = tree.kind;
   }
 
+  // 三层 DSH 证据全空，但 README 写明了独立安装方式：收进来，归到「工具」。
+  if (found.length === 0 && readme.standalone) {
+    return {
+      v: "keep",
+      kind: null,
+      eco: "external",
+      cmd: readme.standalone.command,
+      pkg: readme.standalone.pkg,
+      spec: null,
+      e: ["readme:standalone"],
+      t: new Date().toISOString().slice(0, 10),
+      r: RULE_VERSION,
+    };
+  }
+
   return {
     v: found.length > 0 ? "keep" : "drop",
     kind,
@@ -243,6 +274,8 @@ export interface EvidenceResult {
   /** 实证保留 / 判无关 */
   kept: number;
   dropped: number;
+  /** 其中判为独立工具的数量 */
+  external: number;
 }
 
 /**
@@ -250,7 +283,40 @@ export interface EvidenceResult {
  * 只在证据明确时改 —— 名称含 dsh 但证据只有「提及」的条目，类型与规格都保持原样。
  */
 function applyEvidence(e: PluginEntry, ev: Evidence): void {
-  if (ev.v !== "keep" || !ev.kind) return;
+  if (ev.v !== "keep") return;
+
+  // 独立工具：有安装命令、但不经 DSH 加载。类型没有插件含义，统一按 unknown 处理，
+  // 评分重算一次 —— 命令是判定后才补上的，不重算便捷度会虚低。
+  if (ev.eco === "external" && ev.cmd) {
+    e.ecosystem = "external";
+    e.type = "unknown";
+    e.install.method = "standalone";
+    e.install.command = ev.cmd;
+    e.install.packageName = ev.pkg ?? null;
+    e.install.needsConfig = false;
+    // 管道执行远端脚本属于较重安装，标出来让用户先看清楚
+    e.install.risky = /\b(curl|wget|irm|iwr)\b/i.test(ev.cmd);
+    // 非 npm 分发没有可靠的版本来源：上一轮按仓库名猜出来的版本/下载量要清掉，
+    // 否则会出现「npm 包名：无」却挂着别人家版本号的自相矛盾。
+    if (!ev.pkg) {
+      e.version = null;
+      e.downloads = null;
+    }
+    e.score = scoreEntry(e, Date.now());
+    return;
+  }
+
+  // 走回 DSH 生态（曾被误判成工具的条目在这里纠正）：
+  // 先把上一轮的独立工具命令清掉，避免 DSH 条目挂着一条与 profile 无关的命令。
+  e.ecosystem = "dsh";
+  if (e.install.method === "standalone") {
+    e.install.method = "unknown";
+    e.install.command = null;
+    e.install.packageName = null;
+    e.install.needsConfig = false;
+    e.install.risky = false;
+  }
+  if (!ev.kind) return;
   e.type = ev.kind === "skill" ? "skill" : "cordis-plugin";
   if (ev.kind === "skill") {
     // 不存在 `dsh skill add`（dsh 会把 skill 当成 profile 名报错），
@@ -277,7 +343,7 @@ export async function resolveEvidence(
   opts: ProbeOptions = {},
 ): Promise<{ result: EvidenceResult; dropped: PluginEntry[] }> {
   const cache = loadCache();
-  const result: EvidenceResult = { named: 0, cached: 0, probed: 0, kept: 0, dropped: 0 };
+  const result: EvidenceResult = { named: 0, cached: 0, probed: 0, kept: 0, dropped: 0, external: 0 };
   const pending: PluginEntry[] = [];
 
   for (const e of entries) {
@@ -291,7 +357,10 @@ export async function resolveEvidence(
     if (hit && isFresh(hit)) {
       result.cached++;
       if (hit.v === "drop") result.dropped++;
-      else result.kept++;
+      else {
+        result.kept++;
+        if (hit.eco === "external") result.external++;
+      }
       applyEvidence(e, hit);
       continue;
     }
@@ -312,6 +381,7 @@ export async function resolveEvidence(
       if (evidence.v === "drop") result.dropped++;
       else {
         result.kept++;
+        if (evidence.eco === "external") result.external++;
         applyEvidence(e, evidence);
       }
     }

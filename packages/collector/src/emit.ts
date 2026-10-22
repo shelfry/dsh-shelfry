@@ -31,14 +31,17 @@ export function buildMeta(
 ): CatalogMeta {
   const types: Record<string, number> = {};
   const sources = new Set<string>();
+  let external = 0;
   for (const e of entries) {
     types[e.type] = (types[e.type] ?? 0) + 1;
+    if (e.ecosystem === "external") external++;
     for (const s of e.sources) sources.add(s);
   }
   return {
     schemaVersion: SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     total: entries.length,
+    external,
     types,
     sources: [...sources].sort(),
     ...(collectSource ? { collectSource } : {}),
@@ -161,8 +164,10 @@ const CATEGORY_STOP = new Set([
 
 const CATEGORY_MIN_COUNT = 20;
 const CATEGORY_MAX = 48;
+/** 工具数量远小于插件，阈值不能照搬，否则工具页永远没有分类。 */
+const TOOL_CATEGORY_MAX = 24;
 
-export function writeCategories(entries: PluginEntry[]): string {
+function writeCategoryFile(entries: PluginEntry[], name: string, minCount: number, max: number): string {
   const tally = new Map<string, number>();
   for (const e of entries) {
     for (const t of e.tags) {
@@ -172,14 +177,26 @@ export function writeCategories(entries: PluginEntry[]): string {
     }
   }
   const list = [...tally.entries()]
-    .filter(([, n]) => n >= CATEGORY_MIN_COUNT)
+    .filter(([, n]) => n >= minCount)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, CATEGORY_MAX)
+    .slice(0, max)
     .map(([t, n]) => ({ t, n }));
 
-  const file = resolve(DATA_DIR, "categories.json");
+  const file = resolve(DATA_DIR, name);
   writeJson(file, list);
   return file;
+}
+
+/**
+ * 分类清单按生态分成两份：插件页与工具页各自的标签规模完全不在一个量级，
+ * 混在一张表里工具分类会被插件分类挤掉。
+ */
+export function writeCategories(entries: PluginEntry[]): string[] {
+  return [
+    writeCategoryFile(entries.filter((e) => e.ecosystem !== "external"), "categories.json", CATEGORY_MIN_COUNT, CATEGORY_MAX),
+    // 工具页条目少，单个标签也算分类会铺满两行无意义的 chips，至少要有两条才成类
+    writeCategoryFile(entries.filter((e) => e.ecosystem === "external"), "categories-tools.json", 2, TOOL_CATEGORY_MAX),
+  ];
 }
 
 /**

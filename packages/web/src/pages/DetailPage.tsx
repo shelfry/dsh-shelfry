@@ -82,18 +82,21 @@ export default function DetailPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [lite, cats] = await Promise.all([loadLite(), loadCategories()]);
+        const tool = entry.ecosystem === "external";
+        const [lite, cats] = await Promise.all([loadLite(), loadCategories(tool ? "tools" : "plugins")]);
         if (cancelled) return;
         setCategories(cats);
         const owner = entry.fullName.split("/")[0]!.toLowerCase();
+        // 推荐不跨范围：工具页不推 DSH 插件，插件页也不推独立工具
+        const sameScope = lite.filter((v) => (v.ec === "external") === tool);
         setByAuthor(
-          lite
+          sameScope
             .filter((v) => v.i !== entry.id && v.i.split("/")[0]!.toLowerCase() === owner)
             .sort((a, b) => b.s - a.s)
             .slice(0, 4),
         );
         const myTags = new Set(meaningfulTags(entry.tags).map((t) => t.toLowerCase()));
-        const picked = lite
+        const picked = sameScope
           .filter((v) => v.i !== entry.id)
           .map((v) => ({
             v,
@@ -142,7 +145,7 @@ export default function DetailPage() {
   };
 
   if (state === "loading") {
-    return <main className="wrap detail"><div className="empty">正在加载插件信息…</div></main>;
+    return <main className="wrap detail"><div className="empty">正在加载条目信息…</div></main>;
   }
   if (state === "missing" || state === "error") {
     return (
@@ -158,16 +161,21 @@ export default function DetailPage() {
 
   const repoUrl = entry.homepage ?? `https://github.com/${entry.fullName}`;
   const version = versionLabel(entry.version);
+  // 非 DSH 独立工具：不加载进 profile，详情页要把与之无关的行和文案去掉
+  const isTool = entry.ecosystem === "external";
+  const backToList = isTool ? "/?scope=tools" : "/";
   const methodLabel =
     entry.install.method === "pnpm-profile"
       ? "CLI 装入 profile（pnpm）"
-      : entry.install.method === "native"
-        ? "上游自带安装器"
-        : entry.install.method === "skills-add"
-          ? "随 skill provider 提供"
-          : entry.install.method === "manual"
-            ? "按 README 手动安装"
-            : "未知";
+      : entry.install.method === "standalone"
+        ? "独立工具，按上游 README 安装"
+        : entry.install.method === "native"
+          ? "上游自带安装器"
+          : entry.install.method === "skills-add"
+            ? "随 skill provider 提供"
+            : entry.install.method === "manual"
+              ? "按 README 手动安装"
+              : "未知";
   // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
   const detailTags = meaningfulTags(entry.tags);
   const dims = [
@@ -179,11 +187,12 @@ export default function DetailPage() {
 
   return (
     <main className="wrap detail">
-      <Link className="back-link" to="/">← 返回全部插件</Link>
+      <Link className="back-link" to={backToList}>← 返回全部{isTool ? "工具" : "插件"}</Link>
 
       <header className="detail-head">
         <div className="detail-title">
           <h1>{entry.name}</h1>
+          {isTool && <span className="pill pill-tool">工具</span>}
           {entry.type === "skill" && <span className="pill pill-type">skill</span>}
           {entry.curated && <span className="pill pill-curated">精选</span>}
         </div>
@@ -215,7 +224,12 @@ export default function DetailPage() {
       </section>
 
       <section className="panel">
-        <h2>安装</h2>
+        <h2>{isTool ? "安装（独立工具）" : "安装"}</h2>
+        {isTool && (
+          <p className="hint" style={{ marginTop: 0 }}>
+            这是非 DSH 独立工具，命令摘自上游 README，装在本机直接使用，不经过插件 profile。
+          </p>
+        )}
         {/* 命令行与桌面版分开写：desktop profile 由 App 独占，把两者混成一段最容易误导 */}
         <div className="install-rows">
           <div className="install-row">
@@ -232,7 +246,11 @@ export default function DetailPage() {
                     <code>{command}</code>
                     <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
                   </div>
-                  {entry.install.method === "native" ? (
+                  {entry.install.method === "standalone" ? (
+                    <p className="hint">
+                      命令来自上游 README 的快速开始，直接执行即可；安装后的用法以仓库说明为准。
+                    </p>
+                  ) : entry.install.method === "native" ? (
                     <p className="hint">
                       这是上游自带的安装器：会先给出安装计划，确认后再写入配置；装完请按 README 验证是否连上。
                     </p>
@@ -256,7 +274,7 @@ export default function DetailPage() {
             </div>
           </div>
 
-          <div className="install-row">
+          {!isTool && <div className="install-row">
             <span className="install-row-k">桌面版</span>
             <p className="install-row-note">
               {entry.install.method === "native"
@@ -267,24 +285,31 @@ export default function DetailPage() {
                     ? <>桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加 <code>{entry.install.packageName}</code>。</>
                     : "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加该插件。"}
             </p>
-          </div>
+          </div>}
         </div>
 
         <dl className="kv">
           <dt>安装方式</dt><dd>{methodLabel}</dd>
-          <dt>npm 包名</dt>
-          <dd>
-            {entry.install.packageName ? (
-              <span className="kv-copy">
-                <code>{entry.install.packageName}</code>
-                <button className="btn-copy-sm" onClick={copyPkg}>{copiedPkg ? "已复制" : "复制"}</button>
-              </span>
-            ) : "无（非 npm 分发）"}
-          </dd>
-          <dt>插件版本</dt><dd>{entry.version ?? "未在 npm 发布"}</dd>
-          <dt>周下载量</dt><dd>{entry.downloads !== null ? `${entry.downloads.toLocaleString("en-US")} 次` : "未在 npm 统计"}</dd>
-          <dt>兼容范围</dt><dd>{entry.install.enginesDsh ?? "上游未声明"}</dd>
-          <dt>需要配置</dt><dd>{entry.install.needsConfig ? "是" : "否"}</dd>
+          {/* 工具多数不走 npm（curl / brew / go install），没有包名就不摆这些空行 */}
+          {(!isTool || entry.install.packageName) && (
+            <>
+              <dt>npm 包名</dt>
+              <dd>
+                {entry.install.packageName ? (
+                  <span className="kv-copy">
+                    <code>{entry.install.packageName}</code>
+                    <button className="btn-copy-sm" onClick={copyPkg}>{copiedPkg ? "已复制" : "复制"}</button>
+                  </span>
+                ) : "无（非 npm 分发）"}
+              </dd>
+              <dt>{isTool ? "版本" : "插件版本"}</dt>
+              <dd>{entry.version ?? "未在 npm 发布"}</dd>
+              <dt>周下载量</dt>
+              <dd>{entry.downloads !== null ? `${entry.downloads.toLocaleString("en-US")} 次` : "未在 npm 统计"}</dd>
+            </>
+          )}
+          {!isTool && <><dt>兼容范围</dt><dd>{entry.install.enginesDsh ?? "上游未声明"}</dd>
+            <dt>需要配置</dt><dd>{entry.install.needsConfig ? "是" : "否"}</dd></>}
           {entry.install.risky && <><dt>注意</dt><dd>安装路径较重或需额外授权</dd></>}
         </dl>
       </section>
@@ -313,7 +338,7 @@ export default function DetailPage() {
 
       {byAuthor.length > 0 && (
         <section className="panel">
-          <h2>同作者的其他插件</h2>
+          <h2>同作者的其他{isTool ? "工具" : "插件"}</h2>
           <div className="grid grid-similar">
             {byAuthor.map((v) => (
               <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
@@ -340,7 +365,7 @@ export default function DetailPage() {
 
       {similar.length > 0 && (
         <section className="panel">
-          <h2>相似插件</h2>
+          <h2>相似{isTool ? "工具" : "插件"}</h2>
           <div className="grid grid-similar">
             {similar.map((v) => (
               <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />

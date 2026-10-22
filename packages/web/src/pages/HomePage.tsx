@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginType } from "@dsh-shelfry/schema";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PluginCard } from "../components/PluginCard";
 import {
+  isExternal,
   loadArtifacts,
   loadCategories,
   loadLite,
   loadMeta,
   loadPage,
+  scopeCount,
   siteConfig,
+  type CatalogScope,
   type Category,
 } from "../lib/data";
 import { createSearcher, rankHits, sortItems, type SearchHit, type SortKey } from "../lib/search";
@@ -23,6 +26,14 @@ import { categoryLabel } from "../lib/labels";
  */
 
 const PAGE_STEP = 60;
+
+/**
+ * 首页范围切换：插件（默认）与工具分开浏览。
+ *
+ * 工具是「有独立安装命令、但不经 DSH profile 加载」的非 DSH 项目，
+ * 数量远少于插件，所以切换后按全量切片在客户端过滤，而不是单独产物。
+ */
+const SCOPE_LABEL: Record<CatalogScope, string> = { plugins: "插件", tools: "工具" };
 
 type TypeFilter = "all" | "cordis-plugin" | "skill" | "unknown";
 type StarsFilter = "all" | "10" | "100" | "500" | "1000";
@@ -56,6 +67,16 @@ const SORT_ORDER: SortKey[] = ["score", "stars", "recent"];
 const needStars = (v: StarsFilter): number => (v === "all" ? 0 : Number(v));
 
 export default function HomePage() {
+  // 范围写进 URL（#/?scope=tools），刷新与分享都能回到同一视图
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scope: CatalogScope = searchParams.get("scope") === "tools" ? "tools" : "plugins";
+  const setScope = useCallback((next: CatalogScope) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "tools") params.set("scope", "tools");
+    else params.delete("scope");
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const [artifacts, setArtifacts] = useState<ArtifactIndex | null>(null);
   const [meta, setMeta] = useState<CatalogMeta | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -80,10 +101,9 @@ export default function HomePage() {
   useEffect(() => {
     (async () => {
       try {
-        const [a, m, c, page0] = await Promise.all([loadArtifacts(), loadMeta(), loadCategories(), loadPage(0)]);
+        const [a, m, page0] = await Promise.all([loadArtifacts(), loadMeta(), loadPage(0)]);
         setArtifacts(a);
         setMeta(m);
-        setCategories(c);
         setFirstPage(page0);
         setLoadedPages(1);
       } catch (e) {
@@ -92,7 +112,26 @@ export default function HomePage() {
     })();
   }, []);
 
-  const hasFilters = !!query.trim() || !!category || type !== "all" || stars !== "all" || compat !== "all" || sort !== "score";
+  // 分类清单按范围分开拉：工具的分类阈值与插件完全不同
+  useEffect(() => {
+    let cancelled = false;
+    loadCategories(scope)
+      .then((rows) => { if (!cancelled) setCategories(rows); })
+      .catch(() => { if (!cancelled) setCategories([]); });
+    return () => { cancelled = true; };
+  }, [scope]);
+
+  // 切换范围时清掉只对上一个范围有意义的筛选
+  useEffect(() => {
+    setCategory("");
+    setType("all");
+    setCompat("all");
+    setShown(PAGE_STEP);
+  }, [scope]);
+
+  // 工具视图本身就是一次筛选，必须切到全量切片才能包含第一页之外的条目
+  const hasFilters =
+    scope === "tools" || !!query.trim() || !!category || type !== "all" || stars !== "all" || compat !== "all" || sort !== "score";
 
   // 全量切片：搜索、任一筛选、非默认排序都要求它。
   useEffect(() => {
@@ -127,6 +166,8 @@ export default function HomePage() {
   const filtered = useMemo(() => {
     const minStars = needStars(stars);
     const keep = (v: LiteEntry): boolean => {
+      // 两个范围互斥：插件页不混入工具，工具页也不混入插件
+      if (scope === "tools" ? !isExternal(v) : isExternal(v)) return false;
       if (minStars > 0 && v.s < minStars) return false;
       if (type !== "all" && v.t !== type) return false;
       if (compat === "declared" && !v.g) return false;
@@ -140,12 +181,12 @@ export default function HomePage() {
     const kept = base.filter((h) => keep(h.item));
     // 搜索结果已按相关度排过，用户没改排序口径时不要打乱它。
     return hits && sort === "score" ? kept : sortItems(kept, sort);
-  }, [hits, hasFilters, fullLite, firstPage, extraPages, type, stars, compat, category, sort]);
+  }, [hits, hasFilters, fullLite, firstPage, extraPages, scope, type, stars, compat, category, sort]);
 
   const totalInScope = useMemo(() => {
-    if (!hasFilters && meta) return meta.total;
+    if (!hasFilters && meta) return scopeCount(meta, scope);
     return filtered.length;
-  }, [hasFilters, meta, filtered.length]);
+  }, [hasFilters, meta, filtered.length, scope]);
 
   const canLoadMore = shown < filtered.length || (!hasFilters && artifacts !== null && loadedPages < artifacts.pages.count);
 
@@ -165,7 +206,10 @@ export default function HomePage() {
     setStars("all");
     setCompat("all");
     setSort("score");
-  }, []);
+    setScope("plugins");
+  }, [setScope]);
+
+  const isTools = scope === "tools";
 
   if (error) {
     return (
@@ -184,23 +228,43 @@ export default function HomePage() {
   return (
     <main className="wrap">
       <section className="hero">
-        <h1>{siteConfig.tagline}</h1>
-        <p>{siteConfig.taglineZh}</p>
-        <div className="search-box">
-          <span className="icon">⌕</span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索插件名、作者或功能关键词…"
-            aria-label="搜索插件"
-          />
+        <h1>{isTools ? "顺手的独立工具，也一起收了" : siteConfig.tagline}</h1>
+        <p>
+          {isTools
+            ? "只收上游 README 写明安装命令、且不属于 DSH 插件的项目，命令直接取自仓库。"
+            : siteConfig.taglineZh}
+        </p>
+        <div className="search-row">
+          <div className="search-box">
+            <span className="icon">⌕</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={isTools ? "搜索工具名、作者或用途关键词…" : "搜索插件名、作者或功能关键词…"}
+              aria-label={isTools ? "搜索工具" : "搜索插件"}
+            />
+          </div>
+          <div className="scope-switch" role="tablist" aria-label="浏览范围">
+            {(["plugins", "tools"] as CatalogScope[]).map((key) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={scope === key}
+                className="scope-btn"
+                onClick={() => setScope(key)}
+              >
+                {SCOPE_LABEL[key]}
+                <span className="scope-count">{scopeCount(meta, key)}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="filters">
         <div className="filter-row filter-cats">
           <button className="chip chip-all" aria-pressed={category === ""} onClick={() => setCategory("")}>
-            全部 {meta ? <span className="chip-count">{meta.total}</span> : null}
+            全部 {meta ? <span className="chip-count">{scopeCount(meta, scope)}</span> : null}
           </button>
           {visibleCategories.map((c) => (
             <button
@@ -220,24 +284,33 @@ export default function HomePage() {
         </div>
 
         <div className="filter-row filter-advanced">
-          <span className="filter-label">类型</span>
-          {(TYPE_ORDER).map((key) => (
-            <button key={key} className="chip chip-sm" aria-pressed={type === key} onClick={() => setType(key)}>
-              {TYPE_LABEL[key]}
-            </button>
-          ))}
-          <span className="filter-sep" />
+          {/* 类型与 DSH 兼容范围只对插件有意义，工具页不展示这两组 */}
+          {!isTools && (
+            <>
+              <span className="filter-label">类型</span>
+              {(TYPE_ORDER).map((key) => (
+                <button key={key} className="chip chip-sm" aria-pressed={type === key} onClick={() => setType(key)}>
+                  {TYPE_LABEL[key]}
+                </button>
+              ))}
+              <span className="filter-sep" />
+            </>
+          )}
           <span className="filter-label">星标</span>
           {(STARS_ORDER).map((key) => (
             <button key={key} className="chip chip-sm" aria-pressed={stars === key} onClick={() => setStars(key)}>
               {STARS_LABEL[key]}
             </button>
           ))}
-          <span className="filter-sep" />
-          <span className="filter-label">兼容</span>
-          <button className="chip chip-sm" aria-pressed={compat === "all"} onClick={() => setCompat("all")}>不限</button>
-          <button className="chip chip-sm" aria-pressed={compat === "declared"} onClick={() => setCompat("declared")}>已声明版本</button>
-          <button className="chip chip-sm" aria-pressed={compat === "undeclared"} onClick={() => setCompat("undeclared")}>未声明</button>
+          {!isTools && (
+            <>
+              <span className="filter-sep" />
+              <span className="filter-label">兼容</span>
+              <button className="chip chip-sm" aria-pressed={compat === "all"} onClick={() => setCompat("all")}>不限</button>
+              <button className="chip chip-sm" aria-pressed={compat === "declared"} onClick={() => setCompat("declared")}>已声明版本</button>
+              <button className="chip chip-sm" aria-pressed={compat === "undeclared"} onClick={() => setCompat("undeclared")}>未声明</button>
+            </>
+          )}
           <span className="filter-sep" />
           <span className="filter-label">排序</span>
           {(SORT_ORDER).map((key) => (
@@ -252,7 +325,7 @@ export default function HomePage() {
       <div className="result-line">
         {hasFilters && !fullLite
           ? "正在加载全量条目…"
-          : `共 ${totalInScope} 个插件`}
+          : `共 ${totalInScope} 个${isTools ? "工具" : "插件"}`}
         {hasFilters && fullLite && ` · 已显示 ${Math.min(shown, filtered.length)} 个`}
         {!hasFilters && ` · 已显示 ${Math.min(shown, filtered.length)} 个`}
         {category && <span className="pill pill-soft">分类：{category}</span>}
@@ -262,7 +335,9 @@ export default function HomePage() {
         <div className="empty">
           {hasFilters && !fullLite
             ? "正在加载全量条目…"
-            : "没有符合条件的插件，试试放宽筛选。"}
+            : isTools
+              ? "没有符合条件的工具，试试放宽筛选。"
+              : "没有符合条件的插件，试试放宽筛选。"}
         </div>
       ) : (
         <div className="grid">
@@ -289,7 +364,9 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
           <span className="zh">{siteConfig.siteNameZh}</span>
         </Link>
         <div className="header-spacer" />
-        <div className="header-stat">{meta ? `已收录 ${meta.total} 个插件` : "加载中…"}</div>
+        <div className="header-stat">
+          {meta ? `已收录 ${scopeCount(meta, "plugins")} 个插件 · ${scopeCount(meta, "tools")} 个工具` : "加载中…"}
+        </div>
         <Link className="header-link" to="/top">榜单</Link>
         <Link className="header-link" to="/submit">提交插件</Link>
         <a className="header-link" href={siteConfig.repoUrl} target="_blank" rel="noreferrer">GitHub</a>

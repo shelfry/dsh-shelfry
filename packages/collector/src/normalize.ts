@@ -84,7 +84,7 @@ function normalizeSpec(spec: string): string | null {
 
 function toMethod(v: unknown): InstallMethod {
   const s = str(v);
-  if (s === "pnpm-profile" || s === "skills-add" || s === "native" || s === "manual") return s;
+  if (s === "pnpm-profile" || s === "skills-add" || s === "native" || s === "standalone" || s === "manual") return s;
   return "unknown";
 }
 
@@ -136,6 +136,9 @@ export function normalizeRecord(raw: RawRecord, now: Date, prev?: PluginEntry): 
     id,
     name,
     fullName,
+    // 生态归属不做规则推断，只沿用上一轮结论；新条目默认 DSH，
+    // 由证据阶段（evidence.ts）判定后改成 external。
+    ecosystem: prev?.ecosystem ?? "dsh",
     type,
     stars: num(raw.stars),
     description: str(raw.description) ?? "",
