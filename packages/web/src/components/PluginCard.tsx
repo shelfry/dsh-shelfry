@@ -168,6 +168,13 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
 
       <p className="card-desc">{item.d || "（上游未提供简介）"}</p>
 
+      {/* 点安装后展开的命令贴着简介，比压在指标行下面更容易被注意到 */}
+      {cmd && (
+        <div className="card-cmd" onClick={(e) => e.stopPropagation()}>
+          <code>{cmd}</code>
+        </div>
+      )}
+
       {/* 三项硬指标固定一行：星数、npm 周下载量、综合分，空值也占位，保证卡片等高 */}
       <div className="card-stats">
         <span className="stat" title={`${item.s} 个 star`}>
@@ -178,12 +185,6 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
         </span>
         <span className="stat stat-end" title="综合推荐分">综合 {item.sc.toFixed(1)}</span>
       </div>
-
-      {cmd && (
-        <div className="card-cmd" onClick={(e) => e.stopPropagation()}>
-          <code>{cmd}</code>
-        </div>
-      )}
 
       <div className="card-foot">
         <div className="tags">
