@@ -142,6 +142,14 @@ export default function DetailPage() {
 
   const repoUrl = entry.homepage ?? `https://github.com/${entry.fullName}`;
   const version = versionLabel(entry.version);
+  const methodLabel =
+    entry.install.method === "pnpm-profile"
+      ? "CLI 装入 profile（pnpm）"
+      : entry.install.method === "skills-add"
+        ? "随 skill provider 提供"
+        : entry.install.method === "manual"
+          ? "按 README 手动安装"
+          : "未知";
   // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
   const detailTags = meaningfulTags(entry.tags);
   const dims = [
@@ -190,26 +198,50 @@ export default function DetailPage() {
 
       <section className="panel">
         <h2>安装</h2>
-        {entry.install.command ? (
-          <>
-            <div className="code">
-              <code>{entry.install.command}</code>
-              <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
+        {/* 命令行与桌面版分开写：desktop profile 由 App 独占，把两者混成一段最容易误导 */}
+        <div className="install-grid">
+          <div className="install-card">
+            <div className="install-card-head">
+              <strong>命令行（CLI）</strong>
+              <span className="pill pill-soft">{entry.install.command ? "可用" : "不适用"}</span>
             </div>
-            <p className="hint">
-              把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。桌面版 profile 由 App 独占，不能用 CLI 安装。
+            {entry.install.command ? (
+              <>
+                <div className="code">
+                  <code>{entry.install.command}</code>
+                  <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
+                </div>
+                <p className="hint">
+                  把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。
+                </p>
+              </>
+            ) : entry.type === "skill" ? (
+              <p className="hint" style={{ marginTop: 0 }}>
+                skill 由 skill provider 扫描目录或随插件提供，没有等价的 CLI 安装动作。
+              </p>
+            ) : (
+              <p className="hint" style={{ marginTop: 0 }}>
+                上游未写清安装命令，请按仓库 README 手动安装。
+              </p>
+            )}
+          </div>
+
+          <div className="install-card">
+            <div className="install-card-head">
+              <strong>桌面版（App）</strong>
+            </div>
+            <p className="hint" style={{ marginTop: 0 }}>
+              {entry.type === "skill"
+                ? "skill 在 DSH App 里启用和管理，桌面版 profile 由 App 独占，不能用 CLI 装。"
+                : entry.install.packageName
+                  ? <>桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加 <code>{entry.install.packageName}</code>。</>
+                  : "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加该插件。"}
             </p>
-          </>
-        ) : entry.type === "skill" ? (
-          <p className="hint">
-            skill 类内容没有等价的 CLI 安装命令 —— 它由 DSH 的 skill provider 扫描目录或随插件提供，请在 App 内管理。
-          </p>
-        ) : (
-          <p className="hint">上游未写清安装命令，请按仓库 README 手动安装。</p>
-        )}
+          </div>
+        </div>
 
         <dl className="kv">
-          <dt>安装方式</dt><dd>{entry.install.method}</dd>
+          <dt>安装方式</dt><dd>{methodLabel}</dd>
           <dt>npm 包名</dt>
           <dd>
             {entry.install.packageName ? (

@@ -230,12 +230,19 @@ export interface EvidenceResult {
 function applyEvidence(e: PluginEntry, ev: Evidence): void {
   if (ev.v !== "keep" || !ev.kind) return;
   e.type = ev.kind === "skill" ? "skill" : "cordis-plugin";
+  if (ev.kind === "skill") {
+    // 不存在 `dsh skill add`（dsh 会把 skill 当成 profile 名报错），
+    // 所以 skill 只改类型与安装方式，命令一律留空，由 UI 说明。
+    e.install.method = "skills-add";
+    e.install.command = null;
+    return;
+  }
   const spec = ev.spec?.trim() ?? "";
   if (e.install.command || !spec) return;
   // 规格形如 @scope/pkg@1.2.3：命令原样用，packageName 去掉版本段
-  e.install.command = `${ev.kind === "skill" ? "dsh skill add" : "dsh plugin add"} ${spec}`;
+  e.install.command = `dsh plugin --profile <profile> add ${spec}`;
   e.install.packageName = spec;
-  e.install.method = ev.kind === "skill" ? "skills-add" : "pnpm-profile";
+  e.install.method = "pnpm-profile";
   e.install.needsConfig = false;
 }
 

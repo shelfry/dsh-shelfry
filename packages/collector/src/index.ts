@@ -150,6 +150,15 @@ async function main(): Promise<void> {
   );
   const dropIds = new Set(verdict.dropped.map((e) => e.id));
   const active = dropIds.size > 0 ? entries.filter((e) => !dropIds.has(e.id)) : entries;
+  // 历史数据里可能残留「dsh skill add」——这条命令并不存在，一律清掉
+  let bogus = 0;
+  for (const e of active) {
+    if (e.install.command && /^dsh\s+skill\s+add/i.test(e.install.command)) {
+      e.install.command = null;
+      bogus++;
+    }
+  }
+  if (bogus > 0) log(args.silent, `[collector] 清除 ${bogus} 条不存在的 skill 安装命令`);
   if (dropIds.size > 0) {
     merged.catalog.entries = active;
     const droppedFile = writeDroppedList(verdict.dropped);
