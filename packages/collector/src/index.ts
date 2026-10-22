@@ -1,5 +1,5 @@
 import type { ArtifactIndex } from "@dsh-shelfry/schema";
-import { SCHEMA_VERSION } from "@dsh-shelfry/schema";
+import { SCHEMA_VERSION, type PluginEntry } from "@dsh-shelfry/schema";
 import { loadCatalog, mergeEntries, saveCatalog, catalogPath } from "./store.ts";
 import {
   buildMeta,
@@ -18,7 +18,7 @@ import { fetchGithubRecords, fetchReposByNames } from "./sources/github.ts";
 import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
-import { resolveEvidence, writeDroppedList } from "./evidence.ts";
+import { isPlaceholderSpec, resolveEvidence, writeDroppedList } from "./evidence.ts";
 import { resolveInstallCommands } from "./install-probe.ts";
 
 /**
@@ -60,6 +60,32 @@ function parseArgs(argv: string[]): Args {
 }
 
 const log = (silent: boolean, ...m: unknown[]) => { if (!silent) console.log(...m); };
+
+/**
+ * 桌面客户端不是插件：Electron/Tauri 壳、Windows 桌面版这类仓库没有
+ * `dsh plugin add` 规格，装不进 profile，留在插件列表里只会误导。
+ *
+ * 判定要保守 —— 大量真插件名字里也带 desktop（dsh-desktop-statusbar、
+ * dsh-desktop-restart-button…），所以三条同时满足才算客户端：
+ * 1. 仓库名本身就以 desktop 结尾（dsh-desktop、deepseek-harness-desktop）；
+ * 2. 简介明说是客户端/桌面版/封装版，或带 desktop-app 这类话题；
+ * 3. 没有安装命令；名字里带 widget/theme/statusbar 这类增强词、或自述
+ *    「…桌面端插件」的，一律当插件保留。
+ */
+const DESKTOP_CLIENT_TEXT = /desktop\s+(client|app(?:lication)?|wrapper|build|workspace)\b|\bGUI for\b|桌面(客户端|应用|版|封装版|封装|工作台|端)/i;
+const DESKTOP_TOPIC = /desktop-app|electron-app|tauri-app|desktop-client|desktop-application|windows-desktop|desktop-workspace/i;
+/** 给桌面端做增强的插件常用词：出现在仓库名里就不当客户端处理。 */
+const PLUGIN_ENHANCER = /widget|pet|theme|skin|statusbar|status|extension|vscode|restart|notice|glass|context|shell/i;
+
+function looksLikeDesktopClient(e: PluginEntry): boolean {
+  if (e.install.command) return false;
+  const repo = e.id.split("/")[1] ?? e.id;
+  if (!/(^|[-_])desktop$/i.test(repo)) return false;
+  if (PLUGIN_ENHANCER.test(repo)) return false;
+  if (/插件$/i.test((e.description ?? "").trim())) return false;
+  const text = `${e.name} ${e.description ?? ""}`;
+  return DESKTOP_CLIENT_TEXT.test(text) || e.tags.some((t) => DESKTOP_TOPIC.test(t));
+}
 
 interface LoadedRecords {
   records: RawRecord[];
@@ -140,7 +166,7 @@ async function main(): Promise<void> {
   if (rejected > 0) log(args.silent, `[collector] 规整后丢弃 ${rejected} 条（缺 id）`);
 
   const merged = mergeEntries(prev, incoming);
-  const entries = merged.catalog.entries;
+  let entries = merged.catalog.entries;
 
   // 生态归属实证：名字/简介里看不出 DSH 的条目逐条取证据，三层全空才剔除。
   // 放在版本号与下载量之前，避免给注定要删的条目白花几百次请求。
@@ -150,7 +176,7 @@ async function main(): Promise<void> {
     `[collector] 生态判定：名称自带 ${verdict.result.named} 条 / 缓存命中 ${verdict.result.cached} 条 / 实测 ${verdict.result.probed} 条（保留 ${verdict.result.kept} 条，判无关 ${verdict.result.dropped} 条）`,
   );
   const dropIds = new Set(verdict.dropped.map((e) => e.id));
-  const active = dropIds.size > 0 ? entries.filter((e) => !dropIds.has(e.id)) : entries;
+  let active = dropIds.size > 0 ? entries.filter((e) => !dropIds.has(e.id)) : entries;
   // 历史数据里可能残留「dsh skill add」——这条命令并不存在，一律清掉
   let bogus = 0;
   for (const e of active) {
@@ -170,7 +196,20 @@ async function main(): Promise<void> {
     }
   }
   if (placeholders > 0) log(args.silent, `[collector] 把 ${placeholders} 条命令的 profile 占位符换成 web`);
+  // README 模板里的占位规格（github:owner/repo）不是真地址，清掉别让用户去装
+  let placeholderCmd = 0;
+  for (const e of active) {
+    const spec = e.install.command?.match(/\badd\s+(\S+)/)?.[1] ?? "";
+    if (spec && isPlaceholderSpec(spec)) {
+      e.install.command = null;
+      e.install.packageName = null;
+      placeholderCmd++;
+    }
+  }
+  if (placeholderCmd > 0) log(args.silent, `[collector] 清除 ${placeholderCmd} 条占位安装命令`);
+
   if (dropIds.size > 0) {
+    entries = active;
     merged.catalog.entries = active;
     const droppedFile = writeDroppedList(verdict.dropped);
     log(args.silent, `[collector] 剔除 ${dropIds.size} 条非 DSH 条目，清单：${droppedFile}`);
@@ -183,6 +222,18 @@ async function main(): Promise<void> {
     args.silent,
     `[collector] 安装命令补全：探测 ${probe.probed} 条 / 缓存命中 ${probe.cached} 条 / 补出 DSH 命令 ${probe.dsh} 条 / 上游安装器 ${probe.native} 条`,
   );
+
+  // 桌面客户端不是插件：没有安装命令、简介又明说是桌面应用/客户端的，直接剔除。
+  // 放在补全之后，避免把「README 里其实写了 dsh plugin add」的插件误删。
+  const apps = active.filter(looksLikeDesktopClient);
+  if (apps.length > 0) {
+    const appIds = new Set(apps.map((e) => e.id));
+    active = active.filter((e) => !appIds.has(e.id));
+    entries = active;
+    merged.catalog.entries = active;
+    const names = apps.slice(0, 8).map((e) => e.id).join("、");
+    log(args.silent, `[collector] 剔除 ${apps.length} 个桌面客户端（不是插件）：${names}${apps.length > 8 ? " 等" : ""}`);
+  }
 
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
   const versionHits = await resolveVersions(active);

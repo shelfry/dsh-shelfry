@@ -19,6 +19,9 @@ import { DATA_DIR } from "./config.ts";
 
 export type EvidenceKind = "skill" | "plugin";
 
+/** 判定规则版本：规则改动后旧缓存一律重探，避免错误结论被缓存固化。 */
+const RULE_VERSION = 2;
+
 export interface Evidence {
   /** keep=生态内，drop=判定无关 */
   v: "keep" | "drop";
@@ -29,6 +32,8 @@ export interface Evidence {
   e: string[];
   /** 判定日期 YYYY-MM-DD */
   t: string;
+  /** 规则版本；缺失视为旧规则结论 */
+  r?: number;
 }
 
 type Cache = Record<string, Evidence>;
@@ -71,6 +76,10 @@ export function packageNameOfSpec(spec: string): string {
   return at > 0 ? spec.slice(0, at) : spec;
 }
 
+/** README 模板里的占位规格（github:owner/repo 之类），不是真实安装地址。 */
+export const isPlaceholderSpec = (spec: string): boolean =>
+  /^github:(owner|user|username|your[-_]?name|xxx)\//i.test(spec);
+
 /** 名字或简介里已经带 dsh 生态字样的，无需实证。 */
 export function nameSaysDsh(fullName: string, description: string | null): boolean {
   return LOOSE.test(`${fullName} ${description ?? ""}`);
@@ -91,8 +100,9 @@ function saveCache(cache: Cache): void {
   writeFileSync(CACHE_FILE, JSON.stringify(cache), "utf8");
 }
 
-const isFresh = (day: string): boolean => {
-  const at = Date.parse(`${day}T00:00:00Z`);
+const isFresh = (ev: Evidence): boolean => {
+  if (ev.r !== RULE_VERSION) return false;
+  const at = Date.parse(`${ev.t}T00:00:00Z`);
   if (!Number.isFinite(at)) return false;
   return Date.now() - at < TTL_DAYS * 86_400_000;
 };
@@ -163,10 +173,21 @@ async function probeTree(owner: string, repo: string): Promise<{ kind: EvidenceK
   const paths = [...block.matchAll(/"path":"([^"]+)"/g)].map((m) => m[1]!);
   if (paths.length === 0) return { kind: null, hit: null };
 
-  if (paths.some((p) => p === "SKILL.md" || p.startsWith(".agents/skills"))) {
+  // 编译型应用的仓库也常放 `.agents/skills`（例如自己的 release 流程），
+  // 那是自用开发技能，不代表这个仓库本身是可分发的 skill。
+  // phi 就是这样被误收成 skill 的：Go 应用 + `.agents/skills/release`。
+  const appManifest = paths.some((p) =>
+    p === "go.mod" || p === "Cargo.toml" || p === "src-tauri" ||
+    p === "tauri.conf.json" || p === "electron-builder.json" ||
+    p === "electron-builder.yml" || p === "electron-builder.yaml",
+  );
+  if (paths.some((p) => p === "SKILL.md")) {
+    return { kind: "skill", hit: "tree:root-skill" };
+  }
+  if (!appManifest && paths.some((p) => p.startsWith(".agents/skills"))) {
     return { kind: "skill", hit: "tree:agents-skills" };
   }
-  if (paths.some((p) => p === "skills" || p.startsWith("skills/"))) {
+  if (!appManifest && paths.some((p) => p === "skills" || p.startsWith("skills/"))) {
     return { kind: "skill", hit: "tree:skills" };
   }
   const manifest = paths.find((p) => p === "dsh-plugin.json" || p === "dsh.json" || p === "cordis.yml");
@@ -208,6 +229,7 @@ export async function probeRepo(owner: string, repo: string): Promise<Evidence> 
     spec,
     e: found,
     t: new Date().toISOString().slice(0, 10),
+    r: RULE_VERSION,
   };
 }
 
@@ -238,7 +260,7 @@ function applyEvidence(e: PluginEntry, ev: Evidence): void {
     return;
   }
   const spec = ev.spec?.trim() ?? "";
-  if (e.install.command || !spec) return;
+  if (e.install.command || !spec || isPlaceholderSpec(spec)) return;
   // 规格形如 @scope/pkg@1.2.3：命令原样用，packageName 去掉版本段
   e.install.command = `dsh plugin --profile web add ${spec}`;
   e.install.packageName = spec;
@@ -266,7 +288,7 @@ export async function resolveEvidence(
       continue;
     }
     const hit = cache[e.fullName];
-    if (hit && isFresh(hit.t)) {
+    if (hit && isFresh(hit)) {
       result.cached++;
       if (hit.v === "drop") result.dropped++;
       else result.kept++;
