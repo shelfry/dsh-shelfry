@@ -84,7 +84,7 @@ function normalizeSpec(spec: string): string | null {
 
 function toMethod(v: unknown): InstallMethod {
   const s = str(v);
-  if (s === "pnpm-profile" || s === "skills-add" || s === "manual") return s;
+  if (s === "pnpm-profile" || s === "skills-add" || s === "native" || s === "manual") return s;
   return "unknown";
 }
 

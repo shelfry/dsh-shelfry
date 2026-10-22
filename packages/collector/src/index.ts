@@ -19,6 +19,7 @@ import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
 import { resolveEvidence, writeDroppedList } from "./evidence.ts";
+import { resolveInstallCommands } from "./install-probe.ts";
 
 /**
  * 收录管道 CLI。
@@ -164,6 +165,14 @@ async function main(): Promise<void> {
     const droppedFile = writeDroppedList(verdict.dropped);
     log(args.silent, `[collector] 剔除 ${dropIds.size} 条非 DSH 条目，清单：${droppedFile}`);
   }
+
+  // 安装命令补全：缺命令的条目再读一次 README，收上游写明的 dsh plugin add
+  // 与自带安装器（npx/bunx/pnpm dlx）。必须在版本号/下载量之前跑 —— 包名可能被修正。
+  const probe = await resolveInstallCommands(active, { now: now.getTime() });
+  log(
+    args.silent,
+    `[collector] 安装命令补全：探测 ${probe.probed} 条 / 缓存命中 ${probe.cached} 条 / 补出 DSH 命令 ${probe.dsh} 条 / 上游安装器 ${probe.native} 条`,
+  );
 
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
   const versionHits = await resolveVersions(active);

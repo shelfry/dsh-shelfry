@@ -3,6 +3,7 @@ import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
 import { copyText } from "../lib/clipboard";
+import { assistantPrompt } from "../lib/assistant";
 import { categoryLabel, meaningfulTags } from "../lib/labels";
 
 /** 「今天/3 天前/5 个月前」——比裸日期更容易判断插件还活不活。 */
@@ -75,7 +76,9 @@ const SHEET_EVENT = "dsh-install-sheet";
  */
 function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void }) {
   const [cmd, setCmd] = useState<string | null>(null);
+  const [method, setMethod] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "missing" | "copied" | "manual">("loading");
+  const [copiedAssistant, setCopiedAssistant] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +89,7 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
         if (cancelled) return;
         const command = entry?.install.command ?? null;
         setCmd(command);
+        setMethod(entry?.install.method ?? null);
         setState(command ? "ready" : "missing");
       } catch {
         if (!cancelled) setState("missing");
@@ -116,6 +120,17 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
     if (ok) setTimeout(() => setState("ready"), 1600);
   };
 
+  const copyAssistant = async () => {
+    if (!cmd) return;
+    const ok = await copyText(assistantPrompt({ name: item.n, repo: item.i, command: cmd }));
+    if (ok) {
+      setCopiedAssistant(true);
+      setTimeout(() => setCopiedAssistant(false), 1600);
+    } else {
+      setState("manual");
+    }
+  };
+
   return (
     <div className="install-sheet" onClick={(e) => e.stopPropagation()}>
       <div className="install-sheet-head">
@@ -133,10 +148,15 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
             <code>{cmd}</code>
             <button onClick={copy}>{state === "copied" ? "已复制" : "复制"}</button>
           </div>
+          <button className="btn-assistant" onClick={copyAssistant}>
+            {copiedAssistant ? "已复制，粘贴给助手" : "复制给编程助手"}
+          </button>
           <p className="hint">
             {state === "manual"
               ? "浏览器拒绝了剪贴板写入，请手动选中命令复制。"
-              : <>把 <code>&lt;profile&gt;</code> 换成 profile 名（如 web）；桌面版请在 DSH App 里添加。</>}
+              : method === "native"
+                ? "上游自带的安装器：会先给出安装计划，确认后再写入配置。"
+                : <>把 <code>&lt;profile&gt;</code> 换成 profile 名（如 web）；桌面版请在 DSH App 里添加。</>}
           </p>
         </>
       )}

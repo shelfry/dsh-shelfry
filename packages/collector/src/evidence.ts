@@ -36,7 +36,7 @@ type Cache = Record<string, Evidence>;
 const CACHE_FILE = resolve(DATA_DIR, "evidence.json");
 const TTL_DAYS = 30;
 
-const README_NAMES = [
+export const README_NAMES = [
   "README.md",
   "README.zh-CN.md",
   "README_zh.md",
@@ -97,7 +97,7 @@ const isFresh = (day: string): boolean => {
   return Date.now() - at < TTL_DAYS * 86_400_000;
 };
 
-async function fetchText(url: string): Promise<string | null> {
+export async function fetchGithubText(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) return null;
@@ -113,7 +113,7 @@ async function probeReadme(
   repo: string,
 ): Promise<{ kind: EvidenceKind | null; hit: string | null; spec: string | null }> {
   for (const name of README_NAMES) {
-    const body = await fetchText(`${RAW}/${owner}/${repo}/HEAD/${name}`);
+    const body = await fetchGithubText(`${RAW}/${owner}/${repo}/HEAD/${name}`);
     if (!body) continue;
     const skill = body.match(SKILL_SPEC);
     if (skill?.[1]) return { kind: "skill", hit: `${name}:skill-add`, spec: skill[1] };
@@ -128,7 +128,7 @@ async function probeReadme(
 
 /** 第 2 层：package.json 的依赖与关键词。 */
 async function probePackageJson(owner: string, repo: string): Promise<{ kind: EvidenceKind | null; hit: string | null }> {
-  const body = await fetchText(`${RAW}/${owner}/${repo}/HEAD/package.json`);
+  const body = await fetchGithubText(`${RAW}/${owner}/${repo}/HEAD/package.json`);
   if (!body) return { kind: null, hit: null };
   let pkg: Record<string, unknown>;
   try {
@@ -157,7 +157,7 @@ async function probePackageJson(owner: string, repo: string): Promise<{ kind: Ev
  * rea 的 `.agents/skills` 才是。
  */
 async function probeTree(owner: string, repo: string): Promise<{ kind: EvidenceKind | null; hit: string | null }> {
-  const html = await fetchText(`https://github.com/${owner}/${repo}/tree/HEAD`);
+  const html = await fetchGithubText(`https://github.com/${owner}/${repo}/tree/HEAD`);
   if (!html) return { kind: null, hit: null };
   const block = html.match(/"tree":\{"items":\[(.*?)\]\}/s)?.[1] ?? "";
   const paths = [...block.matchAll(/"path":"([^"]+)"/g)].map((m) => m[1]!);

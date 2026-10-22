@@ -4,6 +4,7 @@ import type { LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, type Category } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, PluginCard, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
+import { assistantPrompt } from "../lib/assistant";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
 
@@ -23,6 +24,7 @@ export default function DetailPage() {
   const [entry, setEntry] = useState<PluginEntry | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing" | "error">("loading");
   const [copied, setCopied] = useState(false);
+  const [copiedAssistant, setCopiedAssistant] = useState(false);
   const [copiedPkg, setCopiedPkg] = useState(false);
   const [readme, setReadme] = useState<ReadmeResult | null | "loading">("loading");
   const [similar, setSimilar] = useState<LiteEntry[]>([]);
@@ -125,6 +127,16 @@ export default function DetailPage() {
     }
   };
 
+  const copyForAssistant = async () => {
+    const cmd = entry?.install.command;
+    if (!cmd || !entry) return;
+    const ok = await copyText(assistantPrompt({ name: entry.name, repo: entry.fullName, command: cmd }));
+    if (ok) {
+      setCopiedAssistant(true);
+      setTimeout(() => setCopiedAssistant(false), 1600);
+    }
+  };
+
   if (state === "loading") {
     return <main className="wrap detail"><div className="empty">正在加载插件信息…</div></main>;
   }
@@ -145,11 +157,13 @@ export default function DetailPage() {
   const methodLabel =
     entry.install.method === "pnpm-profile"
       ? "CLI 装入 profile（pnpm）"
-      : entry.install.method === "skills-add"
-        ? "随 skill provider 提供"
-        : entry.install.method === "manual"
-          ? "按 README 手动安装"
-          : "未知";
+      : entry.install.method === "native"
+        ? "上游自带安装器"
+        : entry.install.method === "skills-add"
+          ? "随 skill provider 提供"
+          : entry.install.method === "manual"
+            ? "按 README 手动安装"
+            : "未知";
   // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
   const detailTags = meaningfulTags(entry.tags);
   const dims = [
@@ -209,9 +223,21 @@ export default function DetailPage() {
                     <code>{entry.install.command}</code>
                     <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
                   </div>
-                  <p className="hint">
-                    把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。
-                  </p>
+                  {entry.install.method === "native" ? (
+                    <p className="hint">
+                      这是上游自带的安装器：会先给出安装计划，确认后再写入配置；装完请按 README 验证是否连上。
+                    </p>
+                  ) : (
+                    <p className="hint">
+                      把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。
+                    </p>
+                  )}
+                  <div className="install-extra">
+                    <button className="btn-assistant" onClick={copyForAssistant}>
+                      {copiedAssistant ? "已复制，粘贴给助手" : "复制给编程助手"}
+                    </button>
+                    <span className="hint">连同「先给计划、确认后执行、最后验证」的要求一起复制</span>
+                  </div>
                 </>
               ) : entry.type === "skill" ? (
                 <p className="install-row-note">skill 由 skill provider 扫描目录或随插件提供，没有等价的 CLI 安装动作。</p>
@@ -224,11 +250,13 @@ export default function DetailPage() {
           <div className="install-row">
             <span className="install-row-k">桌面版</span>
             <p className="install-row-note">
-              {entry.type === "skill"
-                ? "skill 在 DSH App 里启用和管理，桌面版 profile 由 App 独占，不能用 CLI 装。"
-                : entry.install.packageName
-                  ? <>桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加 <code>{entry.install.packageName}</code>。</>
-                  : "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加该插件。"}
+              {entry.install.method === "native"
+                ? "上游安装器会写入你当前所用编程助手的配置；DSH App 桌面版是否同样适用，请以仓库 README 为准。"
+                : entry.type === "skill"
+                  ? "skill 在 DSH App 里启用和管理，桌面版 profile 由 App 独占，不能用 CLI 装。"
+                  : entry.install.packageName
+                    ? <>桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加 <code>{entry.install.packageName}</code>。</>
+                    : "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加该插件。"}
             </p>
           </div>
         </div>

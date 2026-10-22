@@ -11,8 +11,8 @@
 /** 插件形态。cordis-plugin 走 pnpm-profile 安装，skill 走 skills-add。 */
 export type PluginType = "cordis-plugin" | "skill" | "unknown";
 
-/** 安装方式。 */
-export type InstallMethod = "pnpm-profile" | "skills-add" | "manual" | "unknown";
+/** 安装方式。cordis-plugin 走 pnpm-profile 装，skill 走 skills-add，上游自带安装器走 native。 */
+export type InstallMethod = "pnpm-profile" | "skills-add" | "native" | "manual" | "unknown";
 
 export interface InstallSpec {
   method: InstallMethod;
