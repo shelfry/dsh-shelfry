@@ -199,38 +199,31 @@ export default function DetailPage() {
       <section className="panel">
         <h2>安装</h2>
         {/* 命令行与桌面版分开写：desktop profile 由 App 独占，把两者混成一段最容易误导 */}
-        <div className="install-grid">
-          <div className="install-card">
-            <div className="install-card-head">
-              <strong>命令行（CLI）</strong>
-              <span className="pill pill-soft">{entry.install.command ? "可用" : "不适用"}</span>
+        <div className="install-rows">
+          <div className="install-row">
+            <span className="install-row-k">命令行</span>
+            <div>
+              {entry.install.command ? (
+                <>
+                  <div className="code">
+                    <code>{entry.install.command}</code>
+                    <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
+                  </div>
+                  <p className="hint">
+                    把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。
+                  </p>
+                </>
+              ) : entry.type === "skill" ? (
+                <p className="install-row-note">skill 由 skill provider 扫描目录或随插件提供，没有等价的 CLI 安装动作。</p>
+              ) : (
+                <p className="install-row-note">上游未写清安装命令，请按仓库 README 手动安装。</p>
+              )}
             </div>
-            {entry.install.command ? (
-              <>
-                <div className="code">
-                  <code>{entry.install.command}</code>
-                  <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
-                </div>
-                <p className="hint">
-                  把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。
-                </p>
-              </>
-            ) : entry.type === "skill" ? (
-              <p className="hint" style={{ marginTop: 0 }}>
-                skill 由 skill provider 扫描目录或随插件提供，没有等价的 CLI 安装动作。
-              </p>
-            ) : (
-              <p className="hint" style={{ marginTop: 0 }}>
-                上游未写清安装命令，请按仓库 README 手动安装。
-              </p>
-            )}
           </div>
 
-          <div className="install-card">
-            <div className="install-card-head">
-              <strong>桌面版（App）</strong>
-            </div>
-            <p className="hint" style={{ marginTop: 0 }}>
+          <div className="install-row">
+            <span className="install-row-k">桌面版</span>
+            <p className="install-row-note">
               {entry.type === "skill"
                 ? "skill 在 DSH App 里启用和管理，桌面版 profile 由 App 独占，不能用 CLI 装。"
                 : entry.install.packageName

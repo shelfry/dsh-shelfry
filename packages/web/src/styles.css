@@ -209,7 +209,7 @@ a { color: inherit; text-decoration: none; }
 .code button { background: #33333a; color: #e8e8e4; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
 .code button:hover { background: #414149; }
 
-.kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; margin: 14px 0 0; }
+.kv { display: grid; grid-template-columns: 72px 1fr; gap: 9px 12px; font-size: 13px; margin: 10px 0 0; }
 .kv dt { color: var(--text-faint); }
 .kv dd { margin: 0; word-break: break-word; }
 .kv dd a { color: var(--accent); }
@@ -285,12 +285,16 @@ a { color: inherit; text-decoration: none; }
 }
 .readme-actions { display: flex; align-items: center; gap: 14px; margin-top: 12px; font-size: 12.5px; flex-wrap: wrap; }
 
-/* ---------- 安装方式：CLI / 桌面版 双栏 ---------- */
-.install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
-.install-card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 12px 14px; }
-.install-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; }
-.install-card .code { margin-top: 0; }
-.install-card .hint { margin-top: 8px; }
+/* ---------- 安装：单列两行，标签在左、内容在右，不再用嵌套色块 ---------- */
+.install-rows { display: flex; flex-direction: column; margin: -4px 0 0; min-width: 0; }
+/* 命令行很长，1fr 轨道默认不会小于内容宽度，必须显式 minmax(0,1fr) 才能让内部横向滚动而不是撑破页面 */
+.install-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: start; padding: 11px 0; min-width: 0; }
+.install-row > div { min-width: 0; }
+.install-row + .install-row { border-top: 1px dashed var(--border); }
+.install-row-k { color: var(--text-faint); font-size: 12px; line-height: 22px; white-space: nowrap; }
+.install-row-note { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.7; }
+.install-row .code { padding: 10px 12px; }
+.install-row .hint { margin-top: 8px; }
 .readme-actions a { color: var(--text-dim); }
 .readme-actions a:hover { color: var(--accent); }
 .btn-readme {
@@ -433,5 +437,9 @@ a { color: inherit; text-decoration: none; }
   .modal { max-height: 100dvh; height: 100dvh; border-radius: 0; max-width: none; }
   .readme-clamp { max-height: 300px; }
   .readme-actions { gap: 10px; }
-  .install-grid { grid-template-columns: 1fr; }
+  .install-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .install-row-k { line-height: 1.6; }
+  /* 窄屏没有空间横向滚动，命令直接折行，避免用户以为命令被截断 */
+  .code { align-items: flex-start; }
+  .code code { white-space: pre-wrap; overflow-wrap: anywhere; }
 }
