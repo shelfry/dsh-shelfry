@@ -285,8 +285,12 @@ a { color: inherit; text-decoration: none; }
 .pill-curated { color: #8a5a00; background: #fdf3e0; }
 .pill-compat { color: var(--text-dim); background: var(--surface-2); font-family: var(--mono); font-size: 11px; }
 .pill-soft { color: var(--text-dim); background: var(--surface-2); }
-/* 工具角标：和「精选」区分开，用站点主色而不是警告色 */
-.pill-tool { color: var(--accent); background: var(--accent-soft); }
+/* 工具角标：和分类标签同一套观感 —— 小圆角矩形、常规字重、不大写 */
+.pill-tool {
+  color: var(--accent); background: var(--accent-soft);
+  border-radius: 5px; padding: 2px 7px;
+  font-weight: 400; text-transform: none;
+}
 
 .load-more {
   margin: 22px 0 56px; padding: 12px; width: 100%;

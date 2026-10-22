@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 /**
  * 安装目标 profile。
@@ -10,30 +10,15 @@ import { useState } from "react";
 export const DEFAULT_PROFILE = "web";
 export const PROFILE_PRESETS = ["web", "tui"] as const;
 
-const STORAGE_KEY = "dsh-shelfry-profile";
-
-export function readProfile(): string {
-  try {
-    return localStorage.getItem(STORAGE_KEY)?.trim() || DEFAULT_PROFILE;
-  } catch {
-    return DEFAULT_PROFILE;
-  }
-}
-
-export function saveProfile(raw: string): string {
-  const value = raw.trim() || DEFAULT_PROFILE;
-  try {
-    localStorage.setItem(STORAGE_KEY, value);
-  } catch {
-    // 隐私模式写不了 storage：本次会话仍然生效，不打断安装
-  }
-  return value;
-}
-
-/** 组件间共享同一份选择：换一张卡片或进详情页都沿用上次的 profile。 */
+/**
+ * profile 选择只属于当前这张卡片 / 这个详情页，不跨卡片、不写 localStorage。
+ *
+ * 之前做成全局记忆：在某张卡片选了 tui，之后打开任何卡片和详情页都会默认 tui，
+ * 看起来像「所有插件都被改成了 tui」。安装命令里的 profile 应该每次从默认 web 起算。
+ */
 export function useProfile(): [string, (value: string) => void] {
-  const [profile, setProfile] = useState(readProfile);
-  const update = (value: string) => setProfile(saveProfile(value));
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const update = useCallback((value: string) => setProfile(value.trim() || DEFAULT_PROFILE), []);
   return [profile, update];
 }
 

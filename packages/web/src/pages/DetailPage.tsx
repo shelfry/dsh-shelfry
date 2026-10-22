@@ -5,7 +5,7 @@ import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, typ
 import { Avatar, formatDownloads, formatStars, PluginCard, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
 import { assistantPrompt } from "../lib/assistant";
-import { applyProfile, useProfile } from "../lib/install";
+import { DEFAULT_PROFILE, applyProfile, useProfile } from "../lib/install";
 import { ProfilePicker } from "../components/ProfilePicker";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
@@ -34,6 +34,11 @@ export default function DetailPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [readmeOpen, setReadmeOpen] = useState(false);
   const [profile, setProfile] = useProfile();
+
+  // 换一个插件就回到默认 profile：详情页内切换同类推荐时不该沿用上一个插件的选择
+  useEffect(() => {
+    setProfile(DEFAULT_PROFILE);
+  }, [decoded, setProfile]);
 
   useEffect(() => {
     let cancelled = false;
