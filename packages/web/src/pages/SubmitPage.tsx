@@ -68,7 +68,8 @@ export default function SubmitPage() {
       "",
       "### 提交前自检",
       "- [ ] 仓库公开可访问，README 里有安装方式",
-      "- [ ] 安装规格写的是 `add` 后面的部分，例如 `dsh-market/dsh-market` 或 `dsh-better-sidebar@1.2.0`",
+      "- [ ] 插件：安装规格写的是 `add` 后面的部分，例如 `dsh-market/dsh-market` 或 `dsh-better-sidebar@1.2.0`",
+      "- [ ] 工具：不是 DSH 插件，README 里有 curl / brew / go install 等可直接执行的安装命令",
       "- [ ] 不是 fork 或纯清单仓库",
       "",
       "<!-- 提交后由每日定时任务抓取，一般次日出现在站内 -->",
@@ -89,7 +90,7 @@ export default function SubmitPage() {
   return (
     <main className="wrap page-narrow">
       <section className="hero">
-        <h1>提交插件</h1>
+        <h1>提交插件或工具</h1>
         <p>填好仓库和安装规格，一键生成 GitHub Issue。收录由每日定时任务完成，无需你改代码。</p>
       </section>
 
@@ -123,7 +124,7 @@ export default function SubmitPage() {
             autoComplete="off"
             spellCheck={false}
           />
-          <div className="field-hint">只写 <code>dsh add</code> 后面的部分；不确定就留空，维护者会补。</div>
+          <div className="field-hint">插件只写 <code>dsh add</code> 后面的部分；非 DSH 工具可留空，README 里有安装命令即可。不确定就留空，维护者会补。</div>
         </div>
 
         <div className="field-row">
@@ -174,7 +175,7 @@ export default function SubmitPage() {
       <section className="panel panel-soft">
         <h2 className="panel-title">收录规则</h2>
         <ul className="rule-list">
-          <li>只收录公开 GitHub 仓库，且有可识别的 DSH 插件/skill 特征。</li>
+          <li>只收录公开 GitHub 仓库：DSH 插件 / skill 需要有可识别的 DSH 特征；非 DSH 项目必须写明 curl / brew / go install 等安装方式，并归入「工具」范围。</li>
           <li>安装规格以 README 里明确写出的 <code>add</code>/<code>install</code> 命令为准，全局安装与本地路径不计。</li>
           <li>版本号与下载量来自 npm 或仓库 <code>package.json</code>，取不到就不显示。</li>
           <li>收录后可随时在站内搜索自己的仓库名确认；没有出现通常是仓库还没有 README 安装说明。</li>
