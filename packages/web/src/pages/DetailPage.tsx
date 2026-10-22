@@ -5,6 +5,8 @@ import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, typ
 import { Avatar, formatDownloads, formatStars, PluginCard, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
 import { assistantPrompt } from "../lib/assistant";
+import { applyProfile, useProfile } from "../lib/install";
+import { ProfilePicker } from "../components/ProfilePicker";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
 
@@ -31,6 +33,7 @@ export default function DetailPage() {
   const [byAuthor, setByAuthor] = useState<LiteEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [readmeOpen, setReadmeOpen] = useState(false);
+  const [profile, setProfile] = useProfile();
 
   useEffect(() => {
     let cancelled = false;
@@ -109,10 +112,12 @@ export default function DetailPage() {
     return () => { cancelled = true; };
   }, [entry]);
 
+  // 命令里的 profile 统一由选择器决定；上游安装器（npx ...）没有 --profile，会原样返回
+  const command = entry?.install.command ? applyProfile(entry.install.command, profile) : null;
+
   const copy = async () => {
-    const cmd = entry?.install.command;
-    if (!cmd) return;
-    if (await copyText(cmd)) {
+    if (!command) return;
+    if (await copyText(command)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     }
@@ -128,9 +133,8 @@ export default function DetailPage() {
   };
 
   const copyForAssistant = async () => {
-    const cmd = entry?.install.command;
-    if (!cmd || !entry) return;
-    const ok = await copyText(assistantPrompt({ name: entry.name, repo: entry.fullName, command: cmd }));
+    if (!command || !entry) return;
+    const ok = await copyText(assistantPrompt({ name: entry.name, repo: entry.fullName, command }));
     if (ok) {
       setCopiedAssistant(true);
       setTimeout(() => setCopiedAssistant(false), 1600);
@@ -217,10 +221,13 @@ export default function DetailPage() {
           <div className="install-row">
             <span className="install-row-k">命令行</span>
             <div>
-              {entry.install.command ? (
+              {command ? (
                 <>
+                  {entry.install.method === "pnpm-profile" && (
+                    <ProfilePicker value={profile} onChange={setProfile} />
+                  )}
                   <div className="code">
-                    <code>{entry.install.command}</code>
+                    <code>{command}</code>
                     <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
                   </div>
                   {entry.install.method === "native" ? (
@@ -229,7 +236,7 @@ export default function DetailPage() {
                     </p>
                   ) : (
                     <p className="hint">
-                      把 <code>&lt;profile&gt;</code> 换成你要装入的 profile 名（如 web）。
+                      <code>web</code> / <code>tui</code> 都是 DSH 自带的 profile，首次使用会自动创建、命令可直接执行；也可以填自己的 profile 名。
                     </p>
                   )}
                   <div className="install-extra">

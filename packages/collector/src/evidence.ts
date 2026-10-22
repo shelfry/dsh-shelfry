@@ -240,7 +240,7 @@ function applyEvidence(e: PluginEntry, ev: Evidence): void {
   const spec = ev.spec?.trim() ?? "";
   if (e.install.command || !spec) return;
   // 规格形如 @scope/pkg@1.2.3：命令原样用，packageName 去掉版本段
-  e.install.command = `dsh plugin --profile <profile> add ${spec}`;
+  e.install.command = `dsh plugin --profile web add ${spec}`;
   e.install.packageName = spec;
   e.install.method = "pnpm-profile";
   e.install.needsConfig = false;

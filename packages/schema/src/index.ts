@@ -141,8 +141,10 @@ export function indexShardId(token: string): number {
  *
  * 已实测（dsh 0.2.1-rc.2）：
  * - `dsh plugin --profile <name> <pnpm-args>` 的 `--profile` 是**必填**，缺了就报
- *   `required option '--profile <name>' not specified`。所以命令必须带 profile，
- *   且 profile 名因用户而异 ⇒ 用 `<profile>` 占位而非硬编码某个 profile。
+ *   `required option '--profile <name>' not specified`。
+ * - profile 名是用户自建的运行环境，但 `web` / `tui` 是 DSH 自带的模板，
+ *   `dsh plugin --profile web ...` 首次使用会自动初始化，不需要用户先创建。
+ *   所以命令直接写死 `web`（站点另提供 tui / 自定义选择），不用占位符。
  * - **不存在** `dsh skill add`：`dsh skill` 会被当成名为 "skill" 的 profile 而报错。
  *   skill 类内容由 skill provider（如 dsh-skill-filesystem）扫描目录/插件提供，
  *   没有等价的 CLI 安装动作 ⇒ 返回 null，由 UI 说明，不杜撰命令。
@@ -151,7 +153,7 @@ export function defaultInstallCommand(method: InstallMethod, packageName: string
   if (!packageName) return null;
   switch (method) {
     case "pnpm-profile":
-      return `dsh plugin --profile <profile> add ${packageName}`;
+      return `dsh plugin --profile web add ${packageName}`;
     default:
       return null;
   }

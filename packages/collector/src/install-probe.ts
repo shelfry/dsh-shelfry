@@ -166,7 +166,7 @@ export function applyProbeHit(e: PluginEntry, hit: ProbeHit, now: number): void 
   const oldPkg = e.install.packageName;
   if (hit.kind === "dsh") {
     e.install.method = "pnpm-profile";
-    e.install.command = `dsh plugin --profile <profile> add ${hit.value}`;
+    e.install.command = `dsh plugin --profile web add ${hit.value}`;
     e.install.packageName = hit.value;
     e.install.needsConfig = false;
   } else {

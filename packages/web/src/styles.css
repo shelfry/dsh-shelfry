@@ -177,6 +177,20 @@ a { color: inherit; text-decoration: none; }
 .btn-assistant:hover { color: var(--text); border-color: var(--text-faint); background: var(--surface-2); }
 .install-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 9px; }
 .install-extra .hint { margin: 0; }
+
+/* 安装目标 profile：默认 web（DSH 自带、首次使用自动创建），可切 tui 或手填 */
+.profile-pick { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; min-width: 0; }
+.profile-pick-k { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
+.profile-pick-input {
+  width: 118px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font-family: var(--mono); font-size: 12px;
+  outline: none; transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.profile-pick-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.12); }
+.profile-pick-note { color: var(--text-faint); font-size: 11.5px; }
+/* 卡片浮层里空间小：去掉额外说明，只留标签 + 输入框 */
+.profile-pick.is-compact { margin-bottom: 0; gap: 6px; }
+.profile-pick.is-compact .profile-pick-input { width: 96px; font-size: 11.5px; padding: 3px 7px; }
 /* 底部信息条：无论简介多长都贴在第 3 行简介之下，分类固定在右下角 */
 .card-foot {
   display: flex; align-items: center; gap: 8px;

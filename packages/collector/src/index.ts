@@ -160,6 +160,16 @@ async function main(): Promise<void> {
     }
   }
   if (bogus > 0) log(args.silent, `[collector] 清除 ${bogus} 条不存在的 skill 安装命令`);
+  // 历史命令里的 <profile> 占位符换成可直接执行的 web（web/tui 都是 DSH 自带模板，
+  // 首次使用自动初始化）；站点另提供 profile 选择，不用用户再手改命令。
+  let placeholders = 0;
+  for (const e of active) {
+    if (e.install.command?.includes("<profile>")) {
+      e.install.command = e.install.command.replace(/<profile>/g, "web");
+      placeholders++;
+    }
+  }
+  if (placeholders > 0) log(args.silent, `[collector] 把 ${placeholders} 条命令的 profile 占位符换成 web`);
   if (dropIds.size > 0) {
     merged.catalog.entries = active;
     const droppedFile = writeDroppedList(verdict.dropped);
