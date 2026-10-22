@@ -220,12 +220,34 @@ export default function DetailPage() {
 
       <section className="panel">
         <h2>简介</h2>
-        <p className="detail-desc">{entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}</p>
-        {detailTags.length > 0 && (
-          <div className="tags detail-tags">
-            {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
+        <div className="about-grid">
+          <div className="about-main">
+            <p className="detail-desc">{entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}</p>
+            {detailTags.length > 0 && (
+              <div className="tags detail-tags">
+                {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* 推荐依据跟简介放同一块：左边讲「是什么」，右边讲「为什么推荐」 */}
+          <aside className="about-score">
+            <div className="about-score-head">
+              <span className="about-score-title">推荐依据</span>
+              <span className="about-score-total">综合 <strong>{entry.score.total}</strong></span>
+            </div>
+            <div className="bars">
+              {dims.map((d) => (
+                <div className="bar-row" key={d.label}>
+                  <span className="bar-label">{d.label}</span>
+                  <span className="bar-track"><span className="bar-fill" style={{ width: `${Math.round(d.value * 100)}%` }} /></span>
+                  <span className="bar-value">{d.value.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="about-score-note">四项加权，全部来自可核对的上游信息。</p>
+          </aside>
+        </div>
       </section>
 
       <section className="panel">
@@ -351,22 +373,6 @@ export default function DetailPage() {
           </div>
         </section>
       )}
-
-      <section className="panel">
-        <h2>推荐依据</h2>
-        <p className="hint" style={{ marginTop: 0 }}>
-          综合分 {entry.score.total}，由下列四项加权得出，全部来自可核对的上游信息。
-        </p>
-        <div className="bars">
-          {dims.map((d) => (
-            <div className="bar-row" key={d.label}>
-              <span className="bar-label">{d.label}</span>
-              <span className="bar-track"><span className="bar-fill" style={{ width: `${Math.round(d.value * 100)}%` }} /></span>
-              <span className="bar-value">{d.value.toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {similar.length > 0 && (
         <section className="panel">

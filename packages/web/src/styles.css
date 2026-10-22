@@ -319,6 +319,20 @@ a { color: inherit; text-decoration: none; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
 .panel h2 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); font-weight: 600; }
 .detail-desc { margin: 0; font-size: 14.5px; line-height: 1.7; }
+
+/* 简介与推荐依据同块：左侧讲是什么，右侧讲为什么推荐，用细分隔线而不是嵌套卡片 */
+.about-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 24px; align-items: start; }
+.about-main { min-width: 0; }
+.about-score { min-width: 0; border-left: 1px solid var(--border); padding-left: 24px; }
+.about-score-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.about-score-title { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; color: var(--text-faint); }
+.about-score-total { font-size: 12px; color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.about-score-total strong { margin-left: 2px; color: var(--text); font-size: 16px; font-weight: 620; }
+.about-score-note { margin: 10px 0 0; color: var(--text-faint); font-size: 11.5px; line-height: 1.5; }
+@media (max-width: 800px) {
+  .about-grid { grid-template-columns: 1fr; gap: 16px; }
+  .about-score { border-left: 0; border-top: 1px solid var(--border); padding-left: 0; padding-top: 16px; }
+}
 .hint { margin: 10px 0 0; color: var(--text-faint); font-size: 12.5px; line-height: 1.6; }
 
 /* 与卡片上展开的命令框同一套观感：浅底 + 虚线边，不再用深色终端块 */
