@@ -219,13 +219,15 @@ export default function DetailPage() {
         {/* 命令行与桌面版分开写：desktop profile 由 App 独占，把两者混成一段最容易误导 */}
         <div className="install-rows">
           <div className="install-row">
-            <span className="install-row-k">命令行</span>
+            <div className="install-row-head">
+              <span className="install-row-k">命令行</span>
+              {entry.install.method === "pnpm-profile" && command && (
+                <ProfilePicker value={profile} onChange={setProfile} compact />
+              )}
+            </div>
             <div>
               {command ? (
                 <>
-                  {entry.install.method === "pnpm-profile" && (
-                    <ProfilePicker value={profile} onChange={setProfile} />
-                  )}
                   <div className="code">
                     <code>{command}</code>
                     <button onClick={copy}>{copied ? "已复制" : "复制"}</button>

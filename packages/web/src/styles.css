@@ -338,13 +338,15 @@ a { color: inherit; text-decoration: none; }
 }
 .readme-actions { display: flex; align-items: center; gap: 14px; margin-top: 12px; font-size: 12.5px; flex-wrap: wrap; }
 
-/* ---------- 安装：单列两行，标签在左、内容在右，不再用嵌套色块 ---------- */
+/* ---------- 安装：标签在上、命令框满宽，两行之间虚线分隔 ---------- */
 .install-rows { display: flex; flex-direction: column; margin: -4px 0 0; min-width: 0; }
-/* 命令行很长，1fr 轨道默认不会小于内容宽度，必须显式 minmax(0,1fr) 才能让内部横向滚动而不是撑破页面 */
-.install-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: start; padding: 11px 0; min-width: 0; }
-.install-row > div { min-width: 0; }
+/* 标签在上、内容占满整行：命令框能拿到满宽，长命令不容易挤成两行 */
+.install-row { display: flex; flex-direction: column; gap: 8px; padding: 13px 0; min-width: 0; }
+.install-row > div { min-width: 0; width: 100%; }
 .install-row + .install-row { border-top: 1px dashed var(--border); }
-.install-row-k { color: var(--text-faint); font-size: 12px; line-height: 22px; white-space: nowrap; }
+.install-row-k { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
+/* 标签行：左侧「命令行」，紧跟 profile 选择，命令框仍在最上方占满整行 */
+.install-row-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
 .install-row-note { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.7; }
 .install-row .code { padding: 10px 12px; }
 .install-row .hint { margin-top: 8px; }
@@ -491,8 +493,7 @@ a { color: inherit; text-decoration: none; }
   .modal { max-height: 100dvh; height: 100dvh; border-radius: 0; max-width: none; }
   .readme-clamp { max-height: 300px; }
   .readme-actions { gap: 10px; }
-  .install-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .install-row-k { line-height: 1.6; }
+  .install-row { gap: 6px; }
   /* 窄屏没有空间横向滚动，命令直接折行，避免用户以为命令被截断 */
   .code { align-items: flex-start; }
   .code code { white-space: pre-wrap; overflow-wrap: anywhere; }
