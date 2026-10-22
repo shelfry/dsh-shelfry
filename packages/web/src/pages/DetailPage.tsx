@@ -26,7 +26,9 @@ export default function DetailPage() {
   const [copiedPkg, setCopiedPkg] = useState(false);
   const [readme, setReadme] = useState<ReadmeResult | null | "loading">("loading");
   const [similar, setSimilar] = useState<LiteEntry[]>([]);
+  const [byAuthor, setByAuthor] = useState<LiteEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [readmeOpen, setReadmeOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,11 +52,25 @@ export default function DetailPage() {
     if (!entry) return;
     let cancelled = false;
     setReadme("loading");
+    setReadmeOpen(false);
     loadReadme(entry.fullName)
       .then((r) => { if (!cancelled) setReadme(r); })
       .catch(() => { if (!cancelled) setReadme(null); });
     return () => { cancelled = true; };
   }, [entry]);
+
+  // 弹窗打开时锁住背景滚动、支持 ESC 关闭
+  useEffect(() => {
+    if (!readmeOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setReadmeOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [readmeOpen]);
 
   useEffect(() => {
     if (!entry) return;
@@ -64,6 +80,13 @@ export default function DetailPage() {
         const [lite, cats] = await Promise.all([loadLite(), loadCategories()]);
         if (cancelled) return;
         setCategories(cats);
+        const owner = entry.fullName.split("/")[0]!.toLowerCase();
+        setByAuthor(
+          lite
+            .filter((v) => v.i !== entry.id && v.i.split("/")[0]!.toLowerCase() === owner)
+            .sort((a, b) => b.s - a.s)
+            .slice(0, 4),
+        );
         const myTags = new Set(meaningfulTags(entry.tags).map((t) => t.toLowerCase()));
         const picked = lite
           .filter((v) => v.i !== entry.id)
@@ -214,13 +237,28 @@ export default function DetailPage() {
         )}
         {readme && readme !== "loading" && (
           <>
-            <div className="readme" dangerouslySetInnerHTML={{ __html: readme.html }} />
-            <p className="hint">
-              README 来自上游仓库，<a href={readme.url} target="_blank" rel="noreferrer">在 GitHub 查看原文</a>。
-            </p>
+            {/* 详情页只放摘要，完整内容进弹窗 —— 有的 README 比整页还长，平铺会把安装/评分全挤下去 */}
+            <div className="readme-clamp">
+              <div className="readme" dangerouslySetInnerHTML={{ __html: readme.html }} />
+            </div>
+            <div className="readme-actions">
+              <button className="btn-readme" onClick={() => setReadmeOpen(true)}>查看完整 README</button>
+              <a href={readme.url} target="_blank" rel="noreferrer">在 GitHub 查看原文</a>
+            </div>
           </>
         )}
       </section>
+
+      {byAuthor.length > 0 && (
+        <section className="panel">
+          <h2>同作者的其他插件</h2>
+          <div className="grid grid-similar">
+            {byAuthor.map((v) => (
+              <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <h2>推荐依据</h2>
@@ -262,6 +300,28 @@ export default function DetailPage() {
       <footer className="detail-foot">
         {siteConfig.siteName} · 数据每日自动刷新
       </footer>
+
+      {readmeOpen && readme && readme !== "loading" && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setReadmeOpen(false); }}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${entry.name} 的完整 README`}
+          >
+            <div className="modal-head">
+              <strong>{entry.name} · README</strong>
+              <div className="modal-head-actions">
+                <a href={readme.url} target="_blank" rel="noreferrer">GitHub</a>
+                <button className="modal-close" onClick={() => setReadmeOpen(false)} aria-label="关闭">×</button>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div className="readme" dangerouslySetInnerHTML={{ __html: readme.html }} />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
