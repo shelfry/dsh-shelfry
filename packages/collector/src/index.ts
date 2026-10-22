@@ -89,6 +89,20 @@ function looksLikeDesktopClient(e: PluginEntry): boolean {
   return DESKTOP_CLIENT_TEXT.test(text) || e.tags.some((t) => DESKTOP_TOPIC.test(t));
 }
 
+/**
+ * 教程、清单、dotfiles、模板这类仓库的 README 也常带一条 curl 安装脚本
+ * （例如 learn-harness-engineering 的 audit 脚本），但它们本身不是可分发的工具。
+ * 只对独立工具做这层过滤 —— 插件不受影响。
+ */
+const NON_TOOL_REPO = /(^|[-_/])(dotfiles|awesome|tutorials?|courses?|curriculum|roadmap|cheatsheets?|books?|docs?|documentation|website|blog|templates?|boilerplate|starter|examples?|demos?|playground|sandbox|learn)([-_/]|$)/i;
+
+function looksLikeNonTool(e: PluginEntry): boolean {
+  if (e.ecosystem !== "external") return false;
+  // 只看仓库名：简介里出现 docs / examples 的合法工具不少，按简介筛会误伤。
+  const repo = e.id.split("/")[1] ?? e.id;
+  return NON_TOOL_REPO.test(repo);
+}
+
 interface LoadedRecords {
   records: RawRecord[];
   sourceLabel: string;
@@ -225,16 +239,16 @@ async function main(): Promise<void> {
     `[collector] 安装命令补全：探测 ${probe.probed} 条 / 缓存命中 ${probe.cached} 条 / 补出 DSH 命令 ${probe.dsh} 条 / 上游安装器 ${probe.native} 条`,
   );
 
-  // 桌面客户端不是插件：没有安装命令、简介又明说是桌面应用/客户端的，直接剔除。
+  // 桌面客户端与教程/清单类仓库都不该出现在列表里：前者不是插件，后者不是工具。
   // 放在补全之后，避免把「README 里其实写了 dsh plugin add」的插件误删。
-  const apps = active.filter(looksLikeDesktopClient);
+  const apps = active.filter((e) => looksLikeDesktopClient(e) || looksLikeNonTool(e));
   if (apps.length > 0) {
     const appIds = new Set(apps.map((e) => e.id));
     active = active.filter((e) => !appIds.has(e.id));
     entries = active;
     merged.catalog.entries = active;
     const names = apps.slice(0, 8).map((e) => e.id).join("、");
-    log(args.silent, `[collector] 剔除 ${apps.length} 个桌面客户端（不是插件）：${names}${apps.length > 8 ? " 等" : ""}`);
+    log(args.silent, `[collector] 剔除 ${apps.length} 个桌面客户端/非工具仓库：${names}${apps.length > 8 ? " 等" : ""}`);
   }
 
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。

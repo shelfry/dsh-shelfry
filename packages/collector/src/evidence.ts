@@ -22,7 +22,7 @@ import { findStandaloneCommand, type StandaloneHit } from "./standalone.ts";
 export type EvidenceKind = "skill" | "plugin";
 
 /** 判定规则版本：规则改动后旧缓存一律重探，避免错误结论被缓存固化。 */
-const RULE_VERSION = 3;
+const RULE_VERSION = 4;
 
 export interface Evidence {
   /** keep=生态内（含独立工具），drop=判定无关 */
@@ -134,22 +134,25 @@ async function probeReadme(
   hit: string | null;
   spec: string | null;
   standalone: StandaloneHit | null;
+  loose: boolean;
 }> {
   let standalone: StandaloneHit | null = null;
+  let loose = false;
   for (const name of README_NAMES) {
     const body = await fetchGithubText(`${RAW}/${owner}/${repo}/HEAD/${name}`);
     if (!body) continue;
     const skill = body.match(SKILL_SPEC);
-    if (skill?.[1]) return { kind: "skill", hit: `${name}:skill-add`, spec: skill[1], standalone: null };
-    if (SKILL_CMD.test(body)) return { kind: "skill", hit: `${name}:skill-add`, spec: null, standalone: null };
+    if (skill?.[1]) return { kind: "skill", hit: `${name}:skill-add`, spec: skill[1], standalone: null, loose };
+    if (SKILL_CMD.test(body)) return { kind: "skill", hit: `${name}:skill-add`, spec: null, standalone: null, loose };
     const plugin = body.match(PLUGIN_SPEC);
-    if (plugin?.[1]) return { kind: "plugin", hit: `${name}:plugin-add`, spec: plugin[1], standalone: null };
-    if (PLUGIN_CMD.test(body)) return { kind: "plugin", hit: `${name}:plugin-add`, spec: null, standalone: null };
-    if (LOOSE.test(body)) return { kind: null, hit: `${name}:mention`, spec: null, standalone: null };
-    // 先记下 README 里的独立安装命令：三层证据都落空时靠它把仓库收进「工具」
+    if (plugin?.[1]) return { kind: "plugin", hit: `${name}:plugin-add`, spec: plugin[1], standalone: null, loose };
+    if (PLUGIN_CMD.test(body)) return { kind: "plugin", hit: `${name}:plugin-add`, spec: null, standalone: null, loose };
+    // 只提到 dsh 不算生态证据：很多独立 CLI 会把 DSH 当集成对象写一段。
+    // 先记下来，等独立安装命令判断完再决定它是不是插件（rea / ruflo / phi 都是这种）。
+    if (LOOSE.test(body)) loose = true;
     if (!standalone) standalone = findStandaloneCommand(body, `${owner}/${repo}`);
   }
-  return { kind: null, hit: null, spec: null, standalone };
+  return { kind: null, hit: null, spec: null, standalone, loose };
 }
 
 /** 第 2 层：package.json 的依赖与关键词。 */
@@ -223,24 +226,21 @@ export async function probeRepo(owner: string, repo: string): Promise<Evidence> 
   let spec: string | null = null;
 
   const readme = await probeReadme(owner, repo);
-  if (readme.hit) found.push(readme.hit);
   kind = readme.kind;
   spec = readme.spec;
 
-  if (found.length === 0) {
-    const pkg = await probePackageJson(owner, repo);
-    if (pkg.hit) found.push(pkg.hit);
-    kind = pkg.kind;
+  // 优先级：README 里写明 dsh plugin/skill 安装命令 > 独立安装命令 > 仅提及 dsh > 目录结构。
+  //
+  // 独立安装命令排在目录结构之前是有教训的：rea 与 ruflo 都是自带 CLI 的工具，
+  // 只是在仓库里放了给 agent 用的 .agents/skills / SKILL.md，按目录判会被当成 skill
+  // 塞进插件列表 —— 用户反馈「这个好像不是插件」正是这类。
+  if (kind) {
+    return {
+      v: "keep", kind, spec, e: [readme.hit ?? "readme"], t: new Date().toISOString().slice(0, 10), r: RULE_VERSION,
+    };
   }
 
-  if (found.length === 0) {
-    const tree = await probeTree(owner, repo);
-    if (tree.hit) found.push(tree.hit);
-    kind = tree.kind;
-  }
-
-  // 三层 DSH 证据全空，但 README 写明了独立安装方式：收进来，归到「工具」。
-  if (found.length === 0 && readme.standalone) {
+  if (readme.standalone) {
     return {
       v: "keep",
       kind: null,
@@ -252,6 +252,20 @@ export async function probeRepo(owner: string, repo: string): Promise<Evidence> 
       t: new Date().toISOString().slice(0, 10),
       r: RULE_VERSION,
     };
+  }
+
+  if (readme.loose) found.push("readme:mention");
+
+  if (found.length === 0) {
+    const pkg = await probePackageJson(owner, repo);
+    if (pkg.hit) found.push(pkg.hit);
+    kind = pkg.kind;
+  }
+
+  if (found.length === 0) {
+    const tree = await probeTree(owner, repo);
+    if (tree.hit) found.push(tree.hit);
+    kind = tree.kind;
   }
 
   return {
