@@ -269,7 +269,10 @@ export default function DetailPage() {
         <h2>简介</h2>
         <div className="about-grid">
           <div className="about-main">
-            <p className="detail-desc">{entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}</p>
+            {/* 固定两行高，超出部分省略；悬停可看全文 */}
+            <p className="detail-desc" title={entry.descriptionZh ?? entry.description ?? ""}>
+              {entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}
+            </p>
             {/* 描述之外补四条可核对的事实，避免左栏只有一段文字显得空 */}
             <div className="about-facts">
               <span className="fact">

@@ -333,7 +333,12 @@ a { color: inherit; text-decoration: none; }
 
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
 .panel h2 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); font-weight: 600; }
-.detail-desc { margin: 0; font-size: 14.5px; line-height: 1.7; }
+.detail-desc {
+  margin: 0; font-size: 14.5px; line-height: 1.7;
+  /* 简介长短差得很大：固定两行高度，下面的徽标、标签、来源行都不会跟着上下跳 */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; min-height: calc(1.7em * 2);
+}
 
 /* 简介左栏的事实徽标：四条可核对信息，填补描述与标签之间的空白 */
 .about-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 14px; }
@@ -348,10 +353,10 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden; text-overflow: ellipsis;
 }
 
-/* 简介与推荐依据同块：左侧讲是什么，右侧讲为什么推荐，靠间距分区，不加竖线 */
+/* 简介与推荐依据同块：左侧讲是什么，右侧讲为什么推荐，用淡色竖线分区 */
 .about-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 24px; align-items: start; }
 .about-main { min-width: 0; }
-.about-score { min-width: 0; }
+.about-score { min-width: 0; border-left: 1px solid #edede8; padding-left: 24px; }
 .about-score-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .about-score-title { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; color: var(--text-faint); }
 .about-score-total { font-size: 12px; color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -368,7 +373,7 @@ a { color: inherit; text-decoration: none; }
 .about-tags .detail-tags { flex: 1; min-width: 0; margin-top: 0; }
 /* 行高锁死 16px，两行恰好 48px；超出第三行整行裁掉，不会露出半截 */
 .about-tags .tag { line-height: 16px; }
-.about-tags.is-capped .detail-tags { max-height: 48px; overflow: hidden; }
+.about-tags.is-capped .detail-tags { max-height: 48px; min-height: 48px; overflow: hidden; }
 .tags-toggle {
   flex: none; min-width: 44px; text-align: center;
   padding: 1px 7px; border: 1px solid var(--border); border-radius: 5px;
@@ -394,7 +399,9 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 800px) {
   .about-grid { grid-template-columns: 1fr; gap: 16px; }
-  .about-score { border-top: 1px solid var(--border); padding-top: 16px; }
+  /* 手机一行字数少，简介放宽到三行，仍保持固定高度 */
+  .detail-desc { -webkit-line-clamp: 3; min-height: calc(1.7em * 3); }
+  .about-score { border-left: 0; border-top: 1px solid #edede8; padding-left: 0; padding-top: 16px; }
   .about-meta { gap: 6px 16px; }
   .about-meta-item:last-child { margin-left: 0; }
 }
