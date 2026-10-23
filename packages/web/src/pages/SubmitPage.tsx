@@ -4,6 +4,7 @@ import { loadCategories, siteConfig, type Category } from "../lib/data";
 import { categoryLabel } from "../lib/labels";
 import { copyText } from "../lib/clipboard";
 import { useT } from "../lib/i18n";
+import { SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 /**
  * 提交插件页（#/submit）。
@@ -45,6 +46,11 @@ export default function SubmitPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [copied, setCopied] = useState(false);
   const { t } = useT();
+  useSeo({
+    title: `${t("nav.submit")} · ${SEO_SITE_NAME}`,
+    description: "提交一个 DSH 插件或非 DSH 独立工具：填写仓库与安装方式，生成一份可直接提交的 GitHub Issue。",
+    path: "/submit",
+  });
 
   // 分类候选来自已收录数据：新插件也能一眼看到现有口径，减少口径漂移
   useEffect(() => {

@@ -5,6 +5,7 @@ import { PluginCard } from "../components/PluginCard";
 import { loadCategories, loadLite } from "../lib/data";
 import { useFavorites } from "../lib/favorites";
 import { useT } from "../lib/i18n";
+import { SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 /**
  * 收藏页（#/favorites）。
@@ -15,6 +16,12 @@ import { useT } from "../lib/i18n";
 export default function FavoritesPage() {
   const { ids } = useFavorites();
   const { t } = useT();
+  useSeo({
+    title: `${t("nav.favorites")} · ${SEO_SITE_NAME}`,
+    description: "我收藏的 DSH 插件与独立工具，保存在本机浏览器。",
+    path: "/favorites",
+    noindex: true,
+  });
   const [lite, setLite] = useState<LiteEntry[] | null>(null);
   const [categories, setCategories] = useState<Set<string>>(new Set());
 

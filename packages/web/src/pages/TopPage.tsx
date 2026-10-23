@@ -5,6 +5,7 @@ import { loadLite, loadMeta } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, relativeTime, versionLabel } from "../components/PluginCard";
 import { detailPath } from "../lib/data";
 import { useT } from "../lib/i18n";
+import { SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 /**
  * 榜单页（#/top）：星标 / 最近更新 / 精选。
@@ -30,6 +31,11 @@ export default function TopPage() {
   const [tab, setTab] = useState<Tab>("stars");
   const [error, setError] = useState<string | null>(null);
   const { t } = useT();
+  useSeo({
+    title: `${t("nav.top")} · ${SEO_SITE_NAME}`,
+    description: "DSH 插件与工具榜单：按星标、最近更新与综合分排序，每日自动刷新。",
+    path: "/top",
+  });
 
   useEffect(() => {
     (async () => {

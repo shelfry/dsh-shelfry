@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { applyLang } from "./lib/i18n";
 import { applyTheme } from "./lib/theme";
@@ -15,8 +15,8 @@ if (!el) throw new Error("缺少 #root 容器");
 
 createRoot(el).render(
   <StrictMode>
-    <HashRouter>
+    <BrowserRouter>
       <App />
-    </HashRouter>
+    </BrowserRouter>
   </StrictMode>,
 );

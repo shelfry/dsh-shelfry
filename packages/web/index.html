@@ -30,6 +30,18 @@
         try {
           if (localStorage.getItem("dsh:lang") === "en") root.lang = "en";
         } catch (e) {}
+        // 旧链接是 hash 路由（#/p/x、#/?scope=tools），在 React 挂载前改写成真实路径，
+        // 已分享出去的地址不会失效，也不会先闪一下首页。
+        try {
+          var hash = location.hash;
+          if (hash.indexOf("#/") === 0) {
+            var rest = hash.slice(2);
+            var q = rest.indexOf("?");
+            var path = q === -1 ? rest : rest.slice(0, q);
+            var query = q === -1 ? "" : rest.slice(q);
+            history.replaceState(null, "", "/" + path + query + location.search);
+          }
+        } catch (e) {}
       })();
     </script>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E" />

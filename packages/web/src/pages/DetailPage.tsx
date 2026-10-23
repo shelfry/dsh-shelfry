@@ -11,6 +11,7 @@ import { StarButton } from "../components/StarButton";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
 import { useT } from "../lib/i18n";
+import { SEO_DEFAULT_DESCRIPTION, SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 type MethodKey = "pnpm-profile" | "standalone" | "native" | "skills-add" | "manual";
 
@@ -59,6 +60,12 @@ export default function DetailPage() {
   const [tagsOpen, setTagsOpen] = useState(false);
   const [overflowTags, setOverflowTags] = useState(0);
   const { t } = useT();
+  // 详情加载完再用条目自己的名字与简介覆盖默认标题，搜索引擎看到的就是这一条
+  useSeo({
+    title: entry ? `${entry.name} · ${SEO_SITE_NAME}` : SEO_SITE_NAME,
+    description: (entry ? entry.descriptionZh ?? entry.description ?? SEO_DEFAULT_DESCRIPTION : SEO_DEFAULT_DESCRIPTION).slice(0, 160),
+    path: `/p/${entry?.id ?? decoded}`,
+  });
 
   // 换了条目就把标签收起，避免上一页的展开状态带过来
   useEffect(() => {
