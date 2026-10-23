@@ -100,6 +100,14 @@ export default function HomePage() {
     title: `${SEO_SITE_NAME} · DeepSeek Harness 插件与工具`,
     description: SEO_DEFAULT_DESCRIPTION,
     path: "/",
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: SEO_SITE_NAME,
+      alternateName: siteConfig.siteName,
+      url: "https://dsh.shelfry.app/",
+      description: SEO_DEFAULT_DESCRIPTION,
+    },
   });
 
   useEffect(() => {

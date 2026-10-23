@@ -61,10 +61,26 @@ export default function DetailPage() {
   const [overflowTags, setOverflowTags] = useState(0);
   const { t } = useT();
   // 详情加载完再用条目自己的名字与简介覆盖默认标题，搜索引擎看到的就是这一条
+  const seoDescription = (entry ? entry.descriptionZh ?? entry.description ?? SEO_DEFAULT_DESCRIPTION : SEO_DEFAULT_DESCRIPTION).slice(0, 160);
   useSeo({
     title: entry ? `${entry.name} · ${SEO_SITE_NAME}` : SEO_SITE_NAME,
-    description: (entry ? entry.descriptionZh ?? entry.description ?? SEO_DEFAULT_DESCRIPTION : SEO_DEFAULT_DESCRIPTION).slice(0, 160),
+    description: seoDescription,
     path: `/p/${entry?.id ?? decoded}`,
+    // 星标数不是用户评分，不能写成 aggregateRating；只声明项目本体与仓库地址
+    jsonLd: entry
+      ? {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: entry.name,
+          description: entry.descriptionZh ?? entry.description ?? undefined,
+          url: `https://dsh.shelfry.app/p/${entry.id}`,
+          applicationCategory: "DeveloperApplication",
+          operatingSystem: "macOS, Linux, Windows",
+          codeRepository: `https://github.com/${entry.fullName}`,
+          softwareVersion: entry.version ?? undefined,
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        }
+      : undefined,
   });
 
   // 换了条目就把标签收起，避免上一页的展开状态带过来

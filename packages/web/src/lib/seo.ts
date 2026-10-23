@@ -16,6 +16,8 @@ export interface SeoInput {
   path: string;
   /** 收藏等个人页不进索引 */
   noindex?: boolean;
+  /** 结构化数据（Schema.org），由调用方按页面类型给 */
+  jsonLd?: Record<string, unknown>;
 }
 
 function meta(selector: string, attrs: Record<string, string>): void {
@@ -27,7 +29,7 @@ function meta(selector: string, attrs: Record<string, string>): void {
   for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
 }
 
-export function applySeo({ title, description, path, noindex }: SeoInput): void {
+export function applySeo({ title, description, path, noindex, jsonLd }: SeoInput): void {
   document.title = title;
   const url = `${ORIGIN}${path}`;
   meta('meta[name="description"]', { name: "description", content: description });
@@ -48,13 +50,29 @@ export function applySeo({ title, description, path, noindex }: SeoInput): void 
   const robots = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
   if (noindex) meta('meta[name="robots"]', { name: "robots", content: "noindex,follow" });
   else robots?.remove();
+
+  // 结构化数据：同一页面始终只保留一份，切路由时整段替换
+  let ld = document.head.querySelector<HTMLScriptElement>('script[data-seo-jsonld="1"]');
+  if (jsonLd) {
+    if (!ld) {
+      ld = document.createElement("script");
+      ld.type = "application/ld+json";
+      ld.dataset.seoJsonld = "1";
+      document.head.appendChild(ld);
+    }
+    ld.textContent = JSON.stringify(jsonLd);
+  } else {
+    ld?.remove();
+  }
 }
 
 export function useSeo(input: SeoInput): void {
-  const { title, description, path, noindex } = input;
+  const { title, description, path, noindex, jsonLd } = input;
+  // 对象每次渲染都是新引用，用序列化结果做依赖，避免无意义地反复写 DOM
+  const jsonLdKey = jsonLd ? JSON.stringify(jsonLd) : "";
   useEffect(() => {
-    applySeo({ title, description, path, noindex });
-  }, [title, description, path, noindex]);
+    applySeo({ title, description, path, noindex, jsonLd });
+  }, [title, description, path, noindex, jsonLdKey]);
 }
 
 /** 首页 / 榜单等公共页的默认描述，详情页另用条目简介覆盖。 */
