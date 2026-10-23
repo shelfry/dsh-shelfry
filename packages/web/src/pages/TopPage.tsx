@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogMeta, LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
-import { loadLite, loadMeta, siteConfig } from "../lib/data";
+import { loadLite, loadMeta } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, relativeTime, versionLabel } from "../components/PluginCard";
 import { detailPath } from "../lib/data";
+import { useT } from "../lib/i18n";
 
 /**
  * 榜单页（#/top）：星标 / 最近更新 / 精选。
@@ -13,19 +14,22 @@ import { detailPath } from "../lib/data";
 
 type Tab = "stars" | "recent" | "score";
 
-const TABS: Array<{ key: Tab; label: string; hint: string }> = [
-  { key: "stars", label: "星标榜", hint: "按 GitHub star 数排序，反映生态关注度" },
-  { key: "recent", label: "活跃榜", hint: "按仓库最近提交时间排序，反映还在维护" },
-  { key: "score", label: "综合榜", hint: "按综合推荐分排序：生态热度、维护活跃、信息完整、上手便捷四项加权" },
-];
-
 const TOP_N = 50;
+
+const TAB_KEY: Record<Tab, { label: "top.tab.stars" | "top.tab.recent" | "top.tab.score"; hint: "top.hint.stars" | "top.hint.recent" | "top.hint.score" }> = {
+  stars: { label: "top.tab.stars", hint: "top.hint.stars" },
+  recent: { label: "top.tab.recent", hint: "top.hint.recent" },
+  score: { label: "top.tab.score", hint: "top.hint.score" },
+};
+
+const TAB_ORDER: Tab[] = ["stars", "recent", "score"];
 
 export default function TopPage() {
   const [lite, setLite] = useState<LiteEntry[] | null>(null);
   const [meta, setMeta] = useState<CatalogMeta | null>(null);
   const [tab, setTab] = useState<Tab>("stars");
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT();
 
   useEffect(() => {
     (async () => {
@@ -50,32 +54,32 @@ export default function TopPage() {
   }, [lite, tab]);
 
   if (error) {
-    return <main className="wrap"><div className="empty">数据加载失败：{error}</div></main>;
+    return <main className="wrap"><div className="empty">{t("common.dataError", { msg: error })}</div></main>;
   }
 
   return (
     <main className="wrap top-page">
       <section className="hero top-hero">
-        <h1>榜单</h1>
-        <p>{siteConfig.siteNameZh}的三种排名口径，全部基于可核对的上游信息。</p>
+        <h1>{t("top.title")}</h1>
+        <p>{t("top.sub")}</p>
       </section>
 
       <section className="filters">
         <div className="filter-row">
-          {TABS.map((t) => (
-            <button key={t.key} className="chip" aria-pressed={tab === t.key} onClick={() => setTab(t.key)}>
-              {t.label}
+          {TAB_ORDER.map((key) => (
+            <button key={key} className="chip" aria-pressed={tab === key} onClick={() => setTab(key)}>
+              {t(TAB_KEY[key].label)}
             </button>
           ))}
-          {meta && <span className="filter-label" style={{ marginLeft: "auto" }}>收录 {meta.total - (meta.external ?? 0)} 个插件 · 展示前 {TOP_N}</span>}
+          {meta && <span className="filter-label" style={{ marginLeft: "auto" }}>{t("top.meta", { n: meta.total - (meta.external ?? 0), top: TOP_N })}</span>}
         </div>
-        <p className="hint" style={{ marginTop: 10 }}>{TABS.find((t) => t.key === tab)?.hint}</p>
+        <p className="hint" style={{ marginTop: 10 }}>{t(TAB_KEY[tab].hint)}</p>
       </section>
 
       {!lite ? (
-        <div className="empty">正在加载榜单…</div>
+        <div className="empty">{t("top.loading")}</div>
       ) : rows.length === 0 ? (
-        <div className="empty">这个榜单暂时没有条目。</div>
+        <div className="empty">{t("top.empty")}</div>
       ) : (
         <ol className="rank-list">
           {rows.map((v, i) => (
@@ -88,12 +92,12 @@ export default function TopPage() {
                   <span>{v.i}</span>
                   {versionLabel(v.vr) && <span className="detail-ver">{versionLabel(v.vr)}</span>}
                 </div>
-                <p className="rank-desc">{v.d || "（上游未提供简介）"}</p>
+                <p className="rank-desc">{v.d || t("common.noDesc")}</p>
               </div>
               <div className="rank-nums">
                 <span className="rank-num"><b>★ {formatStars(v.s)}</b></span>
                 <span className="rank-num">↓ {formatDownloads(v.dl) ?? "—"}</span>
-                <span className="rank-num rank-num-dim">{relativeTime(v.p)}</span>
+                <span className="rank-num rank-num-dim">{relativeTime(v.p, t)}</span>
               </div>
             </li>
           ))}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginType } from "@dsh-shelfry/schema";
 import { Link, useSearchParams } from "react-router-dom";
 import { PluginCard } from "../components/PluginCard";
+import { HeaderSettings } from "../components/HeaderSettings";
 import {
   isExternal,
   loadArtifacts,
@@ -16,6 +17,8 @@ import {
 } from "../lib/data";
 import { createSearcher, rankHits, sortItems, type SearchHit, type SortKey } from "../lib/search";
 import { categoryLabel } from "../lib/labels";
+import { useFavorites } from "../lib/favorites";
+import { useT } from "../lib/i18n";
 
 /**
  * 首页：浏览 + 检索 + 多维筛选。
@@ -33,36 +36,30 @@ const PAGE_STEP = 60;
  * 工具是「有独立安装命令、但不经 DSH profile 加载」的非 DSH 项目，
  * 数量远少于插件，所以切换后按全量切片在客户端过滤，而不是单独产物。
  */
-const SCOPE_LABEL: Record<CatalogScope, string> = { plugins: "插件", tools: "工具" };
 
 type TypeFilter = "all" | "cordis-plugin" | "skill" | "unknown";
 type StarsFilter = "all" | "10" | "100" | "500" | "1000";
 type CompatFilter = "all" | "declared" | "undeclared";
 
-const TYPE_LABEL: Record<TypeFilter, string> = {
-  all: "全部类型",
-  "cordis-plugin": "插件",
-  skill: "Skill",
-  unknown: "未识别",
-};
 const TYPE_ORDER: TypeFilter[] = ["all", "cordis-plugin", "skill", "unknown"];
 
-const STARS_LABEL: Record<StarsFilter, string> = {
-  all: "不限星标",
-  "10": "10+ 星标",
-  "100": "100+ 星标",
-  "500": "500+ 星标",
-  "1000": "1000+ 星标",
-};
 // 不能用 Object.keys：数字形态的键会被 JS 按数值提前，导致「不限」跑到末尾。
 const STARS_ORDER: StarsFilter[] = ["all", "10", "100", "500", "1000"];
 
-const SORT_LABEL: Record<SortKey, string> = {
-  score: "综合推荐",
-  stars: "最多星标",
-  recent: "最近更新",
-};
 const SORT_ORDER: SortKey[] = ["score", "stars", "recent"];
+
+const TYPE_KEY: Record<TypeFilter, "type.all" | "type.plugin" | "type.skill" | "type.unknown"> = {
+  all: "type.all",
+  "cordis-plugin": "type.plugin",
+  skill: "type.skill",
+  unknown: "type.unknown",
+};
+
+const SORT_KEY: Record<SortKey, "sort.score" | "sort.stars" | "sort.recent"> = {
+  score: "sort.score",
+  stars: "sort.stars",
+  recent: "sort.recent",
+};
 
 const needStars = (v: StarsFilter): number => (v === "all" ? 0 : Number(v));
 
@@ -97,6 +94,7 @@ export default function HomePage() {
   const [fullLite, setFullLite] = useState<LiteEntry[] | null>(null);
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const searcherRef = useRef<ReturnType<typeof createSearcher> | null>(null);
+  const { t } = useT();
 
   useEffect(() => {
     (async () => {
@@ -215,8 +213,8 @@ export default function HomePage() {
     return (
       <main className="wrap">
         <div className="empty">
-          <p>数据加载失败：{error}</p>
-          <p style={{ fontSize: 13 }}>本地开发请先执行 <code>npm run collect -- --source mirror --build</code> 生成数据产物。</p>
+          <p>{t("common.dataError", { msg: error })}</p>
+          <p style={{ fontSize: 13 }}>{t("common.devHint")}</p>
         </div>
       </main>
     );
@@ -228,23 +226,19 @@ export default function HomePage() {
   return (
     <main className="wrap">
       <section className="hero">
-        <h1>{isTools ? "顺手的独立工具，也一起收了" : siteConfig.tagline}</h1>
-        <p>
-          {isTools
-            ? "只收上游 README 写明安装命令、且不属于 DSH 插件的项目，命令直接取自仓库。"
-            : siteConfig.taglineZh}
-        </p>
+        <h1>{t(isTools ? "home.title.tools" : "home.title.plugins")}</h1>
+        <p>{t(isTools ? "home.sub.tools" : "home.sub.plugins")}</p>
         <div className="search-row">
           <div className="search-box">
             <span className="icon">⌕</span>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={isTools ? "搜索工具名、作者或用途关键词…" : "搜索插件名、作者或功能关键词…"}
-              aria-label={isTools ? "搜索工具" : "搜索插件"}
+              placeholder={t(isTools ? "home.search.tools" : "home.search.plugins")}
+              aria-label={t(isTools ? "home.searchAria.tools" : "home.searchAria.plugins")}
             />
           </div>
-          <div className="scope-switch" role="tablist" aria-label="浏览范围">
+          <div className="scope-switch" role="tablist" aria-label={t("home.scope")}>
             {(["plugins", "tools"] as CatalogScope[]).map((key) => (
               <button
                 key={key}
@@ -253,7 +247,7 @@ export default function HomePage() {
                 className="scope-btn"
                 onClick={() => setScope(key)}
               >
-                {SCOPE_LABEL[key]}
+                {t(key === "plugins" ? "common.plugins" : "common.tools")}
                 <span className="scope-count">{scopeCount(meta, key)}</span>
               </button>
             ))}
@@ -264,7 +258,7 @@ export default function HomePage() {
       <section className="filters">
         <div className="filter-row filter-cats">
           <button className="chip chip-all" aria-pressed={category === ""} onClick={() => setCategory("")}>
-            全部 {meta ? <span className="chip-count">{scopeCount(meta, scope)}</span> : null}
+            {t("common.all")} {meta ? <span className="chip-count">{scopeCount(meta, scope)}</span> : null}
           </button>
           {visibleCategories.map((c) => (
             <button
@@ -278,7 +272,7 @@ export default function HomePage() {
           ))}
           {categories.length > 14 && (
             <button className="chip chip-toggle" onClick={() => setShowAllCategories((v) => !v)}>
-              {showAllCategories ? "收起" : `展开 ${categories.length - 14} 个`}
+              {showAllCategories ? t("common.collapse") : t("filters.expand", { n: categories.length - 14 })}
             </button>
           )}
         </div>
@@ -287,57 +281,55 @@ export default function HomePage() {
           {/* 类型与 DSH 兼容范围只对插件有意义，工具页不展示这两组 */}
           {!isTools && (
             <>
-              <span className="filter-label">类型</span>
+              <span className="filter-label">{t("filters.type")}</span>
               {(TYPE_ORDER).map((key) => (
                 <button key={key} className="chip chip-sm" aria-pressed={type === key} onClick={() => setType(key)}>
-                  {TYPE_LABEL[key]}
+                  {t(TYPE_KEY[key])}
                 </button>
               ))}
               <span className="filter-sep" />
             </>
           )}
-          <span className="filter-label">星标</span>
+          <span className="filter-label">{t("filters.stars")}</span>
           {(STARS_ORDER).map((key) => (
             <button key={key} className="chip chip-sm" aria-pressed={stars === key} onClick={() => setStars(key)}>
-              {STARS_LABEL[key]}
+              {key === "all" ? t("stars.all") : t("stars.n", { n: key })}
             </button>
           ))}
           {!isTools && (
             <>
               <span className="filter-sep" />
-              <span className="filter-label">兼容</span>
-              <button className="chip chip-sm" aria-pressed={compat === "all"} onClick={() => setCompat("all")}>不限</button>
-              <button className="chip chip-sm" aria-pressed={compat === "declared"} onClick={() => setCompat("declared")}>已声明版本</button>
-              <button className="chip chip-sm" aria-pressed={compat === "undeclared"} onClick={() => setCompat("undeclared")}>未声明</button>
+              <span className="filter-label">{t("filters.compat")}</span>
+              <button className="chip chip-sm" aria-pressed={compat === "all"} onClick={() => setCompat("all")}>{t("compat.all")}</button>
+              <button className="chip chip-sm" aria-pressed={compat === "declared"} onClick={() => setCompat("declared")}>{t("compat.declared")}</button>
+              <button className="chip chip-sm" aria-pressed={compat === "undeclared"} onClick={() => setCompat("undeclared")}>{t("compat.undeclared")}</button>
             </>
           )}
           <span className="filter-sep" />
-          <span className="filter-label">排序</span>
+          <span className="filter-label">{t("filters.sort")}</span>
           {(SORT_ORDER).map((key) => (
             <button key={key} className="chip chip-sm" aria-pressed={sort === key} onClick={() => setSort(key)}>
-              {SORT_LABEL[key]}
+              {t(SORT_KEY[key])}
             </button>
           ))}
-          {hasFilters && <button className="chip chip-sm chip-reset" onClick={resetFilters}>清空条件</button>}
+          {hasFilters && <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>}
         </div>
       </section>
 
       <div className="result-line">
         {hasFilters && !fullLite
-          ? "正在加载全量条目…"
-          : `共 ${totalInScope} 个${isTools ? "工具" : "插件"}`}
-        {hasFilters && fullLite && ` · 已显示 ${Math.min(shown, filtered.length)} 个`}
-        {!hasFilters && ` · 已显示 ${Math.min(shown, filtered.length)} 个`}
-        {category && <span className="pill pill-soft">分类：{category}</span>}
+          ? t("home.loadingAll")
+          : t(isTools ? "home.total.tools" : "home.total.plugins", { n: totalInScope })}
+        {hasFilters && fullLite && ` · ${t("home.shown", { n: Math.min(shown, filtered.length) })}`}
+        {!hasFilters && ` · ${t("home.shown", { n: Math.min(shown, filtered.length) })}`}
+        {category && <span className="pill pill-soft">{t("home.categoryChip", { name: categoryLabel(category) })}</span>}
       </div>
 
       {filtered.length === 0 ? (
         <div className="empty">
           {hasFilters && !fullLite
-            ? "正在加载全量条目…"
-            : isTools
-              ? "没有符合条件的工具，试试放宽筛选。"
-              : "没有符合条件的插件，试试放宽筛选。"}
+            ? t("home.loadingAll")
+            : t(isTools ? "home.empty.tools" : "home.empty.plugins")}
         </div>
       ) : (
         <div className="grid">
@@ -348,7 +340,9 @@ export default function HomePage() {
       )}
 
       <button className="load-more" onClick={loadMore} disabled={!canLoadMore}>
-        {canLoadMore ? `加载更多（已显示 ${Math.min(shown, filtered.length)} / ${totalInScope}）` : "已经到底了"}
+        {canLoadMore
+          ? t("home.loadMore", { shown: Math.min(shown, filtered.length), total: totalInScope })
+          : t("home.end")}
       </button>
     </main>
   );
@@ -356,6 +350,9 @@ export default function HomePage() {
 
 /** 站点头部：首页与详情页共用。 */
 export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
+  const { t } = useT();
+  const { ids } = useFavorites();
+
   return (
     <header className="site-header">
       <div className="wrap">
@@ -365,11 +362,18 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
         </Link>
         <div className="header-spacer" />
         <div className="header-stat">
-          {meta ? `已收录 ${scopeCount(meta, "plugins")} 个插件 · ${scopeCount(meta, "tools")} 个工具` : "加载中…"}
+          {meta
+            ? t("header.stat", { plugins: scopeCount(meta, "plugins"), tools: scopeCount(meta, "tools") })
+            : t("common.loading")}
         </div>
-        <Link className="header-link" to="/top">榜单</Link>
-        <Link className="header-link" to="/submit">提交插件</Link>
-        <a className="header-link" href={siteConfig.repoUrl} target="_blank" rel="noreferrer">GitHub</a>
+        <Link className="header-link" to="/top">{t("nav.top")}</Link>
+        <Link className="header-link header-fav" to="/favorites">
+          {t("nav.favorites")}
+          {ids.length > 0 && <span className="fav-count">{ids.length}</span>}
+        </Link>
+        <Link className="header-link" to="/submit">{t("nav.submit")}</Link>
+        <a className="header-link" href={siteConfig.repoUrl} target="_blank" rel="noreferrer">{t("nav.github")}</a>
+        <HeaderSettings />
       </div>
     </header>
   );

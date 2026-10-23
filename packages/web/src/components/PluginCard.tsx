@@ -6,17 +6,19 @@ import { copyText } from "../lib/clipboard";
 import { assistantPrompt } from "../lib/assistant";
 import { applyProfile, useProfile } from "../lib/install";
 import { ProfilePicker } from "./ProfilePicker";
+import { StarButton } from "./StarButton";
 import { categoryLabel, meaningfulTags } from "../lib/labels";
+import { useT, type TFunc } from "../lib/i18n";
 
 /** 「今天/3 天前/5 个月前」——比裸日期更容易判断插件还活不活。 */
-export function relativeTime(iso: string | null): string {
-  if (!iso) return "无提交记录";
+export function relativeTime(iso: string | null, t: TFunc): string {
+  if (!iso) return t("card.noCommit");
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
-  if (!Number.isFinite(days)) return "无提交记录";
-  if (days <= 0) return "今天有提交";
-  if (days < 30) return `${days} 天前更新`;
-  if (days < 365) return `${Math.floor(days / 30)} 个月前更新`;
-  return `${Math.floor(days / 365)} 年前更新`;
+  if (!Number.isFinite(days)) return t("card.noCommit");
+  if (days <= 0) return t("card.today");
+  if (days < 30) return t("card.daysAgo", { n: days });
+  if (days < 365) return t("card.monthsAgo", { n: Math.floor(days / 30) });
+  return t("card.yearsAgo", { n: Math.floor(days / 365) });
 }
 
 const ownerOf = (id: string): string => {
@@ -84,6 +86,7 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
   const [more, setMore] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useProfile();
+  const { t } = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -152,12 +155,12 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
       <div className="install-sheet-body" ref={bodyRef} onScroll={measure}>
         <div className="install-sheet-head">
           <span className="install-sheet-title">{item.n}</span>
-          <button className="install-sheet-close" onClick={onClose} aria-label="关闭">×</button>
+          <button className="install-sheet-close" onClick={onClose} aria-label={t("common.close")}>×</button>
         </div>
 
-        {state === "loading" && <p className="hint">正在读取安装命令…</p>}
+        {state === "loading" && <p className="hint">{t("sheet.reading")}</p>}
         {state === "missing" && (
-          <p className="hint">上游没写安装命令，请按仓库 README 手动安装，或去 GitHub 查看。</p>
+          <p className="hint">{t("sheet.missing")}</p>
         )}
         {command && (
           <>
@@ -166,24 +169,24 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
             )}
             <div className="code">
               <code>{command}</code>
-              <button onClick={copy}>{state === "copied" ? "已复制" : "复制"}</button>
+              <button onClick={copy}>{state === "copied" ? t("common.copied") : t("common.copy")}</button>
             </div>
             <button className="btn-assistant" onClick={copyAssistant}>
-              {copiedAssistant ? "已复制，粘贴给助手" : "复制给编程助手"}
+              {copiedAssistant ? t("sheet.copiedAssistant") : t("sheet.copyAssistant")}
             </button>
             <p className="hint">
               {state === "manual"
-                ? "浏览器拒绝了剪贴板写入，请手动选中命令复制。"
+                ? t("sheet.manual")
                 : method === "native"
-                  ? "上游自带的安装器：会先给出安装计划，确认后再写入配置。"
+                  ? t("sheet.native")
                   : method === "standalone"
-                    ? "非 DSH 独立工具：命令来自上游 README，安装后按仓库说明使用，不走插件 profile。"
-                    : <><code>web</code> / <code>tui</code> 是 DSH 自带 profile，首次使用自动创建。</>}
+                    ? t("sheet.standalone")
+                    : <>{t("sheet.profiles")}</>}
             </p>
           </>
         )}
 
-        <Link className="install-sheet-more" to={detailPath(item.i)}>查看详情 →</Link>
+        <Link className="install-sheet-more" to={detailPath(item.i)}>{t("sheet.more")}</Link>
       </div>
       {more && <span className="install-sheet-fade" aria-hidden="true" />}
     </div>
@@ -196,6 +199,7 @@ const MAX_TAGS = 2;
 export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
   const [installOpen, setInstallOpen] = useState(false);
   const version = versionLabel(item.vr);
+  const { t } = useT();
 
   // 别的卡片打开浮层时，这一张自动收起
   useEffect(() => {
@@ -218,7 +222,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
   const matched = tags.find((t) => categories.has(t)) ?? null;
   // 工具的标签常常是独一份，凑不满分类阈值（出现 ≥2 次）就兜底成「其他」，
   // 免得卡片右下角空着和别的工具不一致。
-  const category = matched ?? (item.ec === "external" ? "其他" : null);
+  const category = matched ?? (item.ec === "external" ? t("common.other") : null);
   const restTags = tags.filter((t) => t !== matched);
   const shownTags = restTags.slice(0, MAX_TAGS);
   // +N 要把「分类已显示」也算进去，这样 2 + N + 1 正好等于详情页的标签总数。
@@ -231,11 +235,14 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
         <div className="card-title">
           {/* 链接::after 铺满整张卡片 ⇒ 卡片任意处可点，按钮靠 z-index 浮在上面 */}
           <Link className="card-name" to={detailPath(item.i)}>{item.n}</Link>
-          {item.ec === "external" && <span className="pill pill-tool">工具</span>}
+          {item.ec === "external" && <span className="pill pill-tool">{t("common.tool")}</span>}
           {item.t === "skill" && <span className="pill pill-type">skill</span>}
-          {item.c === 1 && <span className="pill pill-curated">精选</span>}
+          {item.c === 1 && <span className="pill pill-curated">{t("common.curated")}</span>}
         </div>
-        <button className="btn-install" onClick={toggleInstall} title="查看安装命令">安装</button>
+        <div className="card-actions">
+          <StarButton id={item.i} />
+          <button className="btn-install" onClick={toggleInstall} title={t("card.installTitle")}>{t("card.install")}</button>
+        </div>
       </div>
 
       <div className="card-path">
@@ -247,20 +254,20 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
         <Avatar id={item.i} />
         <span className="author-name">{ownerOf(item.i)}</span>
         <span className="dot">·</span>
-        <span>{relativeTime(item.p)}</span>
+        <span>{relativeTime(item.p, t)}</span>
       </div>
 
-      <p className="card-desc">{item.d || "（上游未提供简介）"}</p>
+      <p className="card-desc">{item.d || t("common.noDesc")}</p>
 
       {/* 三项硬指标固定一行：星数、npm 周下载量、综合分，空值也占位，保证卡片等高 */}
       <div className="card-stats">
-        <span className="stat" title={`${item.s} 个 star`}>
+        <span className="stat" title={t("card.starsTitle", { n: item.s })}>
           <span className="stat-k">★</span>{formatStars(item.s)}
         </span>
-        <span className="stat" title="npm 近一周下载量">
+        <span className="stat" title={t("card.dlTitle")}>
           <span className="stat-k">↓</span>{formatDownloads(item.dl) ?? "—"}
         </span>
-        <span className="stat stat-end" title="综合推荐分">综合 {item.sc.toFixed(1)}</span>
+        <span className="stat stat-end" title={t("card.scoreTitle")}>{t("card.score", { score: item.sc.toFixed(1) })}</span>
       </div>
 
       <div className="card-foot">
@@ -268,7 +275,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
           {shownTags.map((t) => <span className="tag" key={t}>{t}</span>)}
           {hiddenCount > 0 && <span className="tag tag-more">+{hiddenCount}</span>}
         </div>
-        {category && <span className="tag tag-cat" title="分类">{categoryLabel(category)}</span>}
+        {category && <span className="tag tag-cat" title={t("common.category")}>{categoryLabel(category)}</span>}
       </div>
 
       {installOpen && <InstallSheet item={item} onClose={() => setInstallOpen(false)} />}

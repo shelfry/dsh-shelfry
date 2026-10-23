@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROFILE, PROFILE_PRESETS } from "../lib/install";
+import { useT } from "../lib/i18n";
 
 /** 两个内置 profile 的用途，给下拉里的第二列用，避免用户只看到一个名字。 */
-const PRESET_NOTE: Record<string, string> = { web: "Web 界面", tui: "终端界面" };
+const PRESET_NOTE: Record<string, "profile.web" | "profile.tui"> = { web: "profile.web", tui: "profile.tui" };
 
 /**
  * 「安装到哪个 profile」。
@@ -24,6 +25,7 @@ export function ProfilePicker({
   const [custom, setCustom] = useState(false);
   const [draft, setDraft] = useState(value);
   const boxRef = useRef<HTMLDivElement>(null);
+  const { t } = useT();
 
   useEffect(() => {
     if (!open) return;
@@ -61,7 +63,7 @@ export function ProfilePicker({
 
   return (
     <span className={`profile-pick${compact ? " is-compact" : ""}`}>
-      <span className="profile-pick-k">安装到</span>
+      <span className="profile-pick-k">{t("profile.into")}</span>
       <span className="profile-select" ref={boxRef}>
         <button
           type="button"
@@ -75,7 +77,7 @@ export function ProfilePicker({
         </button>
 
         {open && (
-          <div className="profile-menu" role="listbox" aria-label="选择 profile">
+          <div className="profile-menu" role="listbox" aria-label={t("profile.aria")}>
             {PROFILE_PRESETS.map((preset) => (
               <button
                 type="button"
@@ -86,7 +88,7 @@ export function ProfilePicker({
                 onClick={() => commit(preset)}
               >
                 <span className="profile-menu-name">{preset}</span>
-                <span className="profile-menu-note">{PRESET_NOTE[preset]}</span>
+                <span className="profile-menu-note">{t(PRESET_NOTE[preset] ?? "profile.customNote")}</span>
               </button>
             ))}
 
@@ -104,12 +106,12 @@ export function ProfilePicker({
                   autoFocus
                   spellCheck={false}
                   autoComplete="off"
-                  placeholder="profile 名"
-                  aria-label="自定义 profile 名"
+                  placeholder={t("profile.placeholder")}
+                  aria-label={t("profile.customAria")}
                   onChange={(e) => setDraft(e.target.value)}
                   onBlur={() => commit(draft)}
                 />
-                <span className="profile-menu-note">回车保存</span>
+                <span className="profile-menu-note">{t("profile.enterToSave")}</span>
               </form>
             ) : (
               <button
@@ -120,15 +122,15 @@ export function ProfilePicker({
                   setCustom(true);
                 }}
               >
-                <span className="profile-menu-name">自定义…</span>
-                <span className="profile-menu-note">自己的 profile</span>
+                <span className="profile-menu-name">{t("profile.custom")}</span>
+                <span className="profile-menu-note">{t("profile.customNote")}</span>
               </button>
             )}
           </div>
         )}
       </span>
 
-      {!compact && <span className="profile-pick-note">web / tui 首次使用会自动创建</span>}
+      {!compact && <span className="profile-pick-note">{t("profile.note")}</span>}
     </span>
   );
 }

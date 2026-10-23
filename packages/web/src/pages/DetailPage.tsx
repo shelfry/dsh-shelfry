@@ -7,8 +7,28 @@ import { copyText } from "../lib/clipboard";
 import { assistantPrompt } from "../lib/assistant";
 import { DEFAULT_PROFILE, applyProfile, useProfile } from "../lib/install";
 import { ProfilePicker } from "../components/ProfilePicker";
+import { StarButton } from "../components/StarButton";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
+import { useT } from "../lib/i18n";
+
+type MethodKey = "pnpm-profile" | "standalone" | "native" | "skills-add" | "manual";
+
+const METHOD_LABEL: Record<MethodKey, "method.pnpm-profile" | "method.standalone" | "method.native" | "method.skills-add" | "method.manual"> = {
+  "pnpm-profile": "method.pnpm-profile",
+  standalone: "method.standalone",
+  native: "method.native",
+  "skills-add": "method.skills-add",
+  manual: "method.manual",
+};
+
+const METHOD_SHORT: Record<MethodKey, "methodShort.pnpm-profile" | "methodShort.standalone" | "methodShort.native" | "methodShort.skills-add" | "methodShort.manual"> = {
+  "pnpm-profile": "methodShort.pnpm-profile",
+  standalone: "methodShort.standalone",
+  native: "methodShort.native",
+  "skills-add": "methodShort.skills-add",
+  manual: "methodShort.manual",
+};
 
 /**
  * 插件详情页（独立路由 #/p/owner/repo）。
@@ -38,6 +58,7 @@ export default function DetailPage() {
   const tagsRef = useRef<HTMLDivElement>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [overflowTags, setOverflowTags] = useState(0);
+  const { t } = useT();
 
   // 换了条目就把标签收起，避免上一页的展开状态带过来
   useEffect(() => {
@@ -183,14 +204,14 @@ export default function DetailPage() {
   };
 
   if (state === "loading") {
-    return <main className="wrap detail"><div className="empty">正在加载条目信息…</div></main>;
+    return <main className="wrap detail"><div className="empty">{t("detail.loading")}</div></main>;
   }
   if (state === "missing" || state === "error") {
     return (
       <main className="wrap detail">
         <div className="empty">
-          <p>{state === "missing" ? `没有收录 ${decoded}` : "插件信息加载失败，请稍后重试。"}</p>
-          <Link className="back-link" to="/">← 返回全部插件</Link>
+          <p>{state === "missing" ? t("detail.missing", { id: decoded }) : t("detail.error")}</p>
+          <Link className="back-link" to="/">{t("detail.back.plugins")}</Link>
         </div>
       </main>
     );
@@ -202,51 +223,31 @@ export default function DetailPage() {
   // 非 DSH 独立工具：不加载进 profile，详情页要把与之无关的行和文案去掉
   const isTool = entry.ecosystem === "external";
   const backToList = isTool ? "/?scope=tools" : "/";
-  const methodLabel =
-    entry.install.method === "pnpm-profile"
-      ? "CLI 装入 profile（pnpm）"
-      : entry.install.method === "standalone"
-        ? "独立工具，按上游 README 安装"
-        : entry.install.method === "native"
-          ? "上游自带安装器"
-          : entry.install.method === "skills-add"
-            ? "随 skill provider 提供"
-            : entry.install.method === "manual"
-              ? "按 README 手动安装"
-              : "未知";
+  const methodKey = entry.install.method in METHOD_LABEL ? (entry.install.method as MethodKey) : null;
+  const methodLabel = methodKey ? t(METHOD_LABEL[methodKey]) : t("method.unknown");
   // 简介里的四个信息徽标用短标签，完整说明放在下方安装区，避免同一句话出现两遍
-  const methodShort =
-    entry.install.method === "pnpm-profile"
-      ? "pnpm profile"
-      : entry.install.method === "standalone"
-        ? "独立安装"
-        : entry.install.method === "native"
-          ? "自带安装器"
-          : entry.install.method === "skills-add"
-            ? "skill"
-            : entry.install.method === "manual"
-              ? "手动安装"
-              : "未知";
+  const methodShort = methodKey ? t(METHOD_SHORT[methodKey]) : t("methodShort.unknown");
   // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
   const detailTags = meaningfulTags(entry.tags);
 
   const dims = [
-    { label: "生态热度", value: entry.score.popularity },
-    { label: "维护活跃", value: entry.score.maintenance },
-    { label: "信息完整", value: entry.score.utility },
-    { label: "上手便捷", value: entry.score.convenience },
+    { label: t("detail.dim.popularity"), value: entry.score.popularity },
+    { label: t("detail.dim.maintenance"), value: entry.score.maintenance },
+    { label: t("detail.dim.utility"), value: entry.score.utility },
+    { label: t("detail.dim.convenience"), value: entry.score.convenience },
   ];
 
   return (
     <main className="wrap detail">
-      <Link className="back-link" to={backToList}>← 返回全部{isTool ? "工具" : "插件"}</Link>
+      <Link className="back-link" to={backToList}>{t(isTool ? "detail.back.tools" : "detail.back.plugins")}</Link>
 
       <header className="detail-head">
         <div className="detail-title">
           <h1>{entry.name}</h1>
-          {isTool && <span className="pill pill-tool">工具</span>}
+          {isTool && <span className="pill pill-tool">{t("common.tool")}</span>}
           {entry.type === "skill" && <span className="pill pill-type">skill</span>}
-          {entry.curated && <span className="pill pill-curated">精选</span>}
+          {entry.curated && <span className="pill pill-curated">{t("common.curated")}</span>}
+          <StarButton id={entry.id} withLabel />
         </div>
         <div className="detail-sub">
           <Avatar id={entry.id} />
@@ -257,49 +258,49 @@ export default function DetailPage() {
           {entry.downloads !== null && (
             <>
               <span className="dot">·</span>
-              <span title="npm 近一周下载量">↓ {formatDownloads(entry.downloads)}/周</span>
+              <span title={t("card.dlTitle")}>{t("detail.weekDownloads", { n: formatDownloads(entry.downloads) ?? "—" })}</span>
             </>
           )}
           <span className="dot">·</span>
-          <span>{relativeTime(entry.pushedAt)}</span>
+          <span>{relativeTime(entry.pushedAt, t)}</span>
         </div>
       </header>
 
       <section className="panel">
-        <h2>简介</h2>
+        <h2>{t("detail.about")}</h2>
         <div className="about-grid">
           <div className="about-main">
             {/* 固定两行高，超出部分省略；悬停可看全文 */}
             <p className="detail-desc" title={entry.descriptionZh ?? entry.description ?? ""}>
-              {entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}
+              {entry.descriptionZh ?? entry.description ?? t("common.noDesc")}
             </p>
             {/* 描述之外补四条可核对的事实，避免左栏只有一段文字显得空 */}
             <div className="about-facts">
               <span className="fact">
-                <span className="fact-k">星标</span>
+                <span className="fact-k">{t("detail.fact.stars")}</span>
                 <span className="fact-v">★ {formatStars(entry.stars)}</span>
               </span>
               <span className="fact">
-                <span className="fact-k">最近更新</span>
-                <span className="fact-v">{relativeTime(entry.pushedAt)}</span>
+                <span className="fact-k">{t("detail.fact.updated")}</span>
+                <span className="fact-v">{relativeTime(entry.pushedAt, t)}</span>
               </span>
               <span className="fact">
-                <span className="fact-k">首次收录</span>
+                <span className="fact-k">{t("detail.fact.firstSeen")}</span>
                 <span className="fact-v">{entry.firstSeenAt.slice(0, 10)}</span>
               </span>
               <span className="fact">
-                <span className="fact-k">安装方式</span>
+                <span className="fact-k">{t("detail.fact.method")}</span>
                 <span className="fact-v">{methodShort}</span>
               </span>
             </div>
             {detailTags.length > 0 && (
               <div className={`about-tags${tagsOpen ? "" : " is-capped"}`}>
                 <div className="tags detail-tags" ref={tagsRef}>
-                  {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
+                  {detailTags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}
                 </div>
                 {overflowTags > 0 && (
                   <button type="button" className="tags-toggle" onClick={() => setTagsOpen((v) => !v)}>
-                    {tagsOpen ? "收起" : `+${overflowTags}`}
+                    {tagsOpen ? t("common.collapse") : `+${overflowTags}`}
                   </button>
                 )}
               </div>
@@ -309,8 +310,8 @@ export default function DetailPage() {
           {/* 推荐依据跟简介放同一块：左边讲「是什么」，右边讲「为什么推荐」 */}
           <aside className="about-score">
             <div className="about-score-head">
-              <span className="about-score-title">推荐依据</span>
-              <span className="about-score-total">综合 <strong>{entry.score.total}</strong></span>
+              <span className="about-score-title">{t("detail.score")}</span>
+              <span className="about-score-total">{t("detail.total")} <strong>{entry.score.total}</strong></span>
             </div>
             <div className="bars">
               {dims.map((d) => (
@@ -327,35 +328,35 @@ export default function DetailPage() {
                 </div>
               ))}
             </div>
-            <p className="about-score-note">四项加权，全部来自可核对的上游信息。</p>
+            <p className="about-score-note">{t("detail.scoreNote")}</p>
           </aside>
         </div>
 
         {/* 来源并进简介底部：只留还需要看的两项，仓库链接与首次收录已在标题和徽标里 */}
         <div className="about-meta">
           <span className="about-meta-item">
-            <span className="about-meta-k">收录来源</span>
+            <span className="about-meta-k">{t("detail.meta.source")}</span>
             <span className="about-meta-v" title={entry.sources.join("、")}>{entry.sources.join(" · ")}</span>
           </span>
           <span className="about-meta-item">
-            <span className="about-meta-k">数据刷新</span>
+            <span className="about-meta-k">{t("detail.meta.refreshed")}</span>
             <span className="about-meta-v">{entry.updatedAt.slice(0, 10)}</span>
           </span>
         </div>
       </section>
 
       <section className="panel">
-        <h2>{isTool ? "安装（独立工具）" : "安装"}</h2>
+        <h2>{t(isTool ? "detail.installTool" : "detail.install")}</h2>
         {isTool && (
           <p className="hint" style={{ marginTop: 0 }}>
-            这是非 DSH 独立工具，命令摘自上游 README，装在本机直接使用，不经过插件 profile。
+            {t("detail.installToolNote")}
           </p>
         )}
         {/* 命令行与桌面版分开写：desktop profile 由 App 独占，把两者混成一段最容易误导 */}
         <div className="install-rows">
           <div className="install-row">
             <div className="install-row-head">
-              <span className="install-row-k">命令行</span>
+              <span className="install-row-k">{t("detail.row.cli")}</span>
               {entry.install.method === "pnpm-profile" && command && (
                 <ProfilePicker value={profile} onChange={setProfile} compact />
               )}
@@ -365,82 +366,76 @@ export default function DetailPage() {
                 <>
                   <div className="code">
                     <code>{command}</code>
-                    <button onClick={copy}>{copied ? "已复制" : "复制"}</button>
+                    <button onClick={copy}>{copied ? t("common.copied") : t("common.copy")}</button>
                   </div>
                   {entry.install.method === "standalone" ? (
-                    <p className="hint">
-                      命令来自上游 README 的快速开始，直接执行即可；安装后的用法以仓库说明为准。
-                    </p>
+                    <p className="hint">{t("detail.hint.standalone")}</p>
                   ) : entry.install.method === "native" ? (
-                    <p className="hint">
-                      这是上游自带的安装器：会先给出安装计划，确认后再写入配置；装完请按 README 验证是否连上。
-                    </p>
+                    <p className="hint">{t("detail.hint.native")}</p>
                   ) : (
-                    <p className="hint">
-                      <code>web</code> / <code>tui</code> 都是 DSH 自带的 profile，首次使用会自动创建、命令可直接执行；也可以填自己的 profile 名。
-                    </p>
+                    <p className="hint">{t("detail.hint.pnpm")}</p>
                   )}
                   <div className="install-extra">
                     <button className="btn-assistant" onClick={copyForAssistant}>
-                      {copiedAssistant ? "已复制，粘贴给助手" : "复制给编程助手"}
+                      {copiedAssistant ? t("sheet.copiedAssistant") : t("sheet.copyAssistant")}
                     </button>
-                    <span className="hint">连同「先给计划、确认后执行、最后验证」的要求一起复制</span>
+                    <span className="hint">{t("detail.assistantNote")}</span>
                   </div>
                 </>
               ) : entry.type === "skill" ? (
-                <p className="install-row-note">skill 由 skill provider 扫描目录或随插件提供，没有等价的 CLI 安装动作。</p>
+                <p className="install-row-note">{t("detail.skillNote")}</p>
               ) : (
-                <p className="install-row-note">上游未写清安装命令，请按仓库 README 手动安装。</p>
+                <p className="install-row-note">{t("detail.manualNote")}</p>
               )}
             </div>
           </div>
 
           {!isTool && <div className="install-row">
-            <span className="install-row-k">桌面版</span>
+            <span className="install-row-k">{t("detail.row.desktop")}</span>
             <p className="install-row-note">
               {entry.install.method === "native"
-                ? "上游安装器会写入你当前所用编程助手的配置；DSH App 桌面版是否同样适用，请以仓库 README 为准。"
+                ? t("detail.desktop.native")
                 : entry.type === "skill"
-                  ? "skill 在 DSH App 里启用和管理，桌面版 profile 由 App 独占，不能用 CLI 装。"
+                  ? t("detail.desktop.skill")
                   : entry.install.packageName
-                    ? <>桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加 <code>{entry.install.packageName}</code>。</>
-                    : "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加该插件。"}
+                    ? <>{t("detail.desktop.pkgPre")}<code>{entry.install.packageName}</code>{t("detail.desktop.pkgPost")}</>
+                    : t("detail.desktop.generic")}
             </p>
           </div>}
         </div>
 
         <dl className="kv">
-          <dt>安装方式</dt><dd>{methodLabel}</dd>
+          <dt>{t("detail.kv.method")}</dt><dd>{methodLabel}</dd>
           {/* 工具多数不走 npm（curl / brew / go install），没有包名就不摆这些空行 */}
           {(!isTool || entry.install.packageName) && (
             <>
-              <dt>npm 包名</dt>
+              <dt>{t("detail.kv.pkg")}</dt>
               <dd>
                 {entry.install.packageName ? (
                   <span className="kv-copy">
                     <code>{entry.install.packageName}</code>
-                    <button className="btn-copy-sm" onClick={copyPkg}>{copiedPkg ? "已复制" : "复制"}</button>
+                    <button className="btn-copy-sm" onClick={copyPkg}>{copiedPkg ? t("common.copied") : t("common.copy")}</button>
                   </span>
-                ) : "无（非 npm 分发）"}
+                ) : t("detail.kv.noPkg")}
               </dd>
-              <dt>{isTool ? "版本" : "插件版本"}</dt>
-              <dd>{entry.version ?? "未在 npm 发布"}</dd>
-              <dt>周下载量</dt>
-              <dd>{entry.downloads !== null ? `${entry.downloads.toLocaleString("en-US")} 次` : "未在 npm 统计"}</dd>
+              <dt>{t(isTool ? "detail.kv.toolVersion" : "detail.kv.version")}</dt>
+              <dd>{entry.version ?? t("detail.kv.noVersion")}</dd>
+              <dt>{t("detail.kv.downloads")}</dt>
+              <dd>{entry.downloads !== null ? t("detail.dlValue", { n: entry.downloads.toLocaleString("en-US") }) : t("detail.kv.noDownloads")}</dd>
             </>
           )}
-          {!isTool && <><dt>兼容范围</dt><dd>{entry.install.enginesDsh ?? "上游未声明"}</dd>
-            <dt>需要配置</dt><dd>{entry.install.needsConfig ? "是" : "否"}</dd></>}
-          {entry.install.risky && <><dt>注意</dt><dd>安装路径较重或需额外授权</dd></>}
+          {!isTool && <><dt>{t("detail.kv.engines")}</dt><dd>{entry.install.enginesDsh ?? t("detail.kv.undeclared")}</dd>
+            <dt>{t("detail.kv.needsConfig")}</dt><dd>{entry.install.needsConfig ? t("detail.kv.yes") : t("detail.kv.no")}</dd></>}
+          {entry.install.risky && <><dt>{t("detail.kv.risky")}</dt><dd>{t("detail.kv.riskyValue")}</dd></>}
         </dl>
       </section>
 
       <section className="panel">
-        <h2>README</h2>
-        {readme === "loading" && <p className="hint" style={{ marginTop: 0 }}>正在读取仓库 README…</p>}
+        <h2>{t("detail.readme")}</h2>
+        {readme === "loading" && <p className="hint" style={{ marginTop: 0 }}>{t("detail.readme.loading")}</p>}
         {readme === null && (
           <p className="hint" style={{ marginTop: 0 }}>
-            这个仓库没有可直接渲染的 README，<a href={`https://github.com/${entry.fullName}`} target="_blank" rel="noreferrer">去 GitHub 看看</a>。
+            {t("detail.readme.missing.pre")}<a href={`https://github.com/${entry.fullName}`} target="_blank" rel="noreferrer">{t("detail.readme.missing.link")}</a>。
           </p>
         )}
         {readme && readme !== "loading" && (
@@ -450,8 +445,8 @@ export default function DetailPage() {
               <div className="readme" dangerouslySetInnerHTML={{ __html: readme.html }} />
             </div>
             <div className="readme-actions">
-              <button className="btn-readme" onClick={() => setReadmeOpen(true)}>查看完整 README</button>
-              <a href={readme.url} target="_blank" rel="noreferrer">在 GitHub 查看原文</a>
+              <button className="btn-readme" onClick={() => setReadmeOpen(true)}>{t("detail.readme.viewFull")}</button>
+              <a href={readme.url} target="_blank" rel="noreferrer">{t("detail.readme.original")}</a>
             </div>
           </>
         )}
@@ -459,7 +454,7 @@ export default function DetailPage() {
 
       {byAuthor.length > 0 && (
         <section className="panel">
-          <h2>同作者的其他{isTool ? "工具" : "插件"}</h2>
+          <h2>{t(isTool ? "detail.byAuthor.tools" : "detail.byAuthor.plugins")}</h2>
           <div className="grid grid-similar">
             {byAuthor.map((v) => (
               <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
@@ -470,7 +465,7 @@ export default function DetailPage() {
 
       {similar.length > 0 && (
         <section className="panel">
-          <h2>相似{isTool ? "工具" : "插件"}</h2>
+          <h2>{t(isTool ? "detail.similar.tools" : "detail.similar.plugins")}</h2>
           <div className="grid grid-similar">
             {similar.map((v) => (
               <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
@@ -480,7 +475,7 @@ export default function DetailPage() {
       )}
 
       <footer className="detail-foot">
-        {siteConfig.siteName} · 数据每日自动刷新
+        {siteConfig.siteName} · {t("detail.foot")}
       </footer>
 
       {readmeOpen && readme && readme !== "loading" && (
@@ -489,13 +484,13 @@ export default function DetailPage() {
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label={`${entry.name} 的完整 README`}
+            aria-label={t("detail.readme.aria", { name: entry.name })}
           >
             <div className="modal-head">
-              <strong>{entry.name} · README</strong>
+              <strong>{entry.name} · {t("detail.readme")}</strong>
               <div className="modal-head-actions">
                 <a href={readme.url} target="_blank" rel="noreferrer">GitHub</a>
-                <button className="modal-close" onClick={() => setReadmeOpen(false)} aria-label="关闭">×</button>
+                <button className="modal-close" onClick={() => setReadmeOpen(false)} aria-label={t("common.close")}>×</button>
               </div>
             </div>
             <div className="modal-body">

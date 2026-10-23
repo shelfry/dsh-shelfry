@@ -1,0 +1,550 @@
+import { useCallback, useSyncExternalStore } from "react";
+
+/**
+ * 界面语言：中文 / English。
+ *
+ * 只翻译站点的界面文案；插件简介、标签、分类名来自上游与收录管道，
+ * 保持原文显示，不在这里做机器翻译。
+ * 词典用扁平键，缺英文时回落到中文，避免某个新文案漏翻直接显示键名。
+ */
+
+export type Lang = "zh" | "en";
+
+const KEY = "dsh:lang";
+const listeners = new Set<() => void>();
+
+function readLang(): Lang {
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved === "zh" || saved === "en") return saved;
+  } catch {
+    /* 隐私模式下读不到就按浏览器语言 */
+  }
+  return typeof navigator !== "undefined" && !navigator.language.toLowerCase().startsWith("zh") ? "en" : "zh";
+}
+
+const ZH = {
+  "common.loading": "加载中…",
+  "common.copy": "复制",
+  "common.copied": "已复制",
+  "common.collapse": "收起",
+  "common.close": "关闭",
+  "common.all": "全部",
+  "common.plugin": "插件",
+  "common.plugins": "插件",
+  "common.tool": "工具",
+  "common.tools": "工具",
+  "common.curated": "精选",
+  "common.noDesc": "（上游未提供简介）",
+  "common.category": "分类",
+  "common.other": "其他",
+  "common.dataError": "数据加载失败：{msg}",
+  "common.devHint": "本地开发请先执行 npm run collect -- --source mirror --build 生成数据产物。",
+
+  "nav.top": "榜单",
+  "nav.submit": "提交插件",
+  "nav.favorites": "收藏",
+  "nav.github": "GitHub",
+  "header.stat": "已收录 {plugins} 个插件 · {tools} 个工具",
+
+  "theme.label": "主题",
+  "theme.light": "浅色",
+  "theme.dark": "深色",
+  "theme.system": "跟随系统",
+  "lang.label": "语言",
+
+  "home.title.plugins": "把 DSH 生态的插件收进一个集市",
+  "home.title.tools": "顺手的独立工具，也一起收了",
+  "home.sub.plugins": "按星标与更新活跃度排序，一页看清哪个插件值得装",
+  "home.sub.tools": "只收上游 README 写明安装命令、且不属于 DSH 插件的项目，命令直接取自仓库。",
+  "home.search.plugins": "搜索插件名、作者或功能关键词…",
+  "home.search.tools": "搜索工具名、作者或用途关键词…",
+  "home.searchAria.plugins": "搜索插件",
+  "home.searchAria.tools": "搜索工具",
+  "home.scope": "浏览范围",
+  "home.total.plugins": "共 {n} 个插件",
+  "home.total.tools": "共 {n} 个工具",
+  "home.shown": "已显示 {n} 个",
+  "home.loadingAll": "正在加载全量条目…",
+  "home.empty.plugins": "没有符合条件的插件，试试放宽筛选。",
+  "home.empty.tools": "没有符合条件的工具，试试放宽筛选。",
+  "home.categoryChip": "分类：{name}",
+  "home.loadMore": "加载更多（已显示 {shown} / {total}）",
+  "home.end": "已经到底了",
+
+  "filters.all": "全部",
+  "filters.type": "类型",
+  "filters.stars": "星标",
+  "filters.compat": "兼容",
+  "filters.sort": "排序",
+  "filters.reset": "清空条件",
+  "filters.expand": "展开 {n} 个",
+
+  "type.all": "全部类型",
+  "type.plugin": "插件",
+  "type.skill": "Skill",
+  "type.unknown": "未识别",
+
+  "stars.all": "不限星标",
+  "stars.n": "{n}+ 星标",
+
+  "compat.all": "不限",
+  "compat.declared": "已声明版本",
+  "compat.undeclared": "未声明",
+
+  "sort.score": "综合推荐",
+  "sort.stars": "最多星标",
+  "sort.recent": "最近更新",
+
+  "card.install": "安装",
+  "card.installTitle": "查看安装命令",
+  "card.starsTitle": "{n} 个 star",
+  "card.dlTitle": "npm 近一周下载量",
+  "card.scoreTitle": "综合推荐分",
+  "card.score": "综合 {score}",
+  "card.noCommit": "无提交记录",
+  "card.today": "今天有提交",
+  "card.daysAgo": "{n} 天前更新",
+  "card.monthsAgo": "{n} 个月前更新",
+  "card.yearsAgo": "{n} 年前更新",
+
+  "sheet.reading": "正在读取安装命令…",
+  "sheet.missing": "上游没写安装命令，请按仓库 README 手动安装，或去 GitHub 查看。",
+  "sheet.copyAssistant": "复制给编程助手",
+  "sheet.copiedAssistant": "已复制，粘贴给助手",
+  "sheet.manual": "浏览器拒绝了剪贴板写入，请手动选中命令复制。",
+  "sheet.native": "上游自带的安装器：会先给出安装计划，确认后再写入配置。",
+  "sheet.standalone": "非 DSH 独立工具：命令来自上游 README，安装后按仓库说明使用，不走插件 profile。",
+  "sheet.profiles": "web / tui 是 DSH 自带 profile，首次使用自动创建。",
+  "sheet.more": "查看详情 →",
+
+  "profile.into": "安装到",
+  "profile.web": "Web 界面",
+  "profile.tui": "终端界面",
+  "profile.custom": "自定义…",
+  "profile.customNote": "自己的 profile",
+  "profile.enterToSave": "回车保存",
+  "profile.placeholder": "profile 名",
+  "profile.aria": "选择 profile",
+  "profile.customAria": "自定义 profile 名",
+  "profile.note": "web / tui 首次使用会自动创建",
+
+  "detail.loading": "正在加载条目信息…",
+  "detail.missing": "没有收录 {id}",
+  "detail.error": "插件信息加载失败，请稍后重试。",
+  "detail.back.plugins": "← 返回全部插件",
+  "detail.back.tools": "← 返回全部工具",
+  "detail.about": "简介",
+  "detail.score": "推荐依据",
+  "detail.total": "综合",
+  "detail.dim.popularity": "生态热度",
+  "detail.dim.maintenance": "维护活跃",
+  "detail.dim.utility": "信息完整",
+  "detail.dim.convenience": "上手便捷",
+  "detail.scoreNote": "四项加权，全部来自可核对的上游信息。",
+  "detail.fact.stars": "星标",
+  "detail.fact.updated": "最近更新",
+  "detail.fact.firstSeen": "首次收录",
+  "detail.fact.method": "安装方式",
+  "detail.meta.source": "收录来源",
+  "detail.meta.refreshed": "数据刷新",
+  "detail.install": "安装",
+  "detail.installTool": "安装（独立工具）",
+  "detail.installToolNote": "这是非 DSH 独立工具，命令摘自上游 README，装在本机直接使用，不经过插件 profile。",
+  "detail.row.cli": "命令行",
+  "detail.row.desktop": "桌面版",
+  "detail.hint.standalone": "命令来自上游 README 的快速开始，直接执行即可；安装后的用法以仓库说明为准。",
+  "detail.hint.native": "这是上游自带的安装器：会先给出安装计划，确认后再写入配置；装完请按 README 验证是否连上。",
+  "detail.hint.pnpm": "web / tui 都是 DSH 自带的 profile，首次使用会自动创建、命令可直接执行；也可以填自己的 profile 名。",
+  "detail.assistantNote": "连同「先给计划、确认后执行、最后验证」的要求一起复制",
+  "detail.skillNote": "skill 由 skill provider 扫描目录或随插件提供，没有等价的 CLI 安装动作。",
+  "detail.manualNote": "上游未写清安装命令，请按仓库 README 手动安装。",
+  "detail.desktop.native": "上游安装器会写入你当前所用编程助手的配置；DSH App 桌面版是否同样适用，请以仓库 README 为准。",
+  "detail.desktop.skill": "skill 在 DSH App 里启用和管理，桌面版 profile 由 App 独占，不能用 CLI 装。",
+  "detail.desktop.pkgPre": "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加 ",
+  "detail.desktop.pkgPost": "。",
+  "detail.desktop.generic": "桌面版 profile 由 App 独占，CLI 装不进去；请在 DSH App 的插件面板里添加该插件。",
+  "detail.kv.method": "安装方式",
+  "detail.kv.pkg": "npm 包名",
+  "detail.kv.version": "插件版本",
+  "detail.kv.toolVersion": "版本",
+  "detail.kv.downloads": "周下载量",
+  "detail.dlValue": "{n} 次",
+  "detail.kv.engines": "兼容范围",
+  "detail.kv.needsConfig": "需要配置",
+  "detail.kv.risky": "注意",
+  "detail.kv.noPkg": "无（非 npm 分发）",
+  "detail.kv.noVersion": "未在 npm 发布",
+  "detail.kv.noDownloads": "未在 npm 统计",
+  "detail.kv.undeclared": "上游未声明",
+  "detail.kv.yes": "是",
+  "detail.kv.no": "否",
+  "detail.kv.riskyValue": "安装路径较重或需额外授权",
+  "detail.readme": "README",
+  "detail.readme.loading": "正在读取仓库 README…",
+  "detail.readme.missing.pre": "这个仓库没有可直接渲染的 README，",
+  "detail.readme.missing.link": "去 GitHub 看看",
+  "detail.readme.viewFull": "查看完整 README",
+  "detail.readme.original": "在 GitHub 查看原文",
+  "detail.readme.aria": "{name} 的完整 README",
+  "detail.byAuthor.plugins": "同作者的其他插件",
+  "detail.byAuthor.tools": "同作者的其他工具",
+  "detail.similar.plugins": "相似插件",
+  "detail.similar.tools": "相似工具",
+  "detail.foot": "数据每日自动刷新",
+  "detail.weekDownloads": "↓ {n}/周",
+
+  "method.pnpm-profile": "CLI 装入 profile（pnpm）",
+  "method.standalone": "独立工具，按上游 README 安装",
+  "method.native": "上游自带安装器",
+  "method.skills-add": "随 skill provider 提供",
+  "method.manual": "按 README 手动安装",
+  "method.unknown": "未知",
+  "methodShort.pnpm-profile": "pnpm profile",
+  "methodShort.standalone": "独立安装",
+  "methodShort.native": "自带安装器",
+  "methodShort.skills-add": "skill",
+  "methodShort.manual": "手动安装",
+  "methodShort.unknown": "未知",
+
+  "top.title": "榜单",
+  "top.sub": "三种排名口径，全部基于可核对的上游信息。",
+  "top.tab.stars": "星标榜",
+  "top.tab.recent": "活跃榜",
+  "top.tab.score": "综合榜",
+  "top.hint.stars": "按 GitHub star 数排序，反映生态关注度",
+  "top.hint.recent": "按仓库最近提交时间排序，反映还在维护",
+  "top.hint.score": "按综合推荐分排序：生态热度、维护活跃、信息完整、上手便捷四项加权",
+  "top.meta": "收录 {n} 个插件 · 展示前 {top}",
+  "top.loading": "正在加载榜单…",
+  "top.empty": "这个榜单暂时没有条目。",
+
+  "submit.title": "提交插件或工具",
+  "submit.intro": "填好仓库和安装规格，一键生成 GitHub Issue。收录由每日定时任务完成，无需你改代码。",
+  "submit.repo": "仓库地址",
+  "submit.repoHint.empty": "支持完整链接、git@ 地址或 owner/repo 简写。",
+  "submit.repoHint.okPre": "识别为 ",
+  "submit.repoHint.okPost": "",
+  "submit.repoHint.bad": "地址格式不对，需要形如 owner/repo。",
+  "submit.install": "安装规格",
+  "submit.installHint": "插件只写 dsh add 后面的部分；非 DSH 工具可留空，README 里有安装命令即可。不确定就留空，维护者会补。",
+  "submit.category": "分类",
+  "submit.category.none": "不指定",
+  "submit.summary": "一句话说明",
+  "submit.summaryPlaceholder": "它解决什么问题",
+  "submit.preview": "预览 Issue 内容",
+  "submit.github": "在 GitHub 提交",
+  "submit.copy": "复制内容",
+  "submit.fillRepo": "填好仓库地址后即可生成链接。",
+  "submit.rules": "收录规则",
+  "submit.rule1": "只收录公开 GitHub 仓库：DSH 插件 / skill 需要有可识别的 DSH 特征；非 DSH 项目必须写明 curl / brew / go install 等安装方式，并归入「工具」范围。",
+  "submit.rule2": "工具需要满 3 星才会自动收录；不足 3 星的可通过本页提交，人工审核后放行。",
+  "submit.rule3": "安装规格以 README 里明确写出的 add / install 命令为准，全局安装与本地路径不计。",
+  "submit.rule4": "版本号与下载量来自 npm 或仓库 package.json，取不到就不显示。",
+  "submit.rule5": "收录后可随时在站内搜索自己的仓库名确认；没有出现通常是仓库还没有 README 安装说明。",
+  "submit.backHome.pre": "想直接看已收录的？",
+  "submit.backHome.link": "回到首页",
+
+  "footer.source": "收录数据来自 GitHub，每日自动刷新",
+  "footer.updated": "数据 {time} 更新",
+  "footer.mirror": "数据源：镜像兜底",
+  "footer.mirrorReason": "未启用 GitHub 检索",
+
+  "fav.title": "收藏",
+  "fav.intro": "收藏保存在这台设备的浏览器里，换设备或清除浏览器数据会丢失。",
+  "fav.count": "{n} 个收藏",
+  "fav.loading": "正在加载收藏…",
+  "fav.empty": "还没有收藏。在卡片或详情页点星标即可加入。",
+  "fav.browse": "去首页逛逛",
+  "fav.save": "收藏",
+  "fav.saved": "已收藏",
+};
+
+export type TKey = keyof typeof ZH;
+
+type Vars = Record<string, string | number>;
+
+const EN: Record<TKey, string> = {
+  "common.loading": "Loading…",
+  "common.copy": "Copy",
+  "common.copied": "Copied",
+  "common.collapse": "Collapse",
+  "common.close": "Close",
+  "common.all": "All",
+  "common.plugin": "Plugin",
+  "common.plugins": "Plugins",
+  "common.tool": "Tool",
+  "common.tools": "Tools",
+  "common.curated": "Featured",
+  "common.noDesc": "(No description provided upstream)",
+  "common.category": "Category",
+  "common.other": "Other",
+  "common.dataError": "Failed to load data: {msg}",
+  "common.devHint": "For local development, run npm run collect -- --source mirror --build to generate the data first.",
+
+  "nav.top": "Leaderboard",
+  "nav.submit": "Submit",
+  "nav.favorites": "Saved",
+  "nav.github": "GitHub",
+  "header.stat": "{plugins} plugins · {tools} tools indexed",
+
+  "theme.label": "Theme",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.system": "System",
+  "lang.label": "Language",
+
+  "home.title.plugins": "Every DSH plugin, in one market",
+  "home.title.tools": "Handy standalone tools, all in one place",
+  "home.sub.plugins": "Ranked by stars and recent activity — see which plugin is worth installing at a glance.",
+  "home.sub.tools": "Only projects whose README documents an install command, outside the DSH plugin system. Commands come straight from the repo.",
+  "home.search.plugins": "Search by plugin, author, or keyword…",
+  "home.search.tools": "Search by tool, author, or keyword…",
+  "home.searchAria.plugins": "Search plugins",
+  "home.searchAria.tools": "Search tools",
+  "home.scope": "Browse scope",
+  "home.total.plugins": "{n} plugins",
+  "home.total.tools": "{n} tools",
+  "home.shown": "{n} shown",
+  "home.loadingAll": "Loading the full catalog…",
+  "home.empty.plugins": "No plugins match. Try loosening the filters.",
+  "home.empty.tools": "No tools match. Try loosening the filters.",
+  "home.categoryChip": "Category: {name}",
+  "home.loadMore": "Load more ({shown} / {total} shown)",
+  "home.end": "No more results",
+
+  "filters.all": "All",
+  "filters.type": "Type",
+  "filters.stars": "Stars",
+  "filters.compat": "Compat",
+  "filters.sort": "Sort",
+  "filters.reset": "Clear filters",
+  "filters.expand": "Show {n} more",
+
+  "type.all": "All types",
+  "type.plugin": "Plugin",
+  "type.skill": "Skill",
+  "type.unknown": "Unknown",
+
+  "stars.all": "Any stars",
+  "stars.n": "{n}+ stars",
+
+  "compat.all": "Any",
+  "compat.declared": "Declared",
+  "compat.undeclared": "Undeclared",
+
+  "sort.score": "Recommended",
+  "sort.stars": "Most stars",
+  "sort.recent": "Recently updated",
+
+  "card.install": "Install",
+  "card.installTitle": "View install command",
+  "card.starsTitle": "{n} stars",
+  "card.dlTitle": "npm downloads in the past week",
+  "card.scoreTitle": "Overall score",
+  "card.score": "Score {score}",
+  "card.noCommit": "No commits",
+  "card.today": "Updated today",
+  "card.daysAgo": "Updated {n}d ago",
+  "card.monthsAgo": "Updated {n}mo ago",
+  "card.yearsAgo": "Updated {n}y ago",
+
+  "sheet.reading": "Reading install command…",
+  "sheet.missing": "Upstream doesn't document an install command. Follow the repo README or check GitHub.",
+  "sheet.copyAssistant": "Copy for your coding agent",
+  "sheet.copiedAssistant": "Copied — paste to your agent",
+  "sheet.manual": "The browser blocked clipboard access. Select and copy the command manually.",
+  "sheet.native": "Upstream installer: it shows a plan first, then writes config after confirmation.",
+  "sheet.standalone": "Standalone tool: the command comes from the upstream README. It is not installed into a plugin profile.",
+  "sheet.profiles": "web / tui are built-in DSH profiles, created on first use.",
+  "sheet.more": "View details →",
+
+  "profile.into": "Install into",
+  "profile.web": "Web UI",
+  "profile.tui": "Terminal UI",
+  "profile.custom": "Custom…",
+  "profile.customNote": "Your own profile",
+  "profile.enterToSave": "Enter to save",
+  "profile.placeholder": "profile name",
+  "profile.aria": "Choose a profile",
+  "profile.customAria": "Custom profile name",
+  "profile.note": "web / tui are created automatically on first use",
+
+  "detail.loading": "Loading entry…",
+  "detail.missing": "{id} isn't in the catalog",
+  "detail.error": "Failed to load this entry. Please try again later.",
+  "detail.back.plugins": "← Back to all plugins",
+  "detail.back.tools": "← Back to all tools",
+  "detail.about": "About",
+  "detail.score": "Why it's recommended",
+  "detail.total": "Overall",
+  "detail.dim.popularity": "Popularity",
+  "detail.dim.maintenance": "Maintenance",
+  "detail.dim.utility": "Completeness",
+  "detail.dim.convenience": "Convenience",
+  "detail.scoreNote": "Four weighted dimensions, all from verifiable upstream signals.",
+  "detail.fact.stars": "Stars",
+  "detail.fact.updated": "Last update",
+  "detail.fact.firstSeen": "First indexed",
+  "detail.fact.method": "Install method",
+  "detail.meta.source": "Source",
+  "detail.meta.refreshed": "Data refreshed",
+  "detail.install": "Install",
+  "detail.installTool": "Install (standalone tool)",
+  "detail.installToolNote": "This is a standalone tool outside the DSH plugin system. The command comes from the upstream README and is not installed into a plugin profile.",
+  "detail.row.cli": "Command line",
+  "detail.row.desktop": "Desktop app",
+  "detail.hint.standalone": "The command comes from the upstream README quick start. Run it directly; usage follows the repo docs.",
+  "detail.hint.native": "This is the upstream installer: it shows a plan first, writes config after confirmation. Verify the connection per the README afterwards.",
+  "detail.hint.pnpm": "web / tui are built-in DSH profiles, created automatically on first use. You can also enter your own profile name.",
+  "detail.assistantNote": "Copies the command together with \"plan first, confirm, then verify\" instructions",
+  "detail.skillNote": "Skills are discovered by a skill provider or shipped with a plugin; there is no equivalent CLI install step.",
+  "detail.manualNote": "Upstream doesn't document an install command. Follow the repo README.",
+  "detail.desktop.native": "The upstream installer writes into your current coding assistant's config. Whether the DSH desktop app also applies depends on the repo README.",
+  "detail.desktop.skill": "Skills are enabled and managed inside the DSH app; the desktop profile is app-only and can't be installed via CLI.",
+  "detail.desktop.pkgPre": "The desktop profile is app-only and can't be installed via CLI. Add ",
+  "detail.desktop.pkgPost": " from the DSH app's plugin panel.",
+  "detail.desktop.generic": "The desktop profile is app-only and can't be installed via CLI. Add this plugin from the DSH app's plugin panel.",
+  "detail.kv.method": "Install method",
+  "detail.kv.pkg": "npm package",
+  "detail.kv.version": "Plugin version",
+  "detail.kv.toolVersion": "Version",
+  "detail.kv.downloads": "Weekly downloads",
+  "detail.dlValue": "{n} downloads",
+  "detail.kv.engines": "DSH range",
+  "detail.kv.needsConfig": "Needs config",
+  "detail.kv.risky": "Note",
+  "detail.kv.noPkg": "None (not distributed via npm)",
+  "detail.kv.noVersion": "Not published on npm",
+  "detail.kv.noDownloads": "No npm stats",
+  "detail.kv.undeclared": "Not declared upstream",
+  "detail.kv.yes": "Yes",
+  "detail.kv.no": "No",
+  "detail.kv.riskyValue": "Heavy install footprint or extra permissions",
+  "detail.readme": "README",
+  "detail.readme.loading": "Loading the repo README…",
+  "detail.readme.missing.pre": "This repo has no renderable README.",
+  "detail.readme.missing.link": "View on GitHub",
+  "detail.readme.viewFull": "View full README",
+  "detail.readme.original": "Open original on GitHub",
+  "detail.readme.aria": "Full README for {name}",
+  "detail.byAuthor.plugins": "More plugins by this author",
+  "detail.byAuthor.tools": "More tools by this author",
+  "detail.similar.plugins": "Similar plugins",
+  "detail.similar.tools": "Similar tools",
+  "detail.foot": "Catalog refreshed daily",
+  "detail.weekDownloads": "↓ {n}/wk",
+
+  "method.pnpm-profile": "CLI install into a profile (pnpm)",
+  "method.standalone": "Standalone tool, install per upstream README",
+  "method.native": "Upstream installer",
+  "method.skills-add": "Provided by a skill provider",
+  "method.manual": "Manual install per README",
+  "method.unknown": "Unknown",
+  "methodShort.pnpm-profile": "pnpm profile",
+  "methodShort.standalone": "Standalone",
+  "methodShort.native": "Installer",
+  "methodShort.skills-add": "skill",
+  "methodShort.manual": "Manual",
+  "methodShort.unknown": "Unknown",
+
+  "top.title": "Leaderboard",
+  "top.sub": "Three rankings, all based on verifiable upstream signals.",
+  "top.tab.stars": "Top starred",
+  "top.tab.recent": "Most active",
+  "top.tab.score": "Overall",
+  "top.hint.stars": "Ranked by GitHub stars, reflecting ecosystem attention",
+  "top.hint.recent": "Ranked by last commit, reflecting ongoing maintenance",
+  "top.hint.score": "Ranked by overall score: popularity, maintenance, completeness, and convenience",
+  "top.meta": "{n} plugins · top {top}",
+  "top.loading": "Loading leaderboard…",
+  "top.empty": "No entries in this ranking yet.",
+
+  "submit.title": "Submit a plugin or tool",
+  "submit.intro": "Fill in the repository and install spec, then generate a GitHub issue in one click. Daily automation handles inclusion — no code changes needed.",
+  "submit.repo": "Repository",
+  "submit.repoHint.empty": "Accepts a full URL, git@ address, or owner/repo shorthand.",
+  "submit.repoHint.okPre": "Detected ",
+  "submit.repoHint.okPost": "",
+  "submit.repoHint.bad": "Invalid URL. Use the form owner/repo.",
+  "submit.install": "Install spec",
+  "submit.installHint": "For plugins, enter only the part after dsh add. Standalone tools may leave it blank if the README documents an install command. Leave it empty if unsure.",
+  "submit.category": "Category",
+  "submit.category.none": "Not specified",
+  "submit.summary": "One-line summary",
+  "submit.summaryPlaceholder": "What problem does it solve?",
+  "submit.preview": "Preview issue content",
+  "submit.github": "Submit on GitHub",
+  "submit.copy": "Copy content",
+  "submit.fillRepo": "Enter a repository to generate the link.",
+  "submit.rules": "Inclusion rules",
+  "submit.rule1": "Only public GitHub repositories: DSH plugins/skills need recognizable DSH signals; non-DSH projects must document curl / brew / go install and are listed as tools.",
+  "submit.rule2": "Tools need at least 3 stars to be collected automatically. Fewer than 3 can be submitted here for manual review.",
+  "submit.rule3": "The install spec must be an add / install command explicitly written in the README; global installs and local paths don't count.",
+  "submit.rule4": "Version and downloads come from npm or the repo package.json; they are hidden when unavailable.",
+  "submit.rule5": "After inclusion, search your repo name on the site to confirm. If it's missing, the README usually lacks install instructions.",
+  "submit.backHome.pre": "Want to browse what's already included?",
+  "submit.backHome.link": "Back to home",
+
+  "footer.source": "Catalog sourced from GitHub, refreshed daily",
+  "footer.updated": "Data updated {time}",
+  "footer.mirror": "Source: mirror fallback",
+  "footer.mirrorReason": "GitHub search not enabled",
+
+  "fav.title": "Saved",
+  "fav.intro": "Saved items live in this browser on this device. Switching devices or clearing browser data removes them.",
+  "fav.count": "{n} saved",
+  "fav.loading": "Loading saved items…",
+  "fav.empty": "Nothing saved yet. Tap the star on any card or detail page to add it.",
+  "fav.browse": "Browse the catalog",
+  "fav.save": "Save",
+  "fav.saved": "Saved",
+};
+
+const DICT: Record<Lang, Record<TKey, string>> = { zh: ZH, en: EN };
+
+function readLangSnapshot(): Lang {
+  return currentLang;
+}
+
+let currentLang: Lang = readLang();
+
+export function translate(lang: Lang, key: TKey, vars?: Vars): string {
+  let text = DICT[lang][key] ?? ZH[key] ?? key;
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, String(value));
+  }
+  return text;
+}
+
+/** 给非组件模块用的当前语言（如相对时间格式化）。 */
+export const currentLanguage = (): Lang => currentLang;
+
+const subscribe = (fn: () => void): (() => void) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
+
+export function setLang(next: Lang): void {
+  currentLang = next;
+  try {
+    localStorage.setItem(KEY, next);
+  } catch {
+    /* 存不下也照样切换 */
+  }
+  document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
+  listeners.forEach((fn) => fn());
+}
+
+/** 首屏对齐 <html lang>：页面默认是中文，本地存了英文时这里改一次。 */
+export function applyLang(): void {
+  document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+}
+
+export type TFunc = (key: TKey, vars?: Vars) => string;
+
+export function useT(): { lang: Lang; t: TFunc } {
+  const lang = useSyncExternalStore(subscribe, readLangSnapshot, readLangSnapshot);
+  const t = useCallback<TFunc>((key, vars) => translate(lang, key, vars), [lang]);
+  return { lang, t };
+}

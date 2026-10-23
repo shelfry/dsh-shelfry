@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { loadCategories, siteConfig, type Category } from "../lib/data";
 import { categoryLabel } from "../lib/labels";
 import { copyText } from "../lib/clipboard";
+import { useT } from "../lib/i18n";
 
 /**
  * 提交插件页（#/submit）。
@@ -43,6 +44,7 @@ export default function SubmitPage() {
   const [summary, setSummary] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [copied, setCopied] = useState(false);
+  const { t } = useT();
 
   // 分类候选来自已收录数据：新插件也能一眼看到现有口径，减少口径漂移
   useEffect(() => {
@@ -90,13 +92,13 @@ export default function SubmitPage() {
   return (
     <main className="wrap page-narrow">
       <section className="hero">
-        <h1>提交插件或工具</h1>
-        <p>填好仓库和安装规格，一键生成 GitHub Issue。收录由每日定时任务完成，无需你改代码。</p>
+        <h1>{t("submit.title")}</h1>
+        <p>{t("submit.intro")}</p>
       </section>
 
       <section className="panel">
         <div className="field">
-          <label htmlFor="repo">仓库地址 <span className="req">*</span></label>
+          <label htmlFor="repo">{t("submit.repo")} <span className="req">*</span></label>
           <input
             id="repo"
             value={repoInput}
@@ -107,15 +109,15 @@ export default function SubmitPage() {
           />
           <div className="field-hint">
             {repoInput.trim() === ""
-              ? "支持完整链接、git@ 地址或 owner/repo 简写。"
+              ? t("submit.repoHint.empty")
               : parsed
-                ? <>识别为 <a href={repoUrl} target="_blank" rel="noreferrer">{parsed.owner}/{parsed.repo}</a></>
-                : <span className="bad">地址格式不对，需要形如 owner/repo。</span>}
+                ? <>{t("submit.repoHint.okPre")}<a href={repoUrl} target="_blank" rel="noreferrer">{parsed.owner}/{parsed.repo}</a>{t("submit.repoHint.okPost")}</>
+                : <span className="bad">{t("submit.repoHint.bad")}</span>}
           </div>
         </div>
 
         <div className="field">
-          <label htmlFor="install">安装规格</label>
+          <label htmlFor="install">{t("submit.install")}</label>
           <input
             id="install"
             value={install}
@@ -124,33 +126,33 @@ export default function SubmitPage() {
             autoComplete="off"
             spellCheck={false}
           />
-          <div className="field-hint">插件只写 <code>dsh add</code> 后面的部分；非 DSH 工具可留空，README 里有安装命令即可。不确定就留空，维护者会补。</div>
+          <div className="field-hint">{t("submit.installHint")}</div>
         </div>
 
         <div className="field-row">
           <div className="field">
-            <label htmlFor="category">分类</label>
+            <label htmlFor="category">{t("submit.category")}</label>
             <select id="category" value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">不指定</option>
+              <option value="">{t("submit.category.none")}</option>
               {categories.map((c) => (
                 <option key={c.t} value={c.t}>{categoryLabel(c.t)}（{c.n}）</option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label htmlFor="summary">一句话说明</label>
+            <label htmlFor="summary">{t("submit.summary")}</label>
             <input
               id="summary"
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              placeholder="它解决什么问题"
+              placeholder={t("submit.summaryPlaceholder")}
               maxLength={80}
             />
           </div>
         </div>
 
         <details className="preview">
-          <summary>预览 Issue 内容</summary>
+          <summary>{t("submit.preview")}</summary>
           <pre>{title ? `${title}\n\n${body}` : body}</pre>
         </details>
 
@@ -163,26 +165,26 @@ export default function SubmitPage() {
             aria-disabled={!ready}
             onClick={(e) => { if (!ready) e.preventDefault(); }}
           >
-            在 GitHub 提交
+            {t("submit.github")}
           </a>
           <button className="btn-ghost" onClick={onCopy} disabled={!ready}>
-            {copied ? "已复制" : "复制内容"}
+            {copied ? t("common.copied") : t("submit.copy")}
           </button>
-          {!ready && <span className="form-note">填好仓库地址后即可生成链接。</span>}
+          {!ready && <span className="form-note">{t("submit.fillRepo")}</span>}
         </div>
       </section>
 
       <section className="panel panel-soft">
-        <h2 className="panel-title">收录规则</h2>
+        <h2 className="panel-title">{t("submit.rules")}</h2>
         <ul className="rule-list">
-          <li>只收录公开 GitHub 仓库：DSH 插件 / skill 需要有可识别的 DSH 特征；非 DSH 项目必须写明 curl / brew / go install 等安装方式，并归入「工具」范围。</li>
-          <li>工具需要满 3 星才会自动收录；不足 3 星的可通过本页提交，人工审核后放行。</li>
-          <li>安装规格以 README 里明确写出的 <code>add</code>/<code>install</code> 命令为准，全局安装与本地路径不计。</li>
-          <li>版本号与下载量来自 npm 或仓库 <code>package.json</code>，取不到就不显示。</li>
-          <li>收录后可随时在站内搜索自己的仓库名确认；没有出现通常是仓库还没有 README 安装说明。</li>
+          <li>{t("submit.rule1")}</li>
+          <li>{t("submit.rule2")}</li>
+          <li>{t("submit.rule3")}</li>
+          <li>{t("submit.rule4")}</li>
+          <li>{t("submit.rule5")}</li>
         </ul>
         <p className="panel-foot">
-          想直接看已收录的？<Link to="/">回到首页</Link>
+          {t("submit.backHome.pre")}<Link to="/">{t("submit.backHome.link")}</Link>
         </p>
       </section>
     </main>
