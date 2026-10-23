@@ -176,6 +176,7 @@ export default function SubmitPage() {
         <h2 className="panel-title">收录规则</h2>
         <ul className="rule-list">
           <li>只收录公开 GitHub 仓库：DSH 插件 / skill 需要有可识别的 DSH 特征；非 DSH 项目必须写明 curl / brew / go install 等安装方式，并归入「工具」范围。</li>
+          <li>工具需要满 3 星才会自动收录；不足 3 星的可通过本页提交，人工审核后放行。</li>
           <li>安装规格以 README 里明确写出的 <code>add</code>/<code>install</code> 命令为准，全局安装与本地路径不计。</li>
           <li>版本号与下载量来自 npm 或仓库 <code>package.json</code>，取不到就不显示。</li>
           <li>收录后可随时在站内搜索自己的仓库名确认；没有出现通常是仓库还没有 README 安装说明。</li>

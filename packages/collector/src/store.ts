@@ -62,6 +62,8 @@ export function mergeEntries(prev: Catalog, incoming: PluginEntry[]): MergeResul
     const merged: PluginEntry = {
       ...next,
       firstSeenAt: old.firstSeenAt,
+      // 来源是溯源信息，只增不减：手动补录（Issue 提交）的标记不能被后续检索结果冲掉
+      sources: [...new Set([...old.sources, ...next.sources])],
     };
     merged.score = next.score;
     byId.set(next.id, merged);

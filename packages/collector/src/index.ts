@@ -103,6 +103,19 @@ function looksLikeNonTool(e: PluginEntry): boolean {
   return NON_TOOL_REPO.test(repo);
 }
 
+/**
+ * 工具质量门槛：独立工具没有 DSH 生态的天然筛选，检索会捞到大量刚建的个人自用脚本。
+ * 星标低于 3 的不进列表；人工精选和用户通过 Issue 主动提交的除外 ——
+ * 后者是有人点名要的，不该被星标一刀切掉。
+ */
+const MIN_TOOL_STARS = 3;
+
+function belowToolBar(e: PluginEntry): boolean {
+  if (e.ecosystem !== "external") return false;
+  if (e.curated || e.sources.includes("issue-submission")) return false;
+  return e.stars < MIN_TOOL_STARS;
+}
+
 interface LoadedRecords {
   records: RawRecord[];
   sourceLabel: string;
@@ -167,7 +180,13 @@ async function main(): Promise<void> {
     const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
     const rescued = token ? await fetchReposByNames(rescueNames, token) : [];
     log(args.silent, `[collector] 补录 ${rescueNames.length} 个仓库，成功取回 ${rescued.length} 条`);
-    records.push(...rescued);
+    // 补录名单来自 Issue 提交：打上标记，低星工具据此绕过质量门槛
+    records.push(
+      ...rescued.map((r) => {
+        const prevSources = Array.isArray(r.sources) ? r.sources.map(String) : [];
+        return { ...r, sources: [...new Set([...prevSources, "issue-submission"])] };
+      }),
+    );
   }
 
   const prevById = new Map(prev.entries.map((e) => [e.id, e]));
@@ -249,6 +268,20 @@ async function main(): Promise<void> {
     merged.catalog.entries = active;
     const names = apps.slice(0, 8).map((e) => e.id).join("、");
     log(args.silent, `[collector] 剔除 ${apps.length} 个桌面客户端/非工具仓库：${names}${apps.length > 8 ? " 等" : ""}`);
+  }
+
+  // 工具质量门槛：0-2 星的仓库多半是刚建的个人自用脚本，跟插件混在一起会稀释列表。
+  const weakTools = active.filter(belowToolBar);
+  if (weakTools.length > 0) {
+    const weakIds = new Set(weakTools.map((e) => e.id));
+    active = active.filter((e) => !weakIds.has(e.id));
+    entries = active;
+    merged.catalog.entries = active;
+    const names = weakTools.slice(0, 8).map((e) => e.id).join("、");
+    log(
+      args.silent,
+      `[collector] 工具质量门槛（<${MIN_TOOL_STARS} 星）剔除 ${weakTools.length} 条：${names}${weakTools.length > 8 ? " 等" : ""}`,
+    );
   }
 
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
