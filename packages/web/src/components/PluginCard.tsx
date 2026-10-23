@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
@@ -81,6 +81,8 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
   const [method, setMethod] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "missing" | "copied" | "manual">("loading");
   const [copiedAssistant, setCopiedAssistant] = useState(false);
+  const [more, setMore] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useProfile();
 
   useEffect(() => {
@@ -137,42 +139,53 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
     }
   };
 
+  // 命令太长、内容超出卡片高度时，用底部渐隐代替系统滚动条提示还能下滑。
+  // 滚动条本身在 CSS 里隐藏，滚到手底就把渐隐撤掉，避免盖住「查看详情」。
+  const measure = () => {
+    const el = bodyRef.current;
+    if (el) setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  };
+  useEffect(measure, [cmd, state]);
+
   return (
     <div className="install-sheet" onClick={(e) => e.stopPropagation()}>
-      <div className="install-sheet-head">
-        <span className="install-sheet-title">{item.n}</span>
-        <button className="install-sheet-close" onClick={onClose} aria-label="关闭">×</button>
+      <div className="install-sheet-body" ref={bodyRef} onScroll={measure}>
+        <div className="install-sheet-head">
+          <span className="install-sheet-title">{item.n}</span>
+          <button className="install-sheet-close" onClick={onClose} aria-label="关闭">×</button>
+        </div>
+
+        {state === "loading" && <p className="hint">正在读取安装命令…</p>}
+        {state === "missing" && (
+          <p className="hint">上游没写安装命令，请按仓库 README 手动安装，或去 GitHub 查看。</p>
+        )}
+        {command && (
+          <>
+            {method === "pnpm-profile" && (
+              <ProfilePicker value={profile} onChange={setProfile} compact />
+            )}
+            <div className="code">
+              <code>{command}</code>
+              <button onClick={copy}>{state === "copied" ? "已复制" : "复制"}</button>
+            </div>
+            <button className="btn-assistant" onClick={copyAssistant}>
+              {copiedAssistant ? "已复制，粘贴给助手" : "复制给编程助手"}
+            </button>
+            <p className="hint">
+              {state === "manual"
+                ? "浏览器拒绝了剪贴板写入，请手动选中命令复制。"
+                : method === "native"
+                  ? "上游自带的安装器：会先给出安装计划，确认后再写入配置。"
+                  : method === "standalone"
+                    ? "非 DSH 独立工具：命令来自上游 README，安装后按仓库说明使用，不走插件 profile。"
+                    : <><code>web</code> / <code>tui</code> 是 DSH 自带 profile，首次使用自动创建。</>}
+            </p>
+          </>
+        )}
+
+        <Link className="install-sheet-more" to={detailPath(item.i)}>查看详情 →</Link>
       </div>
-
-      {state === "loading" && <p className="hint">正在读取安装命令…</p>}
-      {state === "missing" && (
-        <p className="hint">上游没写安装命令，请按仓库 README 手动安装，或去 GitHub 查看。</p>
-      )}
-      {command && (
-        <>
-          {method === "pnpm-profile" && (
-            <ProfilePicker value={profile} onChange={setProfile} compact />
-          )}
-          <div className="code">
-            <code>{command}</code>
-            <button onClick={copy}>{state === "copied" ? "已复制" : "复制"}</button>
-          </div>
-          <button className="btn-assistant" onClick={copyAssistant}>
-            {copiedAssistant ? "已复制，粘贴给助手" : "复制给编程助手"}
-          </button>
-          <p className="hint">
-            {state === "manual"
-              ? "浏览器拒绝了剪贴板写入，请手动选中命令复制。"
-              : method === "native"
-                ? "上游自带的安装器：会先给出安装计划，确认后再写入配置。"
-                : method === "standalone"
-                  ? "非 DSH 独立工具：命令来自上游 README，安装后按仓库说明使用，不走插件 profile。"
-                  : <><code>web</code> / <code>tui</code> 是 DSH 自带 profile，首次使用自动创建。</>}
-          </p>
-        </>
-      )}
-
-      <Link className="install-sheet-more" to={detailPath(item.i)}>查看详情 →</Link>
+      {more && <span className="install-sheet-fade" aria-hidden="true" />}
     </div>
   );
 }

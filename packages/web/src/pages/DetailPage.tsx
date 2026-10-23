@@ -181,6 +181,19 @@ export default function DetailPage() {
             : entry.install.method === "manual"
               ? "按 README 手动安装"
               : "未知";
+  // 简介里的四个信息徽标用短标签，完整说明放在下方安装区，避免同一句话出现两遍
+  const methodShort =
+    entry.install.method === "pnpm-profile"
+      ? "pnpm profile"
+      : entry.install.method === "standalone"
+        ? "独立安装"
+        : entry.install.method === "native"
+          ? "自带安装器"
+          : entry.install.method === "skills-add"
+            ? "skill"
+            : entry.install.method === "manual"
+              ? "手动安装"
+              : "未知";
   // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
   const detailTags = meaningfulTags(entry.tags);
   const dims = [
@@ -223,6 +236,25 @@ export default function DetailPage() {
         <div className="about-grid">
           <div className="about-main">
             <p className="detail-desc">{entry.descriptionZh ?? entry.description ?? "（上游未提供简介）"}</p>
+            {/* 描述之外补四条可核对的事实，避免左栏只有一段文字显得空 */}
+            <div className="about-facts">
+              <span className="fact">
+                <span className="fact-k">星标</span>
+                <span className="fact-v">★ {formatStars(entry.stars)}</span>
+              </span>
+              <span className="fact">
+                <span className="fact-k">最近更新</span>
+                <span className="fact-v">{relativeTime(entry.pushedAt)}</span>
+              </span>
+              <span className="fact">
+                <span className="fact-k">首次收录</span>
+                <span className="fact-v">{entry.firstSeenAt.slice(0, 10)}</span>
+              </span>
+              <span className="fact">
+                <span className="fact-k">安装方式</span>
+                <span className="fact-v">{methodShort}</span>
+              </span>
+            </div>
             {detailTags.length > 0 && (
               <div className="tags detail-tags">
                 {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
@@ -240,7 +272,13 @@ export default function DetailPage() {
               {dims.map((d) => (
                 <div className="bar-row" key={d.label}>
                   <span className="bar-label">{d.label}</span>
-                  <span className="bar-track"><span className="bar-fill" style={{ width: `${Math.round(d.value * 100)}%` }} /></span>
+                  <span className="bar-track">
+                    {/* 高分用主色、中低分逐级变浅，一眼能看出哪项拖了后腿 */}
+                    <span
+                      className={`bar-fill ${d.value >= 0.9 ? "is-high" : d.value >= 0.7 ? "is-mid" : "is-low"}`}
+                      style={{ width: `${Math.round(d.value * 100)}%` }}
+                    />
+                  </span>
                   <span className="bar-value">{d.value.toFixed(2)}</span>
                 </div>
               ))}
