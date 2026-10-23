@@ -53,10 +53,12 @@ export default function DetailPage() {
         setOverflowTags(0);
         return;
       }
-      // 折叠时容器裁到一行高，但子元素仍在正常换行排版，按 offsetTop 就能数出被裁掉几条
+      // 折叠时容器裁到两行高，但子元素仍在正常换行排版，按行顶位置就能数出被裁掉几条
       let hidden = 0;
+      const tops = [...new Set(Array.from(el.children).map((c) => (c as HTMLElement).offsetTop))].sort((a, b) => a - b);
+      const lastShown = tops[1] ?? tops[0] ?? 0;
       for (const child of Array.from(el.children)) {
-        if ((child as HTMLElement).offsetTop > first.offsetTop + 2) hidden++;
+        if ((child as HTMLElement).offsetTop > lastShown + 2) hidden++;
       }
       setOverflowTags(hidden);
     };
