@@ -202,11 +202,15 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
 
   // 与详情页同一套标签口径：先去噪声标签，再挑一个分类固定到右下角。
   const tags = meaningfulTags(item.tg);
-  const category = tags.find((t) => categories.has(t)) ?? null;
-  const restTags = tags.filter((t) => t !== category);
+  const matched = tags.find((t) => categories.has(t)) ?? null;
+  // 工具的标签常常是独一份，凑不满分类阈值（出现 ≥2 次）就兜底成「其他」，
+  // 免得卡片右下角空着和别的工具不一致。
+  const category = matched ?? (item.ec === "external" ? "其他" : null);
+  const restTags = tags.filter((t) => t !== matched);
   const shownTags = restTags.slice(0, MAX_TAGS);
   // +N 要把「分类已显示」也算进去，这样 2 + N + 1 正好等于详情页的标签总数。
-  const hiddenCount = tags.length - shownTags.length - (category ? 1 : 0);
+  // 兜底的「其他」不在 tags 里，只统计真实标签，不参与这个等式。
+  const hiddenCount = tags.length - shownTags.length - (matched ? 1 : 0);
 
   return (
     <article className="card">
