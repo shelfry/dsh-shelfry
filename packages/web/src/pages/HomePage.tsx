@@ -202,14 +202,30 @@ export default function HomePage() {
 
   const canLoadMore = shown < filtered.length || (!hasFilters && artifacts !== null && loadedPages < artifacts.pages.count);
 
-  const loadMore = useCallback(async () => {
-    if (shown < filtered.length) { setShown((s) => s + PAGE_STEP); return; }
-    if (hasFilters || !artifacts || loadedPages >= artifacts.pages.count) return;
-    const next = await loadPage(loadedPages);
-    setExtraPages((prev) => [...prev, ...next]);
-    setLoadedPages((p) => p + 1);
+  const loadMore = useCallback(() => {
+    if (!canLoadMore) return;
     setShown((s) => s + PAGE_STEP);
-  }, [shown, filtered.length, hasFilters, artifacts, loadedPages]);
+  }, [canLoadMore]);
+
+  // 首屏 60 条里混着工具，插件视图筛掉后只剩 43/44 条，会留下半行空位。
+  // 这里自动补拉下一页，直到够 60 条（能被 1/2/3/4/5/6 列整除）或数据取完。
+  const fillingRef = useRef(false);
+  useEffect(() => {
+    if (hasFilters || !artifacts || fillingRef.current) return;
+    if (filtered.length >= shown || loadedPages >= artifacts.pages.count) return;
+    fillingRef.current = true;
+    (async () => {
+      try {
+        const next = await loadPage(loadedPages);
+        setExtraPages((prev) => [...prev, ...next]);
+        setLoadedPages((p) => p + 1);
+      } catch {
+        // 失败时保持现状，用户点「加载更多」会重试
+      } finally {
+        fillingRef.current = false;
+      }
+    })();
+  }, [hasFilters, artifacts, filtered.length, shown, loadedPages]);
 
   const resetFilters = useCallback(() => {
     setQuery("");
