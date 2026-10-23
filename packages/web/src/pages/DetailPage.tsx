@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, type Category } from "../lib/data";
@@ -34,6 +34,37 @@ export default function DetailPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [readmeOpen, setReadmeOpen] = useState(false);
   const [profile, setProfile] = useProfile();
+  // 标签只占一行，多出来的收进 +N：条目之间标签数量差异大，不限高会把简介面板撑得高低不一。
+  const tagsRef = useRef<HTMLDivElement>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [overflowTags, setOverflowTags] = useState(0);
+
+  // 换了条目就把标签收起，避免上一页的展开状态带过来
+  useEffect(() => {
+    setTagsOpen(false);
+  }, [entry?.id]);
+
+  useEffect(() => {
+    const el = tagsRef.current;
+    if (!el || tagsOpen) return;
+    const measure = () => {
+      const first = el.firstElementChild as HTMLElement | null;
+      if (!first) {
+        setOverflowTags(0);
+        return;
+      }
+      // 折叠时容器裁到一行高，但子元素仍在正常换行排版，按 offsetTop 就能数出被裁掉几条
+      let hidden = 0;
+      for (const child of Array.from(el.children)) {
+        if ((child as HTMLElement).offsetTop > first.offsetTop + 2) hidden++;
+      }
+      setOverflowTags(hidden);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tagsOpen, entry?.id, entry?.tags.length]);
 
   // 换一个插件就回到默认 profile：详情页内切换同类推荐时不该沿用上一个插件的选择
   useEffect(() => {
@@ -196,6 +227,7 @@ export default function DetailPage() {
               : "未知";
   // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
   const detailTags = meaningfulTags(entry.tags);
+
   const dims = [
     { label: "生态热度", value: entry.score.popularity },
     { label: "维护活跃", value: entry.score.maintenance },
@@ -256,8 +288,15 @@ export default function DetailPage() {
               </span>
             </div>
             {detailTags.length > 0 && (
-              <div className="tags detail-tags">
-                {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
+              <div className={`about-tags${tagsOpen ? "" : " is-capped"}`}>
+                <div className="tags detail-tags" ref={tagsRef}>
+                  {detailTags.map((t) => <span className="tag" key={t}>{t}</span>)}
+                </div>
+                {overflowTags > 0 && (
+                  <button type="button" className="tags-toggle" onClick={() => setTagsOpen((v) => !v)}>
+                    {tagsOpen ? "收起" : `+${overflowTags}`}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -285,6 +324,18 @@ export default function DetailPage() {
             </div>
             <p className="about-score-note">四项加权，全部来自可核对的上游信息。</p>
           </aside>
+        </div>
+
+        {/* 来源并进简介底部：只留还需要看的两项，仓库链接与首次收录已在标题和徽标里 */}
+        <div className="about-meta">
+          <span className="about-meta-item">
+            <span className="about-meta-k">收录来源</span>
+            <span className="about-meta-v" title={entry.sources.join("、")}>{entry.sources.join(" · ")}</span>
+          </span>
+          <span className="about-meta-item">
+            <span className="about-meta-k">数据刷新</span>
+            <span className="about-meta-v">{entry.updatedAt.slice(0, 10)}</span>
+          </span>
         </div>
       </section>
 
@@ -422,16 +473,6 @@ export default function DetailPage() {
           </div>
         </section>
       )}
-
-      <section className="panel">
-        <h2>来源</h2>
-        <dl className="kv">
-          <dt>仓库</dt><dd><a href={repoUrl} target="_blank" rel="noreferrer">{repoUrl}</a></dd>
-          <dt>收录来源</dt><dd>{entry.sources.join("、")}</dd>
-          <dt>首次收录</dt><dd>{entry.firstSeenAt.slice(0, 10)}</dd>
-          <dt>最近更新</dt><dd>{entry.updatedAt.slice(0, 10)}</dd>
-        </dl>
-      </section>
 
       <footer className="detail-foot">
         {siteConfig.siteName} · 数据每日自动刷新
