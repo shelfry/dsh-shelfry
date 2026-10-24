@@ -850,7 +850,8 @@ a { color: inherit; text-decoration: none; }
   .header-fav .fav-count { height: 15px; min-width: 15px; font-size: 10px; }
   .icon-btn { width: 28px; height: 28px; }
   .icon-btn-text { width: auto; padding: 0 8px; }
-  .settings-menu { right: auto; left: 0; }
+  /* 手机端两个入口都贴在右侧，菜单保持右对齐，改左对齐会向右溢出被裁掉 */
+  .settings-menu { right: 0; left: auto; max-width: calc(100vw - 32px); }
   .star-btn.has-label { height: 30px; }
   .rank-row { gap: 10px; padding: 12px; }
   .rank-nums { font-size: 11.5px; }
