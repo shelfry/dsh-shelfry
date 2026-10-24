@@ -852,8 +852,12 @@ a { color: inherit; text-decoration: none; }
   .chip-sm { padding: 4px 8px; font-size: 12px; }
   .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; }
   .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; }
-  /* 标签盒高度与 chip 一致（27px）并让文字在盒内垂直居中，否则标签文字会比按钮文字高 1.5px，看起来上下错位 */
-  .filter-sort .filter-label { flex: 0 0 28px; margin: 0; height: 27px; line-height: 27px; align-self: flex-start; }
+  /* 标签与按钮统一度量：同字号、同 27px 盒高、同为 flex 居中。
+     真机字体度量与桌面模拟不同，之前标签 11.5px / 按钮 12.5px 混用，改盒高也只能在 Chrome 里对齐 */
+  .filter-advanced .filter-label { font-size: 12.5px; line-height: 1; display: flex; align-items: center; height: 27px; }
+  .filter-advanced .chip { display: inline-flex; align-items: center; height: 27px; line-height: 1; }
+  .filter-advanced .chip-sm { font-size: 12.5px; height: 27px; }
+  .filter-sort .filter-label { flex: 0 0 28px; margin: 0; }
   /* 选项按内容参与换行计算：放不下时整组按钮落到下一行右对齐，而不是让筛选按钮吊在两行中间 */
   .filter-sort .filter-chips { flex: 1 1 auto; min-width: 0; }
   .filter-sort-end { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
@@ -862,7 +866,7 @@ a { color: inherit; text-decoration: none; }
   /* 只在手机断点隐藏，桌面走另一套结构，不受影响 */
   .filter-groups.is-collapsed { display: none; }
   .filter-group { display: flex; align-items: flex-start; gap: 4px; margin-right: 0; }
-  .filter-group .filter-label { flex: 0 0 28px; margin: 0; height: 27px; line-height: 27px; }
+  .filter-group .filter-label { flex: 0 0 28px; margin: 0; }
   .filter-group .filter-chips { flex: 1; }
   /* 清空条件单独一行，贴分组右下角；不占排序行右侧，避免挤成空半行 */
   .filter-reset-row { display: flex; justify-content: flex-end; }
