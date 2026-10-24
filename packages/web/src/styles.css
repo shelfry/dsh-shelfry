@@ -851,9 +851,10 @@ a { color: inherit; text-decoration: none; }
   .chip { padding: 5px 9px; font-size: 12.5px; }
   .chip-sm { padding: 4px 8px; font-size: 12px; }
   .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; }
-  .filter-sort { display: flex; align-items: center; gap: 4px; order: -3; }
+  .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; }
   .filter-sort .filter-label { flex: 0 0 28px; margin: 0; line-height: 26px; align-self: flex-start; }
-  .filter-sort .filter-chips { flex: 1; }
+  /* 选项按内容参与换行计算：放不下时整组按钮落到下一行右对齐，而不是让筛选按钮吊在两行中间 */
+  .filter-sort .filter-chips { flex: 1 1 auto; min-width: 0; }
   .filter-sort-end { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
   .filter-toggle { display: inline-flex; align-items: center; gap: 3px; flex: none; }
   .filter-groups { display: flex; flex-direction: column; gap: 9px; order: -1; }
