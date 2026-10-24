@@ -1,4 +1,5 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { normalizeGitHubRepo } from "@dsh-shelfry/schema";
 import { useT } from "../lib/i18n";
 
@@ -42,6 +43,28 @@ export function CurationDialog({
   const [lists, setLists] = useState<Lists | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 面板直接挂在 body 上（头部有 backdrop-filter，fixed 子元素会被困在头部盒子里）：
+  // 桌面贴着固定导航下沿、右边缘与「收录」按钮对齐；手机版交给媒体查询改成居中弹窗。
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const header = anchor.closest("header");
+      const bottom = header ? header.getBoundingClientRect().bottom : rect.bottom;
+      setPos({
+        top: Math.round(bottom + 8),
+        right: Math.round(Math.max(12, window.innerWidth - rect.right)),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open, anchorRef]);
 
   // 关闭即清空凭据；点面板外或按 ESC 收起
   useEffect(() => {
@@ -56,6 +79,7 @@ export function CurationDialog({
     const onDown = (e: PointerEvent) => {
       const target = e.target as Node;
       if (anchorRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
@@ -144,8 +168,18 @@ export function CurationDialog({
   const isQueue = tab === "queue";
   const current = lists ? (isQueue ? lists.queue : lists.blocklist) : [];
 
-  return (
-    <div className="curation-menu" role="dialog" aria-label={t("curation.title")}>
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="curation-menu"
+      role="dialog"
+      aria-label={t("curation.title")}
+      style={
+        pos
+          ? ({ "--curation-top": `${pos.top}px`, "--curation-right": `${pos.right}px` } as CSSProperties)
+          : undefined
+      }
+    >
       <div className="modal-head">
         <strong>{t("curation.title")}</strong>
         <button className="modal-close" onClick={onClose} aria-label={t("common.close")}>×</button>
@@ -258,6 +292,7 @@ export function CurationDialog({
           </div>
         </>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

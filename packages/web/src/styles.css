@@ -753,8 +753,10 @@ a { color: inherit; text-decoration: none; }
 /* 头部里是按钮而不是链接，去掉浏览器默认外观，只剩悬停淡底 */
 .header-link-btn { border: 0; background: none; font-family: inherit; line-height: inherit; cursor: pointer; }
 .curation-wrap { position: relative; display: inline-flex; }
+/* 面板挂在 body 上（头部 backdrop-filter 会困住 fixed 子元素），
+   桌面贴着固定导航下沿、右边缘与「收录」按钮对齐；手机版由媒体查询改成居中弹窗 */
 .curation-menu {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+  position: fixed; top: var(--curation-top, 66px); right: var(--curation-right, 20px); z-index: 45;
   display: flex; flex-direction: column;
   width: 380px; max-width: calc(100vw - 24px); max-height: min(72vh, 560px); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
@@ -850,4 +852,10 @@ a { color: inherit; text-decoration: none; }
   /* 窄屏没有空间横向滚动，命令直接折行，避免用户以为命令被截断 */
   .code { align-items: flex-start; }
   .code code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* 收录面板：手机没空间贴着按钮下拉（右侧对齐会把左半边裁出屏幕），改为视口居中弹窗 */
+  .curation-menu {
+    top: 50%; left: 50%; right: auto;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 380px); max-height: min(80dvh, 560px);
+  }
 }
