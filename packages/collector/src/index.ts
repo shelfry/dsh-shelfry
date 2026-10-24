@@ -192,13 +192,15 @@ async function main(): Promise<void> {
     );
   }
 
-  // 站内「收录」弹框写入的队列：跳过检索发现层，直接按全名拉取。
+  // 站内「收录」弹框写入的队列 + 已收录归档：跳过检索发现层，直接按全名拉取。
+  // 归档是「清理已收录」后的去向，仍然要强制收录，否则下次构建可能掉出站点。
   // 人工指定只负责「进候选」，类型判定与分类仍走后面的自动规则。
   const curation = loadCuration();
-  if (curation.queue.length > 0) {
+  const manual = [...new Set([...curation.queue, ...curation.curated])];
+  if (manual.length > 0) {
     if (token) {
-      const queued = await fetchReposByNames(curation.queue, token);
-      log(args.silent, `[collector] 收录队列 ${curation.queue.length} 个仓库，成功取回 ${queued.length} 条`);
+      const queued = await fetchReposByNames(manual, token);
+      log(args.silent, `[collector] 收录队列 ${curation.queue.length} 个 + 归档 ${curation.curated.length} 个，成功取回 ${queued.length} 条`);
       records.push(
         ...queued.map((r) => {
           const prevSources = Array.isArray(r.sources) ? r.sources.map(String) : [];
@@ -207,7 +209,7 @@ async function main(): Promise<void> {
       );
     } else {
       // 没有 token 就没法按全名取详情，名单原样保留，等下次 CI 跑
-      console.warn(`[collector] 未配置 GITHUB_TOKEN，跳过收录队列（${curation.queue.length} 个仓库）`);
+      console.warn(`[collector] 未配置 GITHUB_TOKEN，跳过收录队列（${manual.length} 个仓库）`);
     }
   }
 
@@ -228,7 +230,7 @@ async function main(): Promise<void> {
   // 站长永久剔除的仓库。队列优先：同一仓库同时出现在两边时按「要收录」处理，
   // 这样恢复收录只需要把它加回队列，不必关心黑名单里是否还留着旧记录。
   if (curation.blocklist.length > 0) {
-    const queued = new Set(curation.queue);
+    const queued = new Set(manual);
     const blocked = new Set(curation.blocklist.filter((id) => !queued.has(id)));
     if (blocked.size > 0) {
       const removed = entries.filter((e) => blocked.has(e.id.toLowerCase()));

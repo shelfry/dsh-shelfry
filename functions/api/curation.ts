@@ -31,7 +31,7 @@ interface Ctx {
   env: Env;
 }
 
-type Action = "auth" | "queue" | "block" | "unqueue" | "submit" | "approve" | "dismiss";
+type Action = "auth" | "queue" | "block" | "unqueue" | "submit" | "approve" | "dismiss" | "prune";
 
 /** 访客在提交页发来的待确认申请；只有输密码后才返回给前端。 */
 interface PendingItem {
@@ -45,6 +45,8 @@ interface PendingItem {
 const QUEUE_KEY = "queue";
 const BLOCK_KEY = "blocklist";
 const PENDING_KEY = "pending";
+/** 已收录归档：从队列清理出来的仓库挪到这里，仍然会被强制收录，避免掉出站点 */
+const CURATED_KEY = "curated";
 /** 同一 IP 每小时最多提交几次，挡住最简单的刷列表 */
 const SUBMIT_LIMIT = 10;
 const SUBMIT_TTL = 3600;
@@ -149,8 +151,12 @@ async function overRateLimit(kv: KVNamespaceLike, request: Request): Promise<boo
 export async function onRequestGet({ env }: Ctx): Promise<Response> {
   if (!env.CURATION) return json({ error: "config", message: "服务端未绑定 CURATION KV" }, 500);
   try {
-    const [queue, blocklist] = await Promise.all([readList(env.CURATION, QUEUE_KEY), readList(env.CURATION, BLOCK_KEY)]);
-    return json({ queue, blocklist });
+    const [queue, blocklist, curated] = await Promise.all([
+      readList(env.CURATION, QUEUE_KEY),
+      readList(env.CURATION, BLOCK_KEY),
+      readList(env.CURATION, CURATED_KEY),
+    ]);
+    return json({ queue, blocklist, curated });
   } catch (err) {
     return json({ error: "storage", message: errorText(err) }, 502);
   }
@@ -162,6 +168,7 @@ export async function onRequestPost({ request, env }: Ctx): Promise<Response> {
   let body: {
     action?: unknown;
     repo?: unknown;
+    repos?: unknown;
     password?: unknown;
     install?: unknown;
     category?: unknown;
@@ -181,7 +188,8 @@ export async function onRequestPost({ request, env }: Ctx): Promise<Response> {
     action !== "unqueue" &&
     action !== "submit" &&
     action !== "approve" &&
-    action !== "dismiss"
+    action !== "dismiss" &&
+    action !== "prune"
   ) {
     return json({ error: "bad-request", message: "未知操作" }, 400);
   }
@@ -239,28 +247,51 @@ export async function onRequestPost({ request, env }: Ctx): Promise<Response> {
   }
 
   try {
-    const [queue, blocklist, pending] = await Promise.all([
+    const [queue, blocklist, pending, curated] = await Promise.all([
       readList(env.CURATION, QUEUE_KEY),
       readList(env.CURATION, BLOCK_KEY),
       readPending(env.CURATION),
+      readList(env.CURATION, CURATED_KEY),
     ]);
     // 闸门：密码对了就把当前名单一起返回，省掉一次 GET
     if (action === "auth") return json({ ok: true, queue, blocklist, pending });
+
+    // 批量清理已收录的队列条目：挪进 curated 归档，仍然强制收录，不会掉出站点
+    if (action === "prune") {
+      const targets = new Set<string>();
+      for (const row of Array.isArray(body.repos) ? body.repos : []) {
+        const id = typeof row === "string" ? normalizeGitHubRepo(row) : null;
+        if (id) targets.add(id);
+      }
+      if (targets.size === 0) return json({ error: "bad-request", message: "没有需要清理的仓库" }, 400);
+      const nextQueue = queue.filter((id) => !targets.has(id));
+      const nextCurated = [...curated];
+      for (const id of targets) if (!nextCurated.includes(id)) nextCurated.push(id);
+      const writes: Promise<void>[] = [];
+      if (!sameList(nextQueue, queue)) writes.push(writeList(env.CURATION, QUEUE_KEY, nextQueue));
+      if (!sameList(nextCurated, curated)) writes.push(writeList(env.CURATION, CURATED_KEY, nextCurated));
+      await Promise.all(writes);
+      return json({ queue: nextQueue, blocklist, pending });
+    }
+
     if (!repo) return json({ error: "bad-repo", message: "仓库地址格式不对" }, 400);
 
     let nextQueue = queue;
     let nextBlock = blocklist;
     let nextPending = pending;
+    let nextCurated = curated;
 
     if (action === "queue" || action === "approve") {
-      // 恢复/确认收录：同时从黑名单与待确认里移除，队列优先于黑名单
+      // 恢复/确认收录：同时从黑名单、待确认与归档里移除，队列优先于黑名单
       nextQueue = queue.includes(repo) ? queue : [...queue, repo];
       nextBlock = blocklist.filter((id) => id !== repo);
       nextPending = pending.filter((row) => row.repo !== repo);
+      nextCurated = curated.filter((id) => id !== repo);
     } else if (action === "block") {
       nextBlock = blocklist.includes(repo) ? blocklist : [...blocklist, repo];
       nextQueue = queue.filter((id) => id !== repo);
       nextPending = pending.filter((row) => row.repo !== repo);
+      nextCurated = curated.filter((id) => id !== repo);
     } else if (action === "dismiss") {
       // 忽略只移出待确认，不拉黑，之后仍可再次提交
       nextPending = pending.filter((row) => row.repo !== repo);
@@ -271,6 +302,7 @@ export async function onRequestPost({ request, env }: Ctx): Promise<Response> {
     const writes: Promise<void>[] = [];
     if (!sameList(nextQueue, queue)) writes.push(writeList(env.CURATION, QUEUE_KEY, nextQueue));
     if (!sameList(nextBlock, blocklist)) writes.push(writeList(env.CURATION, BLOCK_KEY, nextBlock));
+    if (!sameList(nextCurated, curated)) writes.push(writeList(env.CURATION, CURATED_KEY, nextCurated));
     if (!samePending(nextPending, pending)) writes.push(writePending(env.CURATION, nextPending));
     await Promise.all(writes);
 

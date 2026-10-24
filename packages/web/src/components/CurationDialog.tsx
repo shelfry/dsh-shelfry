@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { normalizeGitHubRepo } from "@dsh-shelfry/schema";
+import { loadCollectedIds } from "../lib/data";
 import { useT } from "../lib/i18n";
 
 /**
@@ -12,14 +13,15 @@ import { useT } from "../lib/i18n";
  */
 
 type Tab = "pending" | "queue" | "block";
-type Action = "queue" | "block" | "unqueue" | "approve" | "dismiss";
+type Action = "queue" | "block" | "unqueue" | "approve" | "dismiss" | "prune";
 type OkKey =
   | "curation.queued"
   | "curation.blocked"
   | "curation.unqueued"
   | "curation.restored"
   | "curation.approved"
-  | "curation.dismissed";
+  | "curation.dismissed"
+  | "curation.pruned";
 
 /** 访客提交的收录申请，只有解锁后才可见 */
 interface PendingItem {
@@ -57,6 +59,8 @@ export function CurationDialog({
   const [tab, setTab] = useState<Tab>("pending");
   const [repo, setRepo] = useState("");
   const [lists, setLists] = useState<Lists | null>(null);
+  /** 已收录仓库：用来给队列条目标状态，并决定「清理已收录」是否可点 */
+  const [collected, setCollected] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -90,6 +94,7 @@ export function CurationDialog({
       setRepo("");
       setNotice(null);
       setLists(null);
+      setCollected(null);
       return;
     }
     const onDown = (e: PointerEvent) => {
@@ -119,7 +124,7 @@ export function CurationDialog({
     };
   };
 
-  const post = async (payload: Record<string, string>) => {
+  const post = async (payload: Record<string, unknown>) => {
     const res = await fetch(API, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -136,8 +141,13 @@ export function CurationDialog({
     setBusy(true);
     setNotice(null);
     try {
-      const next = await post({ action: "auth", password });
+      const [next, ids] = await Promise.all([
+        post({ action: "auth", password }),
+        // 名单状态是锦上添花：拉不到也不影响解锁和写操作
+        loadCollectedIds().catch(() => null),
+      ]);
       setLists(next);
+      setCollected(ids);
       setAuthed(true);
     } catch (err) {
       const status = (err as { status?: number }).status;
@@ -149,6 +159,21 @@ export function CurationDialog({
       });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const fail = (err: unknown) => {
+    const status = (err as { status?: number }).status;
+    if (status === 401) {
+      // 密码被改过：退回闸门，别让后续操作继续失败
+      setAuthed(false);
+      setPassword("");
+      setNotice({ kind: "error", text: t("curation.wrongPassword") });
+    } else {
+      setNotice({
+        kind: "error",
+        text: t("curation.failed", { msg: err instanceof Error ? err.message : String(err) }),
+      });
     }
   };
 
@@ -166,18 +191,24 @@ export function CurationDialog({
       setNotice({ kind: "ok", text: t(okKey) });
       if (action !== "unqueue") setRepo("");
     } catch (err) {
-      const status = (err as { status?: number }).status;
-      if (status === 401) {
-        // 密码被改过：退回闸门，别让后续操作继续失败
-        setAuthed(false);
-        setPassword("");
-        setNotice({ kind: "error", text: t("curation.wrongPassword") });
-      } else {
-        setNotice({
-          kind: "error",
-          text: t("curation.failed", { msg: err instanceof Error ? err.message : String(err) }),
-        });
-      }
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 只清理「确实已经在站点里」的队列条目，未收录的保持不动 */
+  const prune = async () => {
+    const targets = (lists?.queue ?? []).filter((id) => collected?.has(id));
+    if (targets.length === 0) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const next = await post({ action: "prune", repos: targets, password });
+      setLists(next);
+      setNotice({ kind: "ok", text: t("curation.pruned", { n: targets.length }) });
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
@@ -189,6 +220,7 @@ export function CurationDialog({
   const isQueue = tab === "queue";
   const pending = lists?.pending ?? [];
   const current = lists ? (isQueue ? lists.queue : lists.blocklist) : [];
+  const indexed = isQueue && collected ? current.filter((id) => collected.has(id)) : [];
 
   return createPortal(
     <div
@@ -346,29 +378,43 @@ export function CurationDialog({
               </>
             ) : (
               <>
-                <h3 className="curation-list-title">
-                  {t(isQueue ? "curation.queueList" : "curation.blockList", { n: current.length })}
-                </h3>
+                <div className="curation-list-head">
+                  <h3 className="curation-list-title">
+                    {t(isQueue ? "curation.queueList" : "curation.blockList", { n: current.length })}
+                  </h3>
+                  {isQueue && indexed.length > 0 && (
+                    <button type="button" className="curation-item-btn" disabled={busy} onClick={() => void prune()}>
+                      {t("curation.prune", { n: indexed.length })}
+                    </button>
+                  )}
+                </div>
 
                 {current.length === 0 ? (
                   <p className="curation-empty">{t(isQueue ? "curation.queueEmpty" : "curation.blockEmpty")}</p>
                 ) : (
                   <ul className="curation-list">
                     {current.map((id) => (
-                      <li className="curation-item" key={id}>
+                      <li className={`curation-item${collected?.has(id) ? " is-collected" : ""}`} key={id}>
                         <a className="curation-repo" href={`https://github.com/${id}`} target="_blank" rel="noreferrer">
                           {id}
                         </a>
-                        <button
-                          type="button"
-                          className="curation-item-btn"
-                          disabled={busy}
-                          onClick={() =>
-                            void run(isQueue ? "unqueue" : "queue", id, isQueue ? "curation.unqueued" : "curation.restored")
-                          }
-                        >
-                          {t(isQueue ? "curation.unqueue" : "curation.restore")}
-                        </button>
+                        <span className="curation-item-side">
+                          {isQueue && collected && (
+                            <span className={`curation-badge${collected.has(id) ? " ok" : ""}`}>
+                              {t(collected.has(id) ? "curation.status.collected" : "curation.status.waiting")}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="curation-item-btn"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(isQueue ? "unqueue" : "queue", id, isQueue ? "curation.unqueued" : "curation.restored")
+                            }
+                          >
+                            {t(isQueue ? "curation.unqueue" : "curation.restore")}
+                          </button>
+                        </span>
                       </li>
                     ))}
                   </ul>

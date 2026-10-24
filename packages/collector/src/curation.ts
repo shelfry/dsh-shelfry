@@ -15,12 +15,15 @@ import { REPO_ROOT } from "./config.ts";
 
 const FILES = {
   queue: "curation/queue.json",
+  curated: "curation/curated.json",
   blocklist: "curation/blocklist.json",
 } as const;
 
 export interface CurationLists {
   /** 待强制收录的仓库（owner/repo，按加入顺序） */
   queue: string[];
+  /** 已收录归档：从队列清理出来但必须继续强制收录的仓库 */
+  curated: string[];
   /** 永久剔除的仓库 */
   blocklist: string[];
 }
@@ -49,5 +52,9 @@ function readList(file: string): string[] {
 }
 
 export function loadCuration(): CurationLists {
-  return { queue: readList(FILES.queue), blocklist: readList(FILES.blocklist) };
+  return {
+    queue: readList(FILES.queue),
+    curated: readList(FILES.curated),
+    blocklist: readList(FILES.blocklist),
+  };
 }

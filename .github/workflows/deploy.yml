@@ -57,6 +57,7 @@ jobs:
               fs.writeFileSync(path, JSON.stringify({ repos }, null, 2) + "\n");
             };
             write("curation/queue.json", list(data.queue));
+            write("curation/curated.json", list(data.curated));
             write("curation/blocklist.json", list(data.blocklist));
           '
           if git diff --quiet -- curation && [ -z "$(git status --porcelain curation)" ]; then

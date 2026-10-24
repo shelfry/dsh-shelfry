@@ -93,12 +93,22 @@ export async function loadEntryAt(artifacts: ArtifactIndex, globalIndex: number)
 }
 
 let idMapCache: Record<string, number> | null = null;
+const loadIdMap = async (): Promise<Record<string, number>> => {
+  if (!idMapCache) idMapCache = await getJson<Record<string, number>>("idmap.json");
+  return idMapCache;
+};
+
 /** 直达详情页时用：把 owner/repo 翻成全局序号。 */
 export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
-  if (!idMapCache) idMapCache = await getJson<Record<string, number>>("idmap.json");
-  const index = idMapCache[id];
+  const map = await loadIdMap();
+  const index = map[id];
   if (index === undefined) return null;
   return loadEntryAt(artifacts, index);
+}
+
+/** 收录弹窗用：拿到全部已收录仓库，给队列条目标「已收录」/「待下次构建」。 */
+export async function loadCollectedIds(): Promise<Set<string>> {
+  return new Set(Object.keys(await loadIdMap()));
 }
 
 /**
