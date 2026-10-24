@@ -21,6 +21,7 @@ import { clearBorrowedPackageInfo } from "./identity.ts";
 import { isPlaceholderSpec, resolveEvidence, writeDroppedList } from "./evidence.ts";
 import { resolveInstallCommands } from "./install-probe.ts";
 import { resolveReadmeSummaries } from "./readme.ts";
+import { loadCuration } from "./curation.ts";
 
 /**
  * 收录管道 CLI。
@@ -113,7 +114,8 @@ const MIN_TOOL_STARS = 3;
 
 function belowToolBar(e: PluginEntry): boolean {
   if (e.ecosystem !== "external") return false;
-  if (e.curated || e.sources.includes("issue-submission")) return false;
+  // 站长在站内点名要收录的（队列）与用户主动提交的一样，不该被星标一刀切
+  if (e.curated || e.sources.includes("issue-submission") || e.sources.includes("curation")) return false;
   return e.stars < MIN_TOOL_STARS;
 }
 
@@ -173,12 +175,12 @@ async function main(): Promise<void> {
   log(args.silent, `[collector] 来源=${sourceLabel}，抓到原始记录 ${records.length} 条`);
 
   // 一次性补录：CI 用 workflow_dispatch 的 rescue 输入传入仓库全名，逐条取详情后并入本轮。
+  const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
   const rescueNames = (process.env.RESCUE_REPOS ?? "")
     .split(/[\s,]+/)
     .map((s) => s.trim())
     .filter(Boolean);
   if (rescueNames.length > 0) {
-    const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
     const rescued = token ? await fetchReposByNames(rescueNames, token) : [];
     log(args.silent, `[collector] 补录 ${rescueNames.length} 个仓库，成功取回 ${rescued.length} 条`);
     // 补录名单来自 Issue 提交：打上标记，低星工具据此绕过质量门槛
@@ -188,6 +190,25 @@ async function main(): Promise<void> {
         return { ...r, sources: [...new Set([...prevSources, "issue-submission"])] };
       }),
     );
+  }
+
+  // 站内「收录」弹框写入的队列：跳过检索发现层，直接按全名拉取。
+  // 人工指定只负责「进候选」，类型判定与分类仍走后面的自动规则。
+  const curation = loadCuration();
+  if (curation.queue.length > 0) {
+    if (token) {
+      const queued = await fetchReposByNames(curation.queue, token);
+      log(args.silent, `[collector] 收录队列 ${curation.queue.length} 个仓库，成功取回 ${queued.length} 条`);
+      records.push(
+        ...queued.map((r) => {
+          const prevSources = Array.isArray(r.sources) ? r.sources.map(String) : [];
+          return { ...r, sources: [...new Set([...prevSources, "curation"])] };
+        }),
+      );
+    } else {
+      // 没有 token 就没法按全名取详情，名单原样保留，等下次 CI 跑
+      console.warn(`[collector] 未配置 GITHUB_TOKEN，跳过收录队列（${curation.queue.length} 个仓库）`);
+    }
   }
 
   const prevById = new Map(prev.entries.map((e) => [e.id, e]));
@@ -203,6 +224,22 @@ async function main(): Promise<void> {
 
   const merged = mergeEntries(prev, incoming);
   let entries = merged.catalog.entries;
+
+  // 站长永久剔除的仓库。队列优先：同一仓库同时出现在两边时按「要收录」处理，
+  // 这样恢复收录只需要把它加回队列，不必关心黑名单里是否还留着旧记录。
+  if (curation.blocklist.length > 0) {
+    const queued = new Set(curation.queue);
+    const blocked = new Set(curation.blocklist.filter((id) => !queued.has(id)));
+    if (blocked.size > 0) {
+      const removed = entries.filter((e) => blocked.has(e.id.toLowerCase()));
+      if (removed.length > 0) {
+        entries = entries.filter((e) => !blocked.has(e.id.toLowerCase()));
+        merged.catalog.entries = entries;
+        const names = removed.slice(0, 8).map((e) => e.id).join("、");
+        log(args.silent, `[collector] 黑名单剔除 ${removed.length} 条：${names}${removed.length > 8 ? " 等" : ""}`);
+      }
+    }
+  }
 
   // 生态归属实证：名字/简介里看不出 DSH 的条目逐条取证据，三层全空才剔除。
   // 放在版本号与下载量之前，避免给注定要删的条目白花几百次请求。

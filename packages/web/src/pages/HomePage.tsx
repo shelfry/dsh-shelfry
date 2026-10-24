@@ -3,6 +3,7 @@ import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginType } from "@dsh-she
 import { Link, useSearchParams } from "react-router-dom";
 import { PluginCard } from "../components/PluginCard";
 import { HeaderSettings } from "../components/HeaderSettings";
+import { CurationDialog } from "../components/CurationDialog";
 import {
   isExternal,
   loadArtifacts,
@@ -394,8 +395,10 @@ export default function HomePage() {
 export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
   const { t } = useT();
   const { ids } = useFavorites();
+  const [curationOpen, setCurationOpen] = useState(false);
 
   return (
+    <>
     <header className="site-header">
       <div className="wrap">
         <Link className="brand" to="/">
@@ -415,6 +418,13 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
             <span className="fav-count">{ids.length}</span>
           </Link>
           <Link className="header-link" to="/submit">{t("nav.submit")}</Link>
+          <button
+            type="button"
+            className="header-link header-link-btn"
+            onClick={() => setCurationOpen(true)}
+          >
+            {t("nav.curation")}
+          </button>
         </nav>
         <div className="header-actions">
           <a className="header-link header-github" href={siteConfig.repoUrl} target="_blank" rel="noreferrer" aria-label="GitHub">
@@ -430,5 +440,7 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
         </div>
       </div>
     </header>
+    <CurationDialog open={curationOpen} onClose={() => setCurationOpen(false)} />
+    </>
   );
 }

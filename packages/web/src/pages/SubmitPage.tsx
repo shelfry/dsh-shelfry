@@ -152,8 +152,9 @@ export default function SubmitPage() {
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               placeholder={t("submit.summaryPlaceholder")}
-              maxLength={80}
+              maxLength={200}
             />
+            <div className="field-hint">{t("submit.summaryCount", { n: summary.length })}</div>
           </div>
         </div>
 

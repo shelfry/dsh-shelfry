@@ -204,6 +204,32 @@ export function validateEntry(input: unknown): string[] {
   return errs;
 }
 
+/**
+ * 把用户粘贴的仓库地址规整成 `owner/repo`（小写）。
+ *
+ * 站内「收录」弹框、collector 读名单、Pages Function 校验三处共用同一套规则，
+ * 避免出现「站上能提交、CI 匹配不上」的口径漂移。支持完整链接、git@ 地址与简写；
+ * 非 GitHub 地址一律返回 null。
+ */
+export function normalizeGitHubRepo(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  let rest = raw.replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const https = rest.match(/^https?:\/\/(?:www\.)?github\.com\/(.+)$/i);
+  const ssh = rest.match(/^git@github\.com:(.+)$/i);
+  if (https) rest = https[1]!;
+  else if (ssh) rest = ssh[1]!;
+  else if (/^[a-z][a-z0-9+.-]*:\/\//i.test(rest)) return null;
+  const parts = rest.replace(/\.git$/i, "").split("/");
+  const owner = parts[0] ?? "";
+  const repo = parts[1] ?? "";
+  if (!owner || !repo) return null;
+  // owner 只能是字母数字与连字符，且不能以连字符开头/结尾；仓库名另允许 . 与 _
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,38})$/i.test(owner)) return null;
+  if (!/^[a-z0-9._-]{1,100}$/i.test(repo) || repo === "." || repo === "..") return null;
+  return `${owner}/${repo}`.toLowerCase();
+}
+
 export function toLiteEntry(e: PluginEntry): LiteEntry {
   const desc = e.descriptionZh ?? e.description;
   return {

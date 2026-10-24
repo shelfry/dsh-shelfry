@@ -42,6 +42,29 @@ GITHUB_TOKEN=ghp_xxx npm run collect -- --source auto --limit 20000 --build
 5. **标镜像**：同名仓库 ≥3 个或描述自称镜像/克隆时，产物里打 `dp: 1`，前端显示「镜像仓库」并在综合排序中沉底。
 6. **产出**：`lite.json`（全量浏览切片）、`pages/NNNN.json`（每页 60 条）、`catalog/NNNN.json`（明细分片）、`idmap.json`、`artifacts.json`、`meta.json`、`categories.json`。
 
+### 站内收录管理
+
+顶部「收录」菜单是站长专用的弹框（写操作需密码），名单以文件形式存在仓库里，提交进 git，永久留存、可 diff 追溯：
+
+| 文件 | 作用 |
+| --- | --- |
+| `curation/queue.json` | 待收录队列：跳过检索发现层，按仓库全名强制拉取；类型与分类仍走自动判定，不手填卡片 |
+| `curation/blocklist.json` | 永久剔除名单：合并后过滤，下次构建起从站点消失 |
+
+优先级 **队列 > 黑名单**：同一仓库两边都有时按收录处理，所以「恢复收录」只需把它放回队列，黑名单里的旧记录也会一并清掉。
+
+读写接口是 Cloudflare Pages Function [curation.ts](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/functions/api/curation.ts)：`GET` 返回两份名单，`POST` 校验密码后通过 GitHub Contents API 提交，不依赖数据库。需要给 Pages 项目配两个环境变量：
+
+- `CURATION_PASS`：管理密码的 PBKDF2-SHA256 哈希，格式 `pbkdf2$<轮数>$<saltHex>$<hashHex>`，明文不入库；
+- `CURATION_GH_TOKEN`：细粒度 PAT，仅本仓库 `Contents: Read and write`。
+
+改密码时先生成新哈希，再更新环境变量：
+
+```bash
+node -e 'const c=require("crypto");const n=210000,s=c.randomBytes(16);console.log(`pbkdf2$${n}$${s.toString("hex")}$${c.pbkdf2Sync(process.argv[1],s,n,32,"sha256").toString("hex")}`)' '新密码'
+printf '%s' '<hash>' | npx wrangler pages secret put CURATION_PASS --project-name dsh-shelfry
+```
+
 ## 部署
 
 `.github/workflows/deploy.yml` 每天 UTC 18:17（北京 02:17）跑一次，也支持 push 与手动触发：
