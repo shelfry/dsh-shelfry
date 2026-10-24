@@ -258,8 +258,13 @@ export default function DetailPage() {
   const methodLabel = methodKey ? t(METHOD_LABEL[methodKey]) : t("method.unknown");
   // 简介里的四个信息徽标用短标签，完整说明放在下方安装区，避免同一句话出现两遍
   const methodShort = methodKey ? t(METHOD_SHORT[methodKey]) : t("methodShort.unknown");
-  // 与卡片同一口径：卡片上显示「2 条 + +N + 分类」，这里的总数必须对上。
-  const detailTags = meaningfulTags(entry.tags);
+  // 与卡片同一口径：先去噪声标签；skill 的类型并进标签区，没有有效标签时用类型兜底，
+  // 避免详情页出现一块空标签区，也与卡片底部保持一致。
+  const detailTags = [
+    ...(entry.type === "skill" ? ["skill"] : []),
+    ...meaningfulTags(entry.tags),
+  ];
+  if (detailTags.length === 0) detailTags.push(isTool ? t("common.tool") : t("common.plugin"));
 
   const dims = [
     { label: t("detail.dim.popularity"), value: entry.score.popularity },
@@ -276,7 +281,6 @@ export default function DetailPage() {
         <div className="detail-title">
           <h1>{entry.name}</h1>
           {isTool && <span className="pill pill-tool">{t("common.tool")}</span>}
-          {entry.type === "skill" && <span className="pill pill-type">skill</span>}
           {entry.curated && <span className="pill pill-curated">{t("common.curated")}</span>}
           <StarButton id={entry.id} withLabel />
         </div>
