@@ -201,10 +201,16 @@ export default function DetailPage() {
 
   // 命令里的 profile 统一由选择器决定；上游安装器（npx ...）没有 --profile，会原样返回
   const command = entry?.install.command ? applyProfile(entry.install.command, profile) : null;
+  // 原始 skill 仓库没有 dsh 安装动作：给一条能直接执行的克隆命令，
+  // 落到 DSH 会自动扫描的共享技能目录，避免安装区只剩一句说明。
+  const skillCommand = !command && entry?.type === "skill"
+    ? `git clone --depth 1 https://github.com/${entry.fullName}.git ~/.agents/skills/${entry.fullName.replace("/", "-")}`
+    : null;
+  const shownCommand = command ?? skillCommand;
 
   const copy = async () => {
-    if (!command) return;
-    if (await copyText(command)) {
+    if (!shownCommand) return;
+    if (await copyText(shownCommand)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     }
@@ -220,8 +226,8 @@ export default function DetailPage() {
   };
 
   const copyForAssistant = async () => {
-    if (!command || !entry) return;
-    const ok = await copyText(assistantPrompt({ name: entry.name, repo: entry.fullName, command }));
+    if (!shownCommand || !entry) return;
+    const ok = await copyText(assistantPrompt({ name: entry.name, repo: entry.fullName, command: shownCommand }));
     if (ok) {
       setCopiedAssistant(true);
       setTimeout(() => setCopiedAssistant(false), 1600);
@@ -387,13 +393,15 @@ export default function DetailPage() {
               )}
             </div>
             <div>
-              {command ? (
+              {shownCommand ? (
                 <>
                   <div className="code">
-                    <code>{command}</code>
+                    <code>{shownCommand}</code>
                     <button onClick={copy}>{copied ? t("common.copied") : t("common.copy")}</button>
                   </div>
-                  {entry.install.method === "standalone" ? (
+                  {entry.install.method === "skills-add" ? (
+                    <p className="hint">{t("detail.hint.skill")}</p>
+                  ) : entry.install.method === "standalone" ? (
                     <p className="hint">{t("detail.hint.standalone")}</p>
                   ) : entry.install.method === "native" ? (
                     <p className="hint">{t("detail.hint.native")}</p>
