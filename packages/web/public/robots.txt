@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /data/
 Disallow: /favorites
 
 Sitemap: https://dsh.shelfry.app/sitemap.xml
