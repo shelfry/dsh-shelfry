@@ -365,8 +365,8 @@ export default function HomePage() {
 
         {isMobile ? (
           <div className="filter-row filter-advanced">
-            {/* 手机端：折叠开关 + 重置独占一行，排序常显，类型/星标/兼容按组收起 */}
-            <div className="filter-bar">
+            {/* 手机端：筛选开关与排序并成一行，类型/星标/兼容按组收起 */}
+            <div className="filter-sort">
               <button
                 type="button"
                 className="chip chip-sm filter-toggle"
@@ -377,14 +377,11 @@ export default function HomePage() {
                 {advancedActive > 0 && <span className="chip-count">{advancedActive}</span>}
                 <span className="filter-caret" aria-hidden="true">{advancedOpen ? "▴" : "▾"}</span>
               </button>
+              <span className="filter-label">{t("filters.sort")}</span>
+              {sortChips}
               {hasFilters && (
                 <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
               )}
-            </div>
-
-            <div className="filter-sort">
-              <span className="filter-label">{t("filters.sort")}</span>
-              {sortChips}
             </div>
 
             <div className={`filter-groups${advancedOpen ? "" : " is-collapsed"}`}>
