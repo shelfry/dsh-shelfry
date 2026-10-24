@@ -222,10 +222,14 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
   const match = resolveCategory(tags, item.n, item.d, categories, item.dp === 1, item.rs ?? "");
   // 分类没命中时，工具仍兜底「其他」，避免右下角空着和别的卡片不一致。
   const category = match?.label ?? (item.ec === "external" ? t("common.other") : null);
-  const restTags = match?.tag ? tags.filter((t) => t !== match.tag) : tags;
-  const shownTags = restTags.slice(0, MAX_TAGS);
-  // +N 要把「分类已显示」也算进去，这样 2 + N + 1 正好等于详情页的标签总数。
-  const hiddenCount = tags.length - shownTags.length - (match?.tag ? 1 : 0);
+  const restTags = match?.tag ? tags.filter((tag) => tag !== match.tag) : tags;
+  // skill 的类型徽标并进标签区：不再占标题行，同时给底部左侧补上第一条。
+  const typeTag = item.t === "skill" ? "skill" : null;
+  const shownTags = [...(typeTag ? [typeTag] : []), ...restTags].slice(0, MAX_TAGS);
+  // 标签一个都不剩时按类型兜底（工具 / 插件），底部左侧不留白。
+  if (shownTags.length === 0) shownTags.push(item.ec === "external" ? t("common.tool") : t("common.plugin"));
+  // +N 要把「分类已显示」和类型标签也算进去，这样 2 + N + 1 正好等于详情页的标签总数。
+  const hiddenCount = Math.max(0, tags.length + (typeTag ? 1 : 0) - shownTags.length - (match?.tag ? 1 : 0));
 
   return (
     <article className="card">
@@ -234,7 +238,6 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
           {/* 链接::after 铺满整张卡片 ⇒ 卡片任意处可点，按钮靠 z-index 浮在上面 */}
           <Link className="card-name" to={detailPath(item.i)}>{item.n}</Link>
           {item.ec === "external" && <span className="pill pill-tool">{t("common.tool")}</span>}
-          {item.t === "skill" && <span className="pill pill-type">skill</span>}
           {item.c === 1 && <span className="pill pill-curated">{t("common.curated")}</span>}
         </div>
         <div className="card-actions">
