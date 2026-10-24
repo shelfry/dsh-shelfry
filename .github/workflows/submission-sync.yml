@@ -1,0 +1,139 @@
+name: Sync plugin submissions
+
+# 把 GitHub Issue 通道的提交同步进站内「待确认收录」列表。
+#
+# 访客在提交页点「在 GitHub 提交（备用）」时会带上 plugin-submission 标签，
+# 这里解析 Issue 正文 → POST /api/curation 的 submit 动作（公开、无需密码）
+# → 站长在收录面板里核实后点「收录」或「忽略」，Issue 上会回一条状态评论。
+#
+# 只做同步，不做审核：任何来源都进待确认，不会直接上线。
+
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: submission-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # 只处理带 plugin-submission 标签或标题符合模板的 Issue；
+    # 手动触发时扫描所有未关闭的 plugin-submission Issue（用于补同步历史工单）。
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (contains(github.event.issue.labels.*.name, 'plugin-submission') ||
+        startsWith(github.event.issue.title, '[插件提交]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          CURATION_API: https://dsh.shelfry.app/api/curation
+        with:
+          script: |
+            const MARKER = "<!-- curation-sync -->";
+            const API = process.env.CURATION_API;
+
+            /** 从「- 仓库：…」字段里取 owner/repo，兼容完整 URL 与简写；取不到再退回标题。 */
+            const parseRepo = (text) => {
+              const clean = (id) => id.replace(/\.git$/i, "");
+              const url = text.match(/github\.com\/([\w.-]+)\/([\w.-]+)/i);
+              if (url) return clean(`${url[1]}/${url[2]}`);
+              const short = text.match(/^\s*([\w.-]+)\/([\w.-]+)\s*$/);
+              return short ? clean(`${short[1]}/${short[2]}`) : "";
+            };
+
+            /** 读取 issue 正文里的「- 字段：值」一行；没有就返回空串。 */
+            const field = (body, label) => {
+              const m = body.match(new RegExp(`^-\\s*${label}[：:]\\s*(.+)$`, "m"));
+              return m ? m[1].trim() : "";
+            };
+
+            const sync = async (issue) => {
+              if (!issue || issue.pull_request) return;
+
+              // 已同步过就跳过，避免 opened 和 labeled 两次事件重复评论
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                ...context.repo, issue_number: issue.number, per_page: 100,
+              });
+              if (comments.some((c) => (c.body || "").includes(MARKER))) {
+                core.info(`#${issue.number} 已同步过，跳过`);
+                return;
+              }
+
+              const body = issue.body || "";
+              let repo = parseRepo(field(body, "仓库")) || parseRepo(body);
+              if (!repo) {
+                const t = (issue.title || "").match(/\[插件提交\]\s*([\w.-]+\/[\w.-]+)/);
+                if (t) repo = t[1];
+              }
+
+              const comment = (text, marker = false) =>
+                github.rest.issues.createComment({
+                  ...context.repo,
+                  issue_number: issue.number,
+                  body: `${marker ? MARKER + "\n" : ""}${text}`,
+                });
+
+              if (!repo) {
+                await comment("没能从这条 Issue 里识别出仓库地址。请编辑正文，按模板写「- 仓库：https://github.com/owner/repo」，或直接到站内提交页提交。");
+                return;
+              }
+
+              const install = field(body, "安装规格").replace(/^`+|`+$/g, "").trim();
+              const categoryRaw = field(body, "分类");
+              const category = (categoryRaw.match(/（([^）]+)）\s*$/) || [])[1] || categoryRaw;
+              const summary = field(body, "一句话说明").slice(0, 200);
+
+              let res;
+              let data = null;
+              try {
+                res = await fetch(API, {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "submit", repo, install, category, summary }),
+                });
+                data = await res.json().catch(() => null);
+              } catch (err) {
+                await comment(`同步到站内待确认列表失败（网络错误：${err.message}）。可稍后在 Actions 里手动重跑这个工作流，或直接到站内「收录」面板提交。`);
+                core.setFailed(`提交接口调用失败：${err.message}`);
+                return;
+              }
+
+              if (res.status === 403 || data?.error === "blocked") {
+                await comment(`\`${repo}\` 已被站长剔除，本次未进入待确认列表。`, true);
+                return;
+              }
+              if (res.status === 429) {
+                await comment(`站内提交接口限流（每小时 10 次），\`${repo}\` 这次没有同步成功。稍后重跑工作流即可。`);
+                return;
+              }
+              if (!res.ok) {
+                await comment(`同步失败：${data?.message ?? res.status}。可稍后在 Actions 里重跑，或直接到站内「收录」面板提交。`);
+                core.setFailed(`提交接口返回 ${res.status}`);
+                return;
+              }
+
+              if (data?.status === "queued") {
+                await comment(`\`${repo}\` 已经在收录队列里了，无需重复提交。`, true);
+              } else {
+                await comment(`\`${repo}\` 已进入「待确认收录」列表，站长核实后会随下一次构建上线。`, true);
+              }
+            };
+
+            if (context.eventName === "workflow_dispatch") {
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                ...context.repo, state: "open", labels: "plugin-submission", per_page: 100,
+              });
+              core.info(`扫描到 ${issues.length} 条待同步 Issue`);
+              for (const issue of issues) await sync(issue);
+            } else {
+              await sync(context.payload.issue);
+            }
