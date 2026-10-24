@@ -396,6 +396,7 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
   const { t } = useT();
   const { ids } = useFavorites();
   const [curationOpen, setCurationOpen] = useState(false);
+  const curationWrapRef = useRef<HTMLSpanElement>(null);
 
   return (
     <>
@@ -418,13 +419,22 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
             <span className="fav-count">{ids.length}</span>
           </Link>
           <Link className="header-link" to="/submit">{t("nav.submit")}</Link>
-          <button
-            type="button"
-            className="header-link header-link-btn"
-            onClick={() => setCurationOpen(true)}
-          >
-            {t("nav.curation")}
-          </button>
+          <span className="curation-wrap" ref={curationWrapRef}>
+            <button
+              type="button"
+              className="header-link header-link-btn"
+              aria-haspopup="dialog"
+              aria-expanded={curationOpen}
+              onClick={() => setCurationOpen((v) => !v)}
+            >
+              {t("nav.curation")}
+            </button>
+            <CurationDialog
+              open={curationOpen}
+              onClose={() => setCurationOpen(false)}
+              anchorRef={curationWrapRef}
+            />
+          </span>
         </nav>
         <div className="header-actions">
           <a className="header-link header-github" href={siteConfig.repoUrl} target="_blank" rel="noreferrer" aria-label="GitHub">
@@ -440,7 +450,6 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
         </div>
       </div>
     </header>
-    <CurationDialog open={curationOpen} onClose={() => setCurationOpen(false)} />
     </>
   );
 }

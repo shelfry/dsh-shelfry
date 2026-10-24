@@ -44,7 +44,7 @@ GITHUB_TOKEN=ghp_xxx npm run collect -- --source auto --limit 20000 --build
 
 ### 站内收录管理
 
-顶部「收录」菜单是站长专用的弹框（写操作需密码）。名单以 Cloudflare KV 为写入缓冲，每次 CI 构建前同步回仓库文件并提交进 git，永久留存、可 diff 追溯：
+顶部「收录」按钮点开后是导航下方展开的面板，进入需要管理密码；名单以 Cloudflare KV 为写入缓冲，每次 CI 构建前同步回仓库文件并提交进 git，永久留存、可 diff 追溯：
 
 | 位置 | 作用 |
 | --- | --- |

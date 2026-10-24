@@ -31,7 +31,7 @@ interface Ctx {
   env: Env;
 }
 
-type Action = "queue" | "block" | "unqueue";
+type Action = "auth" | "queue" | "block" | "unqueue";
 
 const QUEUE_KEY = "queue";
 const BLOCK_KEY = "blocklist";
@@ -115,11 +115,11 @@ export async function onRequestPost({ request, env }: Ctx): Promise<Response> {
   }
 
   const action = body.action;
-  if (action !== "queue" && action !== "block" && action !== "unqueue") {
+  if (action !== "auth" && action !== "queue" && action !== "block" && action !== "unqueue") {
     return json({ error: "bad-request", message: "未知操作" }, 400);
   }
+  // auth 只校验密码，不需要仓库；其余操作必须有合法仓库（在密码校验后统一判）
   const repo = typeof body.repo === "string" ? normalizeGitHubRepo(body.repo) : null;
-  if (!repo) return json({ error: "bad-repo", message: "仓库地址格式不对" }, 400);
 
   const password = typeof body.password === "string" ? body.password : "";
   if (!password) return json({ error: "unauthorized", message: "缺少管理密码" }, 401);
@@ -135,6 +135,10 @@ export async function onRequestPost({ request, env }: Ctx): Promise<Response> {
 
   try {
     const [queue, blocklist] = await Promise.all([readList(env.CURATION, QUEUE_KEY), readList(env.CURATION, BLOCK_KEY)]);
+    // 闸门：密码对了就把当前名单一起返回，省掉一次 GET
+    if (action === "auth") return json({ ok: true, queue, blocklist });
+    if (!repo) return json({ error: "bad-repo", message: "仓库地址格式不对" }, 400);
+
     let nextQueue = queue;
     let nextBlock = blocklist;
 
