@@ -19,8 +19,8 @@ const CACHE_FILE = resolve(DATA_DIR, "readme-summary.json");
 const TTL_DAYS = 30;
 const CONCURRENCY = 16;
 const MAX_CHARS = 160;
-/** 单轮最多读多少条：新条目多时按星标优先，其余留给后续构建慢慢补。 */
-const DEFAULT_LIMIT = 600;
+/** 单轮最多读多少条：首次跑覆盖全部无简介条目，之后每天只处理新增的。 */
+const DEFAULT_LIMIT = 2000;
 const DAY = 86_400_000;
 
 interface CacheRow {
