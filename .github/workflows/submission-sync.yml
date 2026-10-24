@@ -56,8 +56,34 @@ jobs:
               return m ? m[1].trim() : "";
             };
 
+            /** 站内提交页的 Issue 链接依赖这个标签；仓库里还没有就补一个，避免标签被 GitHub 静默丢弃。 */
+            const ensureLabel = async () => {
+              try {
+                await github.rest.issues.getLabel({ ...context.repo, name: "plugin-submission" });
+              } catch (err) {
+                if (err.status !== 404) throw err;
+                await github.rest.issues.createLabel({
+                  ...context.repo,
+                  name: "plugin-submission",
+                  color: "0e8a16",
+                  description: "站内提交页生成的插件收录申请",
+                });
+              }
+            };
+
+            const hasSubmissionLabel = (issue) =>
+              (issue.labels || []).some((l) => (typeof l === "string" ? l : l.name) === "plugin-submission");
+
             const sync = async (issue) => {
               if (!issue || issue.pull_request) return;
+
+              // 补打标签：站点链接里的 labels 参数在标签不存在时会被 GitHub 忽略，
+              // 这里补齐，后续手动扫描和看板筛选都靠它
+              if (!hasSubmissionLabel(issue)) {
+                await github.rest.issues.addLabels({
+                  ...context.repo, issue_number: issue.number, labels: ["plugin-submission"],
+                });
+              }
 
               // 已同步过就跳过，避免 opened 和 labeled 两次事件重复评论
               const comments = await github.paginate(github.rest.issues.listComments, {
@@ -128,12 +154,20 @@ jobs:
               }
             };
 
+            await ensureLabel();
+
             if (context.eventName === "workflow_dispatch") {
+              // 手动补同步：不只看标签，标题符合模板的也算，避免历史 Issue 因标签缺失被漏掉
               const issues = await github.paginate(github.rest.issues.listForRepo, {
-                ...context.repo, state: "open", labels: "plugin-submission", per_page: 100,
+                ...context.repo, state: "open", per_page: 100,
               });
-              core.info(`扫描到 ${issues.length} 条待同步 Issue`);
-              for (const issue of issues) await sync(issue);
+              const targets = issues.filter(
+                (issue) =>
+                  !issue.pull_request &&
+                  (hasSubmissionLabel(issue) || (issue.title || "").startsWith("[插件提交]")),
+              );
+              core.info(`扫描到 ${targets.length} 条待同步 Issue`);
+              for (const issue of targets) await sync(issue);
             } else {
               await sync(context.payload.issue);
             }

@@ -57,7 +57,7 @@ GITHUB_TOKEN=ghp_xxx npm run collect -- --source auto --limit 20000 --build
 
 访客提交走同一个 Function 的 `submit` 动作：不需要密码，只写 `pending`（按 IP 每小时限 10 次、按仓库去重）；管理员在面板「待确认收录」里点「收录」移入队列、点「忽略」仅移出待确认。提交页同时保留 GitHub Issue 链接，作为 GitHub Pages 静态兜底的备用通道。
 
-GitHub Issue 通道由 [submission-sync.yml](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/.github/workflows/submission-sync.yml) 自动同步：带 `plugin-submission` 标签（或标题以 `[插件提交]` 开头）的 Issue 创建或打标签时，工作流解析正文里的仓库、安装规格、分类与说明，调用 `submit` 写入待确认，并在 Issue 下回一条状态评论（已带 `<!-- curation-sync -->` 标记的会跳过，避免重复）。手动跑该工作流会扫描所有未关闭的 `plugin-submission` Issue，用于补同步历史工单。同步只进待确认，审核仍在收录面板。
+GitHub Issue 通道由 [submission-sync.yml](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/.github/workflows/submission-sync.yml) 自动同步：带 `plugin-submission` 标签（或标题以 `[插件提交]` 开头）的 Issue 创建或打标签时，工作流解析正文里的仓库、安装规格、分类与说明，调用 `submit` 写入待确认，并在 Issue 下回一条状态评论（已带 `<!-- curation-sync -->` 标记的会跳过，避免重复）。仓库里没有 `plugin-submission` 标签时工作流会自动创建并补打到 Issue 上。手动跑该工作流会扫描所有未关闭、带标签或标题符合模板的 Issue，用于补同步历史工单。同步只进待确认，审核仍在收录面板。
 
 读写接口是 Cloudflare Pages Function [curation.ts](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/functions/api/curation.ts)：`GET` 返回两份公开名单；`POST` 的 `submit` 动作公开写入待确认，其余动作校验密码后写 KV。全流程不需要 GitHub 令牌：KV 绑定写在 [wrangler.toml](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/wrangler.toml)，CI 用 Actions 自带的 `GITHUB_TOKEN` 提交同步结果，因此工作流权限是 `contents: write`。
 
