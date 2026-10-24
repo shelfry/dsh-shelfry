@@ -51,10 +51,13 @@ GITHUB_TOKEN=ghp_xxx npm run collect -- --source auto --limit 20000 --build
 | `curation/queue.json` | 待收录队列：跳过检索发现层，按仓库全名强制拉取；类型与分类仍走自动判定，不手填卡片 |
 | `curation/blocklist.json` | 永久剔除名单：合并后过滤，下次构建起从站点消失 |
 | KV 键 `queue` / `blocklist` | 站内弹框直接写入这里，CI 每轮同步覆盖上面的两个文件 |
+| KV 键 `pending` | 访客在「提交插件」页发来的待确认申请，只对输密码的管理员可见，不进产物 |
 
 优先级 **队列 > 黑名单**：同一仓库两边都有时按收录处理，所以「恢复收录」只需把它放回队列，黑名单里的旧记录也会一并清掉。
 
-读写接口是 Cloudflare Pages Function [curation.ts](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/functions/api/curation.ts)：`GET` 返回两份名单，`POST` 校验密码后写 KV。全流程不需要 GitHub 令牌：KV 绑定写在 [wrangler.toml](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/wrangler.toml)，CI 用 Actions 自带的 `GITHUB_TOKEN` 提交同步结果，因此工作流权限是 `contents: write`。
+访客提交走同一个 Function 的 `submit` 动作：不需要密码，只写 `pending`（按 IP 每小时限 10 次、按仓库去重）；管理员在面板「待确认收录」里点「收录」移入队列、点「忽略」仅移出待确认。提交页同时保留 GitHub Issue 链接，作为 GitHub Pages 静态兜底的备用通道。
+
+读写接口是 Cloudflare Pages Function [curation.ts](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/functions/api/curation.ts)：`GET` 返回两份公开名单；`POST` 的 `submit` 动作公开写入待确认，其余动作校验密码后写 KV。全流程不需要 GitHub 令牌：KV 绑定写在 [wrangler.toml](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/wrangler.toml)，CI 用 Actions 自带的 `GITHUB_TOKEN` 提交同步结果，因此工作流权限是 `contents: write`。
 
 只配一个环境变量：
 

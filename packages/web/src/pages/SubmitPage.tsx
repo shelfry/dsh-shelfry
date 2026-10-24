@@ -7,11 +7,11 @@ import { useT } from "../lib/i18n";
 import { SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 /**
- * 提交插件页（#/submit）。
+ * 提交插件页（/submit）。
  *
- * 站点是纯静态的，没有后端可提交，所以这里做两件事：
- *   1. 把用户填的内容整理成一份标准 issue 正文；
- *   2. 生成带 title/body 预填的 GitHub issue 链接，点一下就能提交。
+ * 主路径：直接 POST /api/curation 的 submit 动作，仓库进入「待确认收录」，
+ * 站长在收录面板里核实后再决定是否收录。
+ * 备用路径：生成带 title/body 预填的 GitHub issue 链接，静态兜底环境（GitHub Pages）也能提交。
  * 内容格式跟着收录管道的口径走（仓库 + 安装规格），免得维护者再回头问一遍。
  */
 
@@ -45,10 +45,12 @@ export default function SubmitPage() {
   const [summary, setSummary] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const { t } = useT();
   useSeo({
     title: `${t("nav.submit")} · ${SEO_SITE_NAME}`,
-    description: "提交一个 DSH 插件或非 DSH 独立工具：填写仓库与安装方式，生成一份可直接提交的 GitHub Issue。",
+    description: "提交一个 DSH 插件或非 DSH 独立工具：填写仓库与安装方式，站长确认后收录。",
     path: "/submit",
   });
 
@@ -91,6 +93,47 @@ export default function SubmitPage() {
     const ok = await copyText(`${title}\n\n${body}`);
     setCopied(ok);
     if (ok) setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 站内提交：进待确认列表，等站长在收录面板核实
+  const onSubmit = async () => {
+    if (!parsed || submitting) return;
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/curation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "submit",
+          repo: `${parsed.owner}/${parsed.repo}`,
+          install: install.trim(),
+          category,
+          summary: summary.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { status?: string; error?: string; message?: string }
+        | null;
+      if (res.status === 403 || data?.error === "blocked") {
+        setResult({ kind: "error", text: t("submit.blocked") });
+        return;
+      }
+      if (!res.ok) {
+        throw new Error(data?.message ?? `HTTP ${res.status}`);
+      }
+      setResult({
+        kind: "ok",
+        text: data?.status === "queued" ? t("submit.alreadyQueued") : t("submit.submitted"),
+      });
+    } catch (err) {
+      setResult({
+        kind: "error",
+        text: t("submit.failed", { msg: err instanceof Error ? err.message : String(err) }),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const ready = !!parsed;
@@ -164,8 +207,16 @@ export default function SubmitPage() {
         </details>
 
         <div className="form-actions">
-          <a
+          <button
+            type="button"
             className={`btn-primary${ready ? "" : " is-disabled"}`}
+            disabled={!ready || submitting}
+            onClick={() => void onSubmit()}
+          >
+            {submitting ? t("submit.submitting") : t("submit.station")}
+          </button>
+          <a
+            className={`btn-ghost${ready ? "" : " is-disabled"}`}
             href={ready ? issueUrl : undefined}
             target="_blank"
             rel="noreferrer"
@@ -179,6 +230,8 @@ export default function SubmitPage() {
           </button>
           {!ready && <span className="form-note">{t("submit.fillRepo")}</span>}
         </div>
+
+        {result && <p className={`submit-status ${result.kind}`}>{result.text}</p>}
       </section>
 
       <section className="panel panel-soft">

@@ -11,13 +11,29 @@ import { useT } from "../lib/i18n";
  * 名单读写走 /api/curation（Pages Function + KV），写成功后直接用响应刷新。
  */
 
-type Tab = "queue" | "block";
-type Action = "queue" | "block" | "unqueue";
-type OkKey = "curation.queued" | "curation.blocked" | "curation.unqueued" | "curation.restored";
+type Tab = "pending" | "queue" | "block";
+type Action = "queue" | "block" | "unqueue" | "approve" | "dismiss";
+type OkKey =
+  | "curation.queued"
+  | "curation.blocked"
+  | "curation.unqueued"
+  | "curation.restored"
+  | "curation.approved"
+  | "curation.dismissed";
+
+/** 访客提交的收录申请，只有解锁后才可见 */
+interface PendingItem {
+  repo: string;
+  install?: string;
+  category?: string;
+  summary?: string;
+  at: string;
+}
 
 interface Lists {
   queue: string[];
   blocklist: string[];
+  pending: PendingItem[];
 }
 
 interface ApiError {
@@ -38,7 +54,7 @@ export function CurationDialog({
   const { t } = useT();
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
-  const [tab, setTab] = useState<Tab>("queue");
+  const [tab, setTab] = useState<Tab>("pending");
   const [repo, setRepo] = useState("");
   const [lists, setLists] = useState<Lists | null>(null);
   const [busy, setBusy] = useState(false);
@@ -96,7 +112,11 @@ export function CurationDialog({
   const parse = (data: unknown, status: number): Lists => {
     const body = (data ?? {}) as Partial<Lists> & ApiError;
     if (status >= 400) throw Object.assign(new Error(body.message ?? `HTTP ${status}`), { status });
-    return { queue: body.queue ?? [], blocklist: body.blocklist ?? [] };
+    return {
+      queue: body.queue ?? [],
+      blocklist: body.blocklist ?? [],
+      pending: Array.isArray(body.pending) ? body.pending : [],
+    };
   };
 
   const post = async (payload: Record<string, string>) => {
@@ -165,7 +185,9 @@ export function CurationDialog({
 
   if (!open) return null;
 
+  const isPending = tab === "pending";
   const isQueue = tab === "queue";
+  const pending = lists?.pending ?? [];
   const current = lists ? (isQueue ? lists.queue : lists.blocklist) : [];
 
   return createPortal(
@@ -210,7 +232,7 @@ export function CurationDialog({
       ) : (
         <>
           <div className="curation-tabs" role="tablist" aria-label={t("curation.title")}>
-            {(["queue", "block"] as Tab[]).map((key) => (
+            {(["pending", "queue", "block"] as Tab[]).map((key) => (
               <button
                 key={key}
                 role="tab"
@@ -222,73 +244,139 @@ export function CurationDialog({
                   setRepo("");
                 }}
               >
-                {t(key === "queue" ? "curation.tab.queue" : "curation.tab.block")}
+                {key === "pending"
+                  ? t("curation.tab.pending", { n: pending.length })
+                  : t(key === "queue" ? "curation.tab.queue" : "curation.tab.block")}
               </button>
             ))}
           </div>
 
           <div className="curation-body">
-            <p className="curation-note">{t(isQueue ? "curation.queueNote" : "curation.blockNote")}</p>
+            <p className="curation-note">
+              {t(isPending ? "curation.pendingNote" : isQueue ? "curation.queueNote" : "curation.blockNote")}
+            </p>
 
-            <div className="field">
-              <label htmlFor="curation-repo">{t("curation.repo")}</label>
-              <input
-                id="curation-repo"
-                value={repo}
-                onChange={(e) => setRepo(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && repo.trim()) {
-                    void run(isQueue ? "queue" : "block", repo, isQueue ? "curation.queued" : "curation.blocked");
-                  }
-                }}
-                placeholder="https://github.com/owner/repo 或 owner/repo"
-                autoComplete="off"
-                spellCheck={false}
-              />
-            </div>
+            {!isPending && (
+              <>
+                <div className="field">
+                  <label htmlFor="curation-repo">{t("curation.repo")}</label>
+                  <input
+                    id="curation-repo"
+                    value={repo}
+                    onChange={(e) => setRepo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && repo.trim()) {
+                        void run(isQueue ? "queue" : "block", repo, isQueue ? "curation.queued" : "curation.blocked");
+                      }
+                    }}
+                    placeholder="https://github.com/owner/repo 或 owner/repo"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
 
-            <div className="curation-actions">
-              <button
-                type="button"
-                className="btn-primary curation-submit"
-                disabled={busy || !repo.trim()}
-                onClick={() =>
-                  void run(isQueue ? "queue" : "block", repo, isQueue ? "curation.queued" : "curation.blocked")
-                }
-              >
-                {busy ? t("curation.working") : t(isQueue ? "curation.submit" : "curation.block")}
-              </button>
-            </div>
+                <div className="curation-actions">
+                  <button
+                    type="button"
+                    className="btn-primary curation-submit"
+                    disabled={busy || !repo.trim()}
+                    onClick={() =>
+                      void run(isQueue ? "queue" : "block", repo, isQueue ? "curation.queued" : "curation.blocked")
+                    }
+                  >
+                    {busy ? t("curation.working") : t(isQueue ? "curation.submit" : "curation.block")}
+                  </button>
+                </div>
+              </>
+            )}
 
             {notice && <p className={`curation-status ${notice.kind}`}>{notice.text}</p>}
 
-            <h3 className="curation-list-title">
-              {t(isQueue ? "curation.queueList" : "curation.blockList", { n: current.length })}
-            </h3>
-
-            {current.length === 0 ? (
-              <p className="curation-empty">{t(isQueue ? "curation.queueEmpty" : "curation.blockEmpty")}</p>
+            {isPending ? (
+              <>
+                <h3 className="curation-list-title">{t("curation.pendingList", { n: pending.length })}</h3>
+                {pending.length === 0 ? (
+                  <p className="curation-empty">{t("curation.pendingEmpty")}</p>
+                ) : (
+                  <ul className="curation-list">
+                    {pending.map((item) => (
+                      <li className="curation-pending" key={item.repo}>
+                        <div className="curation-pending-head">
+                          <a
+                            className="curation-repo"
+                            href={`https://github.com/${item.repo}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {item.repo}
+                          </a>
+                          <div className="curation-pending-btns">
+                            <button
+                              type="button"
+                              className="curation-item-btn primary"
+                              disabled={busy}
+                              onClick={() => void run("approve", item.repo, "curation.approved")}
+                            >
+                              {t("curation.approve")}
+                            </button>
+                            <button
+                              type="button"
+                              className="curation-item-btn"
+                              disabled={busy}
+                              onClick={() => void run("dismiss", item.repo, "curation.dismissed")}
+                            >
+                              {t("curation.dismiss")}
+                            </button>
+                          </div>
+                        </div>
+                        {(item.install || item.category || item.summary) && (
+                          <div className="curation-pending-meta">
+                            {item.install && (
+                              <span>{t("curation.pendingInstall")} <code>{item.install}</code></span>
+                            )}
+                            {item.category && <span>{t("curation.pendingCategory")} {item.category}</span>}
+                            {item.summary && <span>{item.summary}</span>}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="curation-hint">{t("curation.pendingHint")}</p>
+              </>
             ) : (
-              <ul className="curation-list">
-                {current.map((id) => (
-                  <li className="curation-item" key={id}>
-                    <a className="curation-repo" href={`https://github.com/${id}`} target="_blank" rel="noreferrer">
-                      {id}
-                    </a>
-                    <button
-                      type="button"
-                      className="curation-item-btn"
-                      disabled={busy}
-                      onClick={() => void run(isQueue ? "unqueue" : "queue", id, isQueue ? "curation.unqueued" : "curation.restored")}
-                    >
-                      {t(isQueue ? "curation.unqueue" : "curation.restore")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+              <>
+                <h3 className="curation-list-title">
+                  {t(isQueue ? "curation.queueList" : "curation.blockList", { n: current.length })}
+                </h3>
 
-            <p className="curation-hint">{t("curation.hint")}</p>
+                {current.length === 0 ? (
+                  <p className="curation-empty">{t(isQueue ? "curation.queueEmpty" : "curation.blockEmpty")}</p>
+                ) : (
+                  <ul className="curation-list">
+                    {current.map((id) => (
+                      <li className="curation-item" key={id}>
+                        <a className="curation-repo" href={`https://github.com/${id}`} target="_blank" rel="noreferrer">
+                          {id}
+                        </a>
+                        <button
+                          type="button"
+                          className="curation-item-btn"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(isQueue ? "unqueue" : "queue", id, isQueue ? "curation.unqueued" : "curation.restored")
+                          }
+                        >
+                          {t(isQueue ? "curation.unqueue" : "curation.restore")}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <p className="curation-hint">{t("curation.hint")}</p>
+              </>
+            )}
           </div>
         </>
       )}
