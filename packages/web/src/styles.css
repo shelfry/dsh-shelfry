@@ -767,20 +767,19 @@ a { color: inherit; text-decoration: none; }
   .header-spacer { display: none; }
   .brand { order: 1; margin-right: auto; font-size: 14px; }
   .header-actions { order: 2; margin-left: auto; gap: 2px; }
+  /* 不能给导航加 overflow：滚动容器会把绝对定位的收藏徽章裁掉一半 */
   .header-nav {
     order: 3; flex-basis: 100%; width: 100%; flex-wrap: nowrap; gap: 2px;
-    overflow-x: auto; scrollbar-width: none;
   }
-  .header-nav::-webkit-scrollbar { display: none; }
   .header-link { padding: 4px 9px; font-size: 12px; }
   /* GitHub 在手机上只留图标，避免挤占第一行 */
   .header-github { width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 999px; }
   .github-label { display: none; }
   .github-icon { display: block; }
-  /* 收藏数绝对定位，0 个还是 99 个都不改变任何元素位置 */
-  .header-fav { position: relative; padding-right: 12px; }
+  /* 收藏数绝对定位，0 个还是 99 个都不改变任何元素位置；右侧留出徽章宽度，避免压住文字 */
+  .header-fav { position: relative; padding-right: 26px; }
   .header-fav .fav-count {
-    position: absolute; top: -3px; right: -1px;
+    position: absolute; top: -4px; right: 0;
     height: 15px; min-width: 15px; font-size: 10px;
   }
   .icon-btn { width: 28px; height: 28px; }
