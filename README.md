@@ -1,6 +1,6 @@
 # DSH 插件集市
 
-DeepSeek Harness（DSH）插件与工具目录，线上地址 <https://dsh.shelfry.app>。
+DeepSeek Harness（DSH）插件与工具目录，线上地址 <https://shelfry.app>。
 
 每天自动从 GitHub 收录插件，按「可装性、维护活跃、实用度、生态热度」综合评分排序，提供全文搜索、分类筛选、榜单、收藏与安装命令。
 

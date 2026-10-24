@@ -20,7 +20,7 @@ const TIMEOUT_MS = 15000;
  */
 const HEADERS = {
   accept: "application/json",
-  "user-agent": "dsh-shelfry-collector/1.0 (+https://dsh.shelfry.app)",
+  "user-agent": "dsh-shelfry-collector/1.0 (+https://shelfry.app)",
 };
 /** 只给星标靠前的条目补下载量：全量补要打上百次请求，必然被限流。 */
 const TOP_N = 3000;

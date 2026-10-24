@@ -14,7 +14,7 @@ import { probeRepo, readEvidenceCache, type Evidence } from "./evidence.ts";
  * 终端打印「判无关」的清单（按星标降序），供人工抽查后再决定是否接入收录管道。
  */
 
-const DEFAULT_LITE = "https://dsh.shelfry.app/data/lite.json";
+const DEFAULT_LITE = "https://shelfry.app/data/lite.json";
 // 与 evidence.ts 保持同一口径：单独的 dsh 词也要算（dsh_workflow、omdsh-dev 里的 dsh）
 const LOOSE = /(^|[^a-z0-9])dsh([^a-z0-9]|$)|dsh[-_]plugin|dsh[-_]market|deepseek[-_ ]?harness|cordis/i;
 const CONCURRENCY = 10;

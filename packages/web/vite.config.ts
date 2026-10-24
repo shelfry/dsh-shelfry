@@ -9,7 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 /** 站点名 / 域名集中一处配置：site.config.json 是唯一真相源，构建期注入前端。 */
 const site = JSON.parse(readFileSync(resolve(here, "../../site.config.json"), "utf8")) as Record<string, unknown>;
 
-const ORIGIN = `https://dsh.${String(site.domain)}`;
+const ORIGIN = `https://${String(site.domain)}`;
 
 /** sitemap 只收质量靠前的条目：两万条薄页面全塞进去会稀释整站权重。 */
 const SITEMAP_LIMIT = 3000;

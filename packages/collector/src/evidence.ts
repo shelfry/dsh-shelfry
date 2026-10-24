@@ -61,7 +61,7 @@ const RAW = "https://raw.githubusercontent.com";
 const TIMEOUT_MS = 12000;
 const HEADERS = {
   accept: "*/*",
-  "user-agent": "dsh-shelfry-collector/1.0 (+https://dsh.shelfry.app)",
+  "user-agent": "dsh-shelfry-collector/1.0 (+https://shelfry.app)",
 };
 
 const SKILL_CMD = /dsh\s+skill\s+add/i;

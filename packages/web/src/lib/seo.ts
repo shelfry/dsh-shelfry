@@ -7,7 +7,7 @@ import { siteConfig } from "./data";
  * 站点是客户端渲染，搜索引擎执行 JS 后读到的就是这里写入的内容；
  * sitemap 里的 URL 与 canonical 必须完全一致，否则会被当成重复页面。
  */
-const ORIGIN = "https://dsh.shelfry.app";
+export const ORIGIN = `https://${siteConfig.domain}`;
 
 export interface SeoInput {
   title: string;

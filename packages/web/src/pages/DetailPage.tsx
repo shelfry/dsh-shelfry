@@ -11,7 +11,7 @@ import { StarButton } from "../components/StarButton";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
 import { useT } from "../lib/i18n";
-import { SEO_DEFAULT_DESCRIPTION, SEO_SITE_NAME, useSeo } from "../lib/seo";
+import { ORIGIN, SEO_DEFAULT_DESCRIPTION, SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 type MethodKey = "pnpm-profile" | "standalone" | "native" | "skills-add" | "manual";
 
@@ -75,7 +75,7 @@ export default function DetailPage() {
           "@type": "SoftwareApplication",
           name: entry.name,
           description: entry.descriptionZh ?? entry.description ?? undefined,
-          url: `https://dsh.shelfry.app/p/${entry.id}`,
+          url: `${ORIGIN}/p/${entry.id}`,
           applicationCategory: "DeveloperApplication",
           operatingSystem: "macOS, Linux, Windows",
           codeRepository: `https://github.com/${entry.fullName}`,

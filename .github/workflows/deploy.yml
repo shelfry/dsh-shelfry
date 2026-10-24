@@ -49,7 +49,7 @@ jobs:
         # 名单接口偶发不可用时保留仓库现有版本，不让整轮构建失败。
         continue-on-error: true
         run: |
-          curl -fsS --max-time 20 https://dsh.shelfry.app/api/curation -o /tmp/curation.json || exit 0
+          curl -fsS --max-time 20 https://shelfry.app/api/curation -o /tmp/curation.json || exit 0
           node -e '
             const fs = require("fs");
             const data = JSON.parse(fs.readFileSync("/tmp/curation.json", "utf8"));

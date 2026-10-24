@@ -20,7 +20,7 @@ import { createSearcher, rankHits, sortItems, type SearchHit, type SortKey } fro
 import { categoryLabel } from "../lib/labels";
 import { useFavorites } from "../lib/favorites";
 import { useT } from "../lib/i18n";
-import { SEO_DEFAULT_DESCRIPTION, SEO_SITE_NAME, useSeo } from "../lib/seo";
+import { ORIGIN, SEO_DEFAULT_DESCRIPTION, SEO_SITE_NAME, useSeo } from "../lib/seo";
 
 /**
  * 首页：浏览 + 检索 + 多维筛选。
@@ -106,7 +106,7 @@ export default function HomePage() {
       "@type": "WebSite",
       name: SEO_SITE_NAME,
       alternateName: siteConfig.siteName,
-      url: "https://dsh.shelfry.app/",
+      url: `${ORIGIN}/`,
       description: SEO_DEFAULT_DESCRIPTION,
     },
   });
