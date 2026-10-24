@@ -309,6 +309,11 @@ export default function HomePage() {
     </button>
   ));
 
+  // 手机端「清空条件」并入最后一组的选项行右侧，与上面各行同高同基线，不单独占一行
+  const resetChip = hasFilters ? (
+    <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
+  ) : null;
+
   return (
     <main className="wrap">
       <section className="hero">
@@ -393,18 +398,18 @@ export default function HomePage() {
               )}
               <div className="filter-group">
                 <span className="filter-label">{t("filters.stars")}</span>
-                <div className="filter-chips">{starChips}</div>
+                <div className="filter-chips">
+                  {starChips}
+                  {isTools && resetChip}
+                </div>
               </div>
               {!isTools && (
                 <div className="filter-group">
                   <span className="filter-label">{t("filters.compat")}</span>
-                  <div className="filter-chips">{compatChips}</div>
-                </div>
-              )}
-              {/* 清空条件只在筛选展开后出现，落在分组右下角，不占排序行右侧位置 */}
-              {hasFilters && (
-                <div className="filter-reset-row">
-                  <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
+                  <div className="filter-chips">
+                    {compatChips}
+                    {resetChip}
+                  </div>
                 </div>
               )}
             </div>

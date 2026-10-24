@@ -850,7 +850,8 @@ a { color: inherit; text-decoration: none; }
   .filter-label { font-size: 11.5px; }
   .chip { padding: 5px 9px; font-size: 12.5px; }
   .chip-sm { padding: 4px 8px; font-size: 12px; }
-  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; }
+  /* padding-top 8 + 分割线 1px = 9px，与行间距一致：排序行的上下间隙视觉相同 */
+  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; padding-top: 8px; }
   .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; }
   /* 标签与按钮统一度量：同字号、同 27px 盒高、同为 flex 居中。
      真机字体度量与桌面模拟不同，之前标签 11.5px / 按钮 12.5px 混用，改盒高也只能在 Chrome 里对齐 */
@@ -868,9 +869,8 @@ a { color: inherit; text-decoration: none; }
   .filter-group { display: flex; align-items: flex-start; gap: 4px; margin-right: 0; }
   .filter-group .filter-label { flex: 0 0 28px; margin: 0; }
   .filter-group .filter-chips { flex: 1; }
-  /* 清空条件单独一行，贴分组右下角；不占排序行右侧，避免挤成空半行 */
-  .filter-reset-row { display: flex; justify-content: flex-end; }
-  .filter-reset-row .chip-reset { margin-left: 0; }
+  /* 清空条件并入最后一组的选项行，靠右贴容器边缘，与上面各行同一基线；不单独占一行 */
+  .filter-group .chip-reset { margin-left: auto; }
   .filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .card-desc { min-height: auto; }
   .header-stat { display: none; }
