@@ -664,13 +664,16 @@ a { color: inherit; text-decoration: none; }
 .btn-primary {
   display: inline-flex; align-items: center; padding: 9px 16px; border-radius: 9px;
   background: var(--accent); color: var(--accent-fg); font-size: 13.5px; font-weight: 550;
-  border: 1px solid var(--accent); cursor: pointer;
+  border: 1px solid var(--accent); cursor: pointer; white-space: nowrap;
+  justify-content: center;
 }
 .btn-primary:hover { opacity: 0.9; }
 .btn-primary.is-disabled { background: var(--surface-2); border-color: var(--border); color: var(--text-faint); cursor: not-allowed; }
 .btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
   padding: 9px 14px; border-radius: 9px; background: var(--surface); color: var(--text-dim);
   border: 1px solid var(--border); font-size: 13px; font-family: inherit; cursor: pointer;
+  line-height: 1.2;
 }
 .btn-ghost:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
 .btn-ghost:disabled { color: var(--text-faint); cursor: not-allowed; }
@@ -862,9 +865,9 @@ a { color: inherit; text-decoration: none; }
   .detail { padding-top: 18px; }
   .field-row { grid-template-columns: 1fr; gap: 0; }
   .panel { padding: 16px; }
-  .form-actions .btn-primary, .form-actions .btn-ghost { flex: 1; justify-content: center; }
-  /* 提交页三个按钮：主按钮独占一行，两个备用操作平分下一行 */
-  .form-actions .btn-primary { flex-basis: 100%; }
+  /* 手机端主按钮独占一行；两个备用按钮按内容宽度排，不再平分宽度把文字挤成三行 */
+  .form-actions .btn-primary { flex: 1 1 100%; }
+  .form-actions .btn-ghost { flex: 1 1 auto; }
   /* 手机上没有空间做「浮层」，弹窗直接铺满，滚动更接近原生阅读 */
   .modal-backdrop { padding: 0; }
   .modal { max-height: 100dvh; height: 100dvh; border-radius: 0; max-width: none; }
