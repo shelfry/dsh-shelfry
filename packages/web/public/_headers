@@ -1,7 +1,8 @@
-# Cloudflare Pages：构建产物文件名带 hash 的静态资源可以放心长缓存；
-# 数据产物每天重建，缓存短一些并允许过期后先回旧数据，避免用户停在旧版本。
+# Cloudflare Pages：构建产物文件名带 hash 的静态资源可以放心长缓存。
+# 数据产物每天重建，缓存短一些；stale-while-revalidate 只留一小时，
+# 否则回访用户可能拿着一天前的数据却看不到当天新收录的插件。
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /data/*
-  Cache-Control: public, max-age=600, stale-while-revalidate=86400
+  Cache-Control: public, max-age=300, stale-while-revalidate=3600
