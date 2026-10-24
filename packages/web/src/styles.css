@@ -850,8 +850,9 @@ a { color: inherit; text-decoration: none; }
   .filter-label { font-size: 11.5px; }
   .chip { padding: 5px 9px; font-size: 12.5px; }
   .chip-sm { padding: 4px 8px; font-size: 12px; }
-  /* padding-top 8 + 分割线 1px = 9px，与行间距一致：排序行的上下间隙视觉相同 */
-  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; padding-top: 8px; }
+  /* 分割线上下各 4px（+1px 线身），分类行到排序行整体 9px，与其它行间距一致；
+     原来上方 12 + 下方 8，合计 21px，看起来就是「排序行上下留白特别高」 */
+  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; margin-top: 4px; padding-top: 4px; }
   .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; }
   /* 标签与按钮统一度量：同字号、同 27px 盒高、同为 flex 居中。
      真机字体度量与桌面模拟不同，之前标签 11.5px / 按钮 12.5px 混用，改盒高也只能在 Chrome 里对齐 */
@@ -862,7 +863,14 @@ a { color: inherit; text-decoration: none; }
   /* 选项按内容参与换行计算：放不下时整组按钮落到下一行右对齐，而不是让筛选按钮吊在两行中间 */
   .filter-sort .filter-chips { flex: 1 1 auto; min-width: 0; }
   .filter-sort-end { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
-  .filter-toggle { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+  /* 「筛选」按钮在部分真机上会被字体度量撑高（比 chip 高出一截），把整行拔高到 40px，
+     连带排序行上下的留白都比别的行大；这里上下都锁死 27px，行高与其它行一致 */
+  .filter-toggle {
+    display: inline-flex; align-items: center; gap: 3px; flex: none;
+    box-sizing: border-box; height: 27px; min-height: 27px; max-height: 27px;
+    padding: 0 8px; line-height: 1;
+  }
+  .filter-toggle .chip-count, .filter-toggle .filter-caret { line-height: 1; }
   .filter-groups { display: flex; flex-direction: column; gap: 9px; order: -1; }
   /* 只在手机断点隐藏，桌面走另一套结构，不受影响 */
   .filter-groups.is-collapsed { display: none; }
