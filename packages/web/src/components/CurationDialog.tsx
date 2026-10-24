@@ -404,23 +404,26 @@ export function CurationDialog({
                               {t(collected.has(id) ? "curation.status.collected" : "curation.status.waiting")}
                             </span>
                           )}
-                          <button
-                            type="button"
-                            className="curation-item-btn"
-                            disabled={busy}
-                            onClick={() =>
-                              void run(isQueue ? "unqueue" : "queue", id, isQueue ? "curation.unqueued" : "curation.restored")
-                            }
-                          >
-                            {t(isQueue ? "curation.unqueue" : "curation.restore")}
-                          </button>
+                          {/* 已收录的条目不在这里下架：收纳进归档，站点继续保留 */}
+                          {(!isQueue || (collected && !collected.has(id))) && (
+                            <button
+                              type="button"
+                              className="curation-item-btn"
+                              disabled={busy}
+                              onClick={() =>
+                                void run(isQueue ? "unqueue" : "queue", id, isQueue ? "curation.unqueued" : "curation.restored")
+                              }
+                            >
+                              {t(isQueue ? "curation.unqueue" : "curation.restore")}
+                            </button>
+                          )}
                         </span>
                       </li>
                     ))}
                   </ul>
                 )}
 
-                <p className="curation-hint">{t("curation.hint")}</p>
+                <p className="curation-hint">{t(isQueue ? "curation.queueHint" : "curation.blockHint")}</p>
               </>
             )}
           </div>
