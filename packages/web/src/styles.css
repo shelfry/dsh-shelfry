@@ -136,12 +136,13 @@ a { color: inherit; text-decoration: none; }
 .filters { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-lg); padding: 14px 16px; box-shadow: var(--shadow-sm); }
 .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .filter-cats { row-gap: 8px; }
-.filter-advanced { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); row-gap: 8px; }
+.filter-advanced { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); row-gap: 8px; column-gap: 18px; }
 .filter-label { color: var(--text-faint); font-size: 12px; margin: 0 2px 0 4px; white-space: nowrap; }
-.filter-label:first-child { margin-left: 0; }
-.filter-sep { width: 1px; height: 16px; background: var(--border); margin: 0 8px; }
+/* 桌面端每组「标签 + 选项」捆成一个整体换行，行尾不会留下分割线，换行后也从最左侧起排 */
+.filter-seg { display: inline-flex; align-items: center; gap: 6px; }
+.filter-seg .filter-label { margin: 0; }
 
-/* 手机端高级筛选的分组结构；桌面仍用上面单行直出的老结构 */
+/* 手机端高级筛选的分组结构；桌面用上面的 .filter-seg 直排 */
 .filter-caret { font-size: 10px; color: var(--text-faint); }
 
 .chip {
@@ -844,7 +845,6 @@ a { color: inherit; text-decoration: none; }
   .grid { grid-template-columns: minmax(0, 1fr); }
   .grid-similar { grid-template-columns: minmax(0, 1fr); }
   .filters { padding: 12px; }
-  .filter-sep { display: none; }
   /* 手机端：分类只铺两行，筛选区压缩成「筛选 / 排序」两行，高级筛选按组展开 */
   .filter-cats { gap: 5px; row-gap: 7px; }
   .filter-label { font-size: 11.5px; }
