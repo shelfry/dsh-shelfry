@@ -852,10 +852,11 @@ a { color: inherit; text-decoration: none; }
   /* 窄屏没有空间横向滚动，命令直接折行，避免用户以为命令被截断 */
   .code { align-items: flex-start; }
   .code code { white-space: pre-wrap; overflow-wrap: anywhere; }
-  /* 收录面板：手机没空间贴着按钮下拉（右侧对齐会把左半边裁出屏幕），改为视口居中弹窗 */
+  /* 收录面板：手机同样吸附在固定导航下沿（top 由 JS 按头部实际高度算），只把水平方向改成居中 */
   .curation-menu {
-    top: 50%; left: 50%; right: auto;
-    transform: translate(-50%, -50%);
-    width: min(92vw, 380px); max-height: min(80dvh, 560px);
+    top: var(--curation-top, 66px); left: 50%; right: auto;
+    transform: translateX(-50%);
+    width: min(92vw, 380px);
+    max-height: min(560px, calc(100dvh - var(--curation-top, 66px) - 16px));
   }
 }
