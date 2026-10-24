@@ -16,7 +16,9 @@ on:
         default: ""
 
 permissions:
-  contents: read
+  # 收录名单以 Cloudflare KV 为写入缓冲，构建时同步回 curation/*.json 并提交，
+  # 所以需要写权限；用 Actions 自带的 GITHUB_TOKEN 即可，不额外配 PAT。
+  contents: write
   pages: write
   id-token: write
 
@@ -41,6 +43,33 @@ jobs:
 
       - name: 安装依赖
         run: npm ci
+
+      - name: 同步收录名单
+        # 站内弹框写的是 Cloudflare KV；这里把它落回仓库文件，git 才是永久记录。
+        # 名单接口偶发不可用时保留仓库现有版本，不让整轮构建失败。
+        continue-on-error: true
+        run: |
+          curl -fsS --max-time 20 https://dsh.shelfry.app/api/curation -o /tmp/curation.json || exit 0
+          node -e '
+            const fs = require("fs");
+            const data = JSON.parse(fs.readFileSync("/tmp/curation.json", "utf8"));
+            const list = (v) => [...new Set((Array.isArray(v) ? v : []).filter((x) => typeof x === "string"))];
+            const write = (path, repos) => {
+              fs.mkdirSync("curation", { recursive: true });
+              fs.writeFileSync(path, JSON.stringify({ repos }, null, 2) + "\n");
+            };
+            write("curation/queue.json", list(data.queue));
+            write("curation/blocklist.json", list(data.blocklist));
+          '
+          if git diff --quiet -- curation && [ -z "$(git status --porcelain curation)" ]; then
+            echo "名单无变化"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add curation
+          git commit -m "chore: 同步站内收录名单"
+          git push || echo "推送失败，名单只保留在 KV（不影响本次构建）"
 
       - name: 类型检查
         run: npm run typecheck
@@ -79,7 +108,7 @@ jobs:
         # 上面的 artifact 已快照，删除不影响 GitHub Pages。
         run: |
           rm -f packages/web/dist/404.html
-          npx --yes wrangler@4 pages deploy packages/web/dist --project-name dsh-shelfry --branch main
+          npx --yes wrangler@4 pages deploy --project-name dsh-shelfry --branch main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

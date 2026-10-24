@@ -44,24 +44,26 @@ GITHUB_TOKEN=ghp_xxx npm run collect -- --source auto --limit 20000 --build
 
 ### 站内收录管理
 
-顶部「收录」菜单是站长专用的弹框（写操作需密码），名单以文件形式存在仓库里，提交进 git，永久留存、可 diff 追溯：
+顶部「收录」菜单是站长专用的弹框（写操作需密码）。名单以 Cloudflare KV 为写入缓冲，每次 CI 构建前同步回仓库文件并提交进 git，永久留存、可 diff 追溯：
 
-| 文件 | 作用 |
+| 位置 | 作用 |
 | --- | --- |
 | `curation/queue.json` | 待收录队列：跳过检索发现层，按仓库全名强制拉取；类型与分类仍走自动判定，不手填卡片 |
 | `curation/blocklist.json` | 永久剔除名单：合并后过滤，下次构建起从站点消失 |
+| KV 键 `queue` / `blocklist` | 站内弹框直接写入这里，CI 每轮同步覆盖上面的两个文件 |
 
 优先级 **队列 > 黑名单**：同一仓库两边都有时按收录处理，所以「恢复收录」只需把它放回队列，黑名单里的旧记录也会一并清掉。
 
-读写接口是 Cloudflare Pages Function [curation.ts](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/functions/api/curation.ts)：`GET` 返回两份名单，`POST` 校验密码后通过 GitHub Contents API 提交，不依赖数据库。需要给 Pages 项目配两个环境变量：
+读写接口是 Cloudflare Pages Function [curation.ts](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/functions/api/curation.ts)：`GET` 返回两份名单，`POST` 校验密码后写 KV。全流程不需要 GitHub 令牌：KV 绑定写在 [wrangler.toml](file:///Users/yanglinlin/Documents/Trae-CN/temp_20261020_01/wrangler.toml)，CI 用 Actions 自带的 `GITHUB_TOKEN` 提交同步结果，因此工作流权限是 `contents: write`。
 
-- `CURATION_PASS`：管理密码的 PBKDF2-SHA256 哈希，格式 `pbkdf2$<轮数>$<saltHex>$<hashHex>`，明文不入库；
-- `CURATION_GH_TOKEN`：细粒度 PAT，仅本仓库 `Contents: Read and write`。
+只配一个环境变量：
 
-改密码时先生成新哈希，再更新环境变量：
+- `CURATION_PASS`：管理密码的 PBKDF2-SHA256 哈希，格式 `pbkdf2$<轮数>$<saltHex>$<hashHex>`，明文不入库。
+
+注意 Workers 运行时的 PBKDF2 迭代上限是 **100000**，超过会直接抛错，生成哈希时别用默认的更大值：
 
 ```bash
-node -e 'const c=require("crypto");const n=210000,s=c.randomBytes(16);console.log(`pbkdf2$${n}$${s.toString("hex")}$${c.pbkdf2Sync(process.argv[1],s,n,32,"sha256").toString("hex")}`)' '新密码'
+node -e 'const c=require("crypto");const n=100000,s=c.randomBytes(16);console.log(`pbkdf2$${n}$${s.toString("hex")}$${c.pbkdf2Sync(process.argv[1],s,n,32,"sha256").toString("hex")}`)' '新密码'
 printf '%s' '<hash>' | npx wrangler pages secret put CURATION_PASS --project-name dsh-shelfry
 ```
 
@@ -69,9 +71,10 @@ printf '%s' '<hash>' | npx wrangler pages secret put CURATION_PASS --project-nam
 
 `.github/workflows/deploy.yml` 每天 UTC 18:17（北京 02:17）跑一次，也支持 push 与手动触发：
 
-1. `npm ci` → 类型检查 → 跑收录管道（`.data/` 命中 Actions 缓存，未过期的版本号与下载量不重查）
-2. `npm run build` 构建静态站
-3. `wrangler pages deploy` 推到 Cloudflare Pages 项目 `dsh-shelfry`
+1. 同步收录名单（站内 KV → `curation/*.json`，有变化就提交；接口不可用时保留仓库版本）
+2. `npm ci` → 类型检查 → 跑收录管道（`.data/` 命中 Actions 缓存，未过期的版本号与下载量不重查）
+3. `npm run build` 构建静态站
+4. `wrangler pages deploy` 推到 Cloudflare Pages 项目 `dsh-shelfry`
 
 需要仓库 secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`GH_SEARCH_TOKEN`。
 

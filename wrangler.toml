@@ -1,0 +1,11 @@
+# Pages 项目配置（由 `wrangler pages download config` 拉取后补充）
+# 直接上传模式，静态产物目录固定为 packages/web/dist。
+name = "dsh-shelfry"
+compatibility_date = "2026-10-23"
+pages_build_output_dir = "./packages/web/dist"
+
+# 收录名单存 KV：站内弹框写入无需任何 GitHub 令牌，
+# 由 CI 每次构建时同步回 curation/*.json 并提交进 git。
+[[kv_namespaces]]
+binding = "CURATION"
+id = "d85f5603191144c69742667aaec43f74"
