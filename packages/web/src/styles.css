@@ -776,12 +776,8 @@ a { color: inherit; text-decoration: none; }
   .header-github { width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 999px; }
   .github-label { display: none; }
   .github-icon { display: block; }
-  /* 收藏数绝对定位，0 个还是 99 个都不改变任何元素位置；右侧留出徽章宽度，避免压住文字 */
-  .header-fav { position: relative; padding-right: 26px; }
-  .header-fav .fav-count {
-    position: absolute; top: -4px; right: 0;
-    height: 15px; min-width: 15px; font-size: 10px;
-  }
+  /* 收藏数与文字横向排列，始终显示（0 也显示），不浮起也不预留额外宽度 */
+  .header-fav .fav-count { height: 15px; min-width: 15px; font-size: 10px; }
   .icon-btn { width: 28px; height: 28px; }
   .icon-btn-text { width: auto; padding: 0 8px; }
   .settings-menu { right: auto; left: 0; }

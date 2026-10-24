@@ -400,7 +400,7 @@ export function SiteHeader({ meta }: { meta: CatalogMeta | null }) {
           <Link className="header-link" to="/top">{t("nav.top")}</Link>
           <Link className="header-link header-fav" to="/favorites">
             {t("nav.favorites")}
-            {ids.length > 0 && <span className="fav-count">{ids.length}</span>}
+            <span className="fav-count">{ids.length}</span>
           </Link>
           <Link className="header-link" to="/submit">{t("nav.submit")}</Link>
         </nav>
