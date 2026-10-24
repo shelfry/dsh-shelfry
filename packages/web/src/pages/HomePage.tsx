@@ -65,6 +65,21 @@ const SORT_KEY: Record<SortKey, "sort.score" | "sort.stars" | "sort.recent"> = {
 
 const needStars = (v: StarsFilter): number => (v === "all" ? 0 : Number(v));
 
+/** 与样式表里的手机断点保持一致，用来决定分类折叠数量。 */
+const MOBILE_QUERY = "(max-width: 640px)";
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const sync = () => setMatches(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, [query]);
+  return matches;
+}
+
 export default function HomePage() {
   // 范围写进 URL（#/?scope=tools），刷新与分享都能回到同一视图
   const [searchParams, setSearchParams] = useSearchParams();
@@ -90,6 +105,9 @@ export default function HomePage() {
   const [compat, setCompat] = useState<CompatFilter>("all");
   const [sort, setSort] = useState<SortKey>("score");
   const [showAllCategories, setShowAllCategories] = useState(false);
+  // 手机端高级筛选默认折叠成一行，避免标签和按钮混排
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const [shown, setShown] = useState(PAGE_STEP);
   const [error, setError] = useState<string | null>(null);
 
@@ -263,8 +281,33 @@ export default function HomePage() {
     );
   }
 
-  const visibleCategories = showAllCategories ? categories : categories.slice(0, 14);
+  // 手机首屏只铺两行分类（含「全部」与「展开」，共 6 个按钮），其余折进展开；桌面维持 14 个
+  const categoryLimit = isMobile ? 4 : 14;
+  const visibleCategories = showAllCategories ? categories : categories.slice(0, categoryLimit);
+  const advancedActive = (type !== "all" ? 1 : 0) + (stars !== "all" ? 1 : 0) + (compat !== "all" ? 1 : 0);
   const categorySet = new Set(categories.map((c) => c.t));
+
+  // 同一批选项在桌面（单行直出）与手机（分组折叠）两套结构里复用
+  const typeChips = (TYPE_ORDER).map((key) => (
+    <button key={key} className="chip chip-sm" aria-pressed={type === key} onClick={() => setType(key)}>
+      {t(TYPE_KEY[key])}
+    </button>
+  ));
+  const starChips = (STARS_ORDER).map((key) => (
+    <button key={key} className="chip chip-sm" aria-pressed={stars === key} onClick={() => setStars(key)}>
+      {key === "all" ? t("stars.all") : t("stars.n", { n: key })}
+    </button>
+  ));
+  const compatChips = (["all", "declared", "undeclared"] as CompatFilter[]).map((key) => (
+    <button key={key} className="chip chip-sm" aria-pressed={compat === key} onClick={() => setCompat(key)}>
+      {t(key === "all" ? "compat.all" : key === "declared" ? "compat.declared" : "compat.undeclared")}
+    </button>
+  ));
+  const sortChips = (SORT_ORDER).map((key) => (
+    <button key={key} className="chip chip-sm" aria-pressed={sort === key} onClick={() => setSort(key)}>
+      {t(SORT_KEY[key])}
+    </button>
+  ));
 
   return (
     <main className="wrap">
@@ -313,50 +356,81 @@ export default function HomePage() {
               {categoryLabel(c.t)} <span className="chip-count">{c.n}</span>
             </button>
           ))}
-          {categories.length > 14 && (
+          {categories.length > categoryLimit && (
             <button className="chip chip-toggle" onClick={() => setShowAllCategories((v) => !v)}>
-              {showAllCategories ? t("common.collapse") : t("filters.expand", { n: categories.length - 14 })}
+              {showAllCategories ? t("common.collapse") : t("filters.expand", { n: categories.length - categoryLimit })}
             </button>
           )}
         </div>
 
-        <div className="filter-row filter-advanced">
-          {/* 类型与 DSH 兼容范围只对插件有意义，工具页不展示这两组 */}
-          {!isTools && (
-            <>
-              <span className="filter-label">{t("filters.type")}</span>
-              {(TYPE_ORDER).map((key) => (
-                <button key={key} className="chip chip-sm" aria-pressed={type === key} onClick={() => setType(key)}>
-                  {t(TYPE_KEY[key])}
-                </button>
-              ))}
-              <span className="filter-sep" />
-            </>
-          )}
-          <span className="filter-label">{t("filters.stars")}</span>
-          {(STARS_ORDER).map((key) => (
-            <button key={key} className="chip chip-sm" aria-pressed={stars === key} onClick={() => setStars(key)}>
-              {key === "all" ? t("stars.all") : t("stars.n", { n: key })}
-            </button>
-          ))}
-          {!isTools && (
-            <>
-              <span className="filter-sep" />
-              <span className="filter-label">{t("filters.compat")}</span>
-              <button className="chip chip-sm" aria-pressed={compat === "all"} onClick={() => setCompat("all")}>{t("compat.all")}</button>
-              <button className="chip chip-sm" aria-pressed={compat === "declared"} onClick={() => setCompat("declared")}>{t("compat.declared")}</button>
-              <button className="chip chip-sm" aria-pressed={compat === "undeclared"} onClick={() => setCompat("undeclared")}>{t("compat.undeclared")}</button>
-            </>
-          )}
-          <span className="filter-sep" />
-          <span className="filter-label">{t("filters.sort")}</span>
-          {(SORT_ORDER).map((key) => (
-            <button key={key} className="chip chip-sm" aria-pressed={sort === key} onClick={() => setSort(key)}>
-              {t(SORT_KEY[key])}
-            </button>
-          ))}
-          {hasFilters && <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>}
-        </div>
+        {isMobile ? (
+          <div className="filter-row filter-advanced">
+            {/* 手机端：折叠开关 + 重置独占一行，排序常显，类型/星标/兼容按组收起 */}
+            <div className="filter-bar">
+              <button
+                type="button"
+                className="chip chip-sm filter-toggle"
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((v) => !v)}
+              >
+                {t("filters.toggle")}
+                {advancedActive > 0 && <span className="chip-count">{advancedActive}</span>}
+                <span className="filter-caret" aria-hidden="true">{advancedOpen ? "▴" : "▾"}</span>
+              </button>
+              {hasFilters && (
+                <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
+              )}
+            </div>
+
+            <div className="filter-sort">
+              <span className="filter-label">{t("filters.sort")}</span>
+              {sortChips}
+            </div>
+
+            <div className={`filter-groups${advancedOpen ? "" : " is-collapsed"}`}>
+              {/* 类型与 DSH 兼容范围只对插件有意义，工具页不展示这两组 */}
+              {!isTools && (
+                <div className="filter-group">
+                  <span className="filter-label">{t("filters.type")}</span>
+                  <div className="filter-chips">{typeChips}</div>
+                </div>
+              )}
+              <div className="filter-group">
+                <span className="filter-label">{t("filters.stars")}</span>
+                <div className="filter-chips">{starChips}</div>
+              </div>
+              {!isTools && (
+                <div className="filter-group">
+                  <span className="filter-label">{t("filters.compat")}</span>
+                  <div className="filter-chips">{compatChips}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="filter-row filter-advanced">
+            {!isTools && (
+              <>
+                <span className="filter-label">{t("filters.type")}</span>
+                {typeChips}
+                <span className="filter-sep" />
+              </>
+            )}
+            <span className="filter-label">{t("filters.stars")}</span>
+            {starChips}
+            {!isTools && (
+              <>
+                <span className="filter-sep" />
+                <span className="filter-label">{t("filters.compat")}</span>
+                {compatChips}
+              </>
+            )}
+            <span className="filter-sep" />
+            <span className="filter-label">{t("filters.sort")}</span>
+            {sortChips}
+            {hasFilters && <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>}
+          </div>
+        )}
       </section>
 
       <div className="result-line">
