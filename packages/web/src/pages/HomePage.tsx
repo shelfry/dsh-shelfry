@@ -370,9 +370,6 @@ export default function HomePage() {
               <span className="filter-label">{t("filters.sort")}</span>
               <div className="filter-chips">{sortChips}</div>
               <div className="filter-sort-end">
-                {hasFilters && (
-                  <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
-                )}
                 <button
                   type="button"
                   className="chip chip-sm filter-toggle"
@@ -402,6 +399,12 @@ export default function HomePage() {
                 <div className="filter-group">
                   <span className="filter-label">{t("filters.compat")}</span>
                   <div className="filter-chips">{compatChips}</div>
+                </div>
+              )}
+              {/* 清空条件只在筛选展开后出现，落在分组右下角，不占排序行右侧位置 */}
+              {hasFilters && (
+                <div className="filter-reset-row">
+                  <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
                 </div>
               )}
             </div>

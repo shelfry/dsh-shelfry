@@ -863,6 +863,9 @@ a { color: inherit; text-decoration: none; }
   .filter-group { display: flex; align-items: flex-start; gap: 4px; margin-right: 0; }
   .filter-group .filter-label { flex: 0 0 28px; margin: 0; line-height: 26px; }
   .filter-group .filter-chips { flex: 1; }
+  /* 清空条件单独一行，贴分组右下角；不占排序行右侧，避免挤成空半行 */
+  .filter-reset-row { display: flex; justify-content: flex-end; }
+  .filter-reset-row .chip-reset { margin-left: 0; }
   .filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .card-desc { min-height: auto; }
   .header-stat { display: none; }
