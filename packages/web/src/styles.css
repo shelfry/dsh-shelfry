@@ -850,10 +850,11 @@ a { color: inherit; text-decoration: none; }
   .filter-label { font-size: 11.5px; }
   .chip { padding: 5px 9px; font-size: 12.5px; }
   .chip-sm { padding: 4px 8px; font-size: 12px; }
-  /* 分割线上下各 4px（+1px 线身），分类行到排序行整体 9px，与其它行间距一致；
-     原来上方 12 + 下方 8，合计 21px，看起来就是「排序行上下留白特别高」 */
-  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; margin-top: 4px; padding-top: 4px; }
-  .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; }
+  /* 分割线保持原样：上方 12px（沿用外层），下方 padding 8px */
+  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; padding-top: 8px; }
+  /* 排序行只有一行 27px，上下各 9px 留白比分组看起来松；只在这一行上收紧 4px，
+     分割线与各分组之间的间距完全不动 */
+  .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; margin-top: -4px; margin-bottom: -4px; }
   /* 标签与按钮统一度量：同字号、同 27px 盒高、同为 flex 居中。
      真机字体度量与桌面模拟不同，之前标签 11.5px / 按钮 12.5px 混用，改盒高也只能在 Chrome 里对齐 */
   .filter-advanced .filter-label { font-size: 12.5px; line-height: 1; display: flex; align-items: center; height: 27px; }
