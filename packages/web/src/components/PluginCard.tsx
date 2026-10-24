@@ -7,7 +7,7 @@ import { assistantPrompt } from "../lib/assistant";
 import { applyProfile, useProfile } from "../lib/install";
 import { ProfilePicker } from "./ProfilePicker";
 import { StarButton } from "./StarButton";
-import { categoryLabel, meaningfulTags } from "../lib/labels";
+import { meaningfulTags, resolveCategory } from "../lib/labels";
 import { useT, type TFunc } from "../lib/i18n";
 
 /** 「今天/3 天前/5 个月前」——比裸日期更容易判断插件还活不活。 */
@@ -217,17 +217,15 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
     if (next) window.dispatchEvent(new CustomEvent(SHEET_EVENT, { detail: item.i }));
   };
 
-  // 与详情页同一套标签口径：先去噪声标签，再挑一个分类固定到右下角。
+  // 与详情页同一套标签口径：先去噪声标签，再按固定分类体系归并出一个分类固定到右下角。
   const tags = meaningfulTags(item.tg);
-  const matched = tags.find((t) => categories.has(t)) ?? null;
-  // 工具的标签常常是独一份，凑不满分类阈值（出现 ≥2 次）就兜底成「其他」，
-  // 免得卡片右下角空着和别的工具不一致。
-  const category = matched ?? (item.ec === "external" ? t("common.other") : null);
-  const restTags = tags.filter((t) => t !== matched);
+  const match = resolveCategory(tags, item.n, item.d, categories, item.dp === 1);
+  // 分类没命中时，工具仍兜底「其他」，避免右下角空着和别的卡片不一致。
+  const category = match?.label ?? (item.ec === "external" ? t("common.other") : null);
+  const restTags = match?.tag ? tags.filter((t) => t !== match.tag) : tags;
   const shownTags = restTags.slice(0, MAX_TAGS);
   // +N 要把「分类已显示」也算进去，这样 2 + N + 1 正好等于详情页的标签总数。
-  // 兜底的「其他」不在 tags 里，只统计真实标签，不参与这个等式。
-  const hiddenCount = tags.length - shownTags.length - (matched ? 1 : 0);
+  const hiddenCount = tags.length - shownTags.length - (match?.tag ? 1 : 0);
 
   return (
     <article className="card">
@@ -275,7 +273,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
           {shownTags.map((t) => <span className="tag" key={t}>{t}</span>)}
           {hiddenCount > 0 && <span className="tag tag-more">+{hiddenCount}</span>}
         </div>
-        {category && <span className="tag tag-cat" title={t("common.category")}>{categoryLabel(category)}</span>}
+        {category && <span className="tag tag-cat" title={t("common.category")}>{category}</span>}
       </div>
 
       {installOpen && <InstallSheet item={item} onClose={() => setInstallOpen(false)} />}

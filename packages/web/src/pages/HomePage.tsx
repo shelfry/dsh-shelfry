@@ -192,7 +192,13 @@ export default function HomePage() {
     const base: SearchHit[] = hits ?? (hasFilters && fullLite ? fullLite.map(asHit) : firstPage.concat(extraPages).map(asHit));
     const kept = base.filter((h) => keep(h.item));
     // 搜索结果已按相关度排过，用户没改排序口径时不要打乱它。
-    return hits && sort === "score" ? kept : sortItems(kept, sort);
+    const sorted = hits && sort === "score" ? kept : sortItems(kept, sort);
+    // 综合排序里把镜像/克隆仓沉底：不删除（搜索与筛选仍可见），只是不占前排。
+    if (sort !== "score" || hits) return sorted;
+    const normal: SearchHit[] = [];
+    const mirrors: SearchHit[] = [];
+    for (const h of sorted) (h.item.dp === 1 ? mirrors : normal).push(h);
+    return normal.concat(mirrors);
   }, [hits, hasFilters, fullLite, firstPage, extraPages, scope, type, stars, compat, category, sort]);
 
   const totalInScope = useMemo(() => {
@@ -201,6 +207,12 @@ export default function HomePage() {
   }, [hasFilters, meta, filtered.length, scope]);
 
   const canLoadMore = shown < filtered.length || (!hasFilters && artifacts !== null && loadedPages < artifacts.pages.count);
+
+  // 综合排序把镜像仓沉底后，首屏按「非镜像条目数」判断是否够一屏，不够就继续补页。
+  const normalCount = useMemo(
+    () => (sort === "score" && !hits ? filtered.reduce((n, h) => n + (h.item.dp === 1 ? 0 : 1), 0) : filtered.length),
+    [filtered, sort, hits],
+  );
 
   const loadMore = useCallback(() => {
     if (!canLoadMore) return;
@@ -212,7 +224,7 @@ export default function HomePage() {
   const fillingRef = useRef(false);
   useEffect(() => {
     if (hasFilters || !artifacts || fillingRef.current) return;
-    if (filtered.length >= shown || loadedPages >= artifacts.pages.count) return;
+    if (normalCount >= shown || loadedPages >= artifacts.pages.count) return;
     fillingRef.current = true;
     (async () => {
       try {
@@ -225,7 +237,7 @@ export default function HomePage() {
         fillingRef.current = false;
       }
     })();
-  }, [hasFilters, artifacts, filtered.length, shown, loadedPages]);
+  }, [hasFilters, artifacts, normalCount, shown, loadedPages]);
 
   const resetFilters = useCallback(() => {
     setQuery("");

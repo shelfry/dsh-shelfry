@@ -50,7 +50,16 @@ export function buildMeta(
 
 /** 浏览切片：全量（搜索用）+ 分页文件（首屏只拉第 0 页）。 */
 export function writeLite(entries: PluginEntry[]): { file: string; lite: LiteEntry[]; pages: ArtifactIndex["pages"] } {
-  const lite = entries.map(toLiteEntry);
+  // 镜像/克隆仓只认简介里的明确声明（mirror of / 镜像存档 / 上游删库 …）。
+  // 不能用「同名仓库 ≥ N」这类启发式：dsh-memory、dsh-notify 这些通用名下面
+  // 大多是各自独立的实现，按名字统计会把正常插件一起打成镜像。
+  const mirrorClaim =
+    /mirror(?:ed)?\s+(?:of|from)|standalone\s+mirror|镜像(?:存档|备份)|备份镜像|克隆自|上游(?:即将)?删库|原仓库已(?:于[^。；]{0,24})?(?:下架|删除|清空)|(?:全量|完整)镜像[^。；]{0,24}(?:分支|标签|提交|tag)/i;
+  const lite = entries.map((e) => {
+    const item = toLiteEntry(e);
+    if (mirrorClaim.test(e.descriptionZh ?? e.description)) item.dp = 1;
+    return item;
+  });
   const file = resolve(DATA_DIR, "lite.json");
   writeJson(file, lite);
 

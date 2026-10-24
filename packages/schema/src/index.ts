@@ -88,6 +88,8 @@ export interface LiteEntry {
   /** npm 近一周下载量 */ dl: number | null;
   /** tags */ tg: string[];
   /** descriptionZh ?? description */ d: string;
+  /** 镜像/存档仓 1（简介明确声明为上游镜像或存档）；正常条目省略 */
+  dp?: 1;
   /** external=独立工具；DSH 条目省略该字段以压体积 */
   ec?: "external";
 }
