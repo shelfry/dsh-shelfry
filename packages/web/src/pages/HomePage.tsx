@@ -365,23 +365,25 @@ export default function HomePage() {
 
         {isMobile ? (
           <div className="filter-row filter-advanced">
-            {/* 手机端：筛选开关与排序并成一行，类型/星标/兼容按组收起 */}
+            {/* 手机端：排序与三个分组共用一条左标签列，四行左边缘对齐；筛选开关放在排序行右侧 */}
             <div className="filter-sort">
-              <button
-                type="button"
-                className="chip chip-sm filter-toggle"
-                aria-expanded={advancedOpen}
-                onClick={() => setAdvancedOpen((v) => !v)}
-              >
-                {t("filters.toggle")}
-                {advancedActive > 0 && <span className="chip-count">{advancedActive}</span>}
-                <span className="filter-caret" aria-hidden="true">{advancedOpen ? "▴" : "▾"}</span>
-              </button>
               <span className="filter-label">{t("filters.sort")}</span>
-              {sortChips}
-              {hasFilters && (
-                <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
-              )}
+              <div className="filter-chips">{sortChips}</div>
+              <div className="filter-sort-end">
+                {hasFilters && (
+                  <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
+                )}
+                <button
+                  type="button"
+                  className="chip chip-sm filter-toggle"
+                  aria-expanded={advancedOpen}
+                  onClick={() => setAdvancedOpen((v) => !v)}
+                >
+                  {t("filters.toggle")}
+                  {advancedActive > 0 && <span className="chip-count">{advancedActive}</span>}
+                  <span className="filter-caret" aria-hidden="true">{advancedOpen ? "▴" : "▾"}</span>
+                </button>
+              </div>
             </div>
 
             <div className={`filter-groups${advancedOpen ? "" : " is-collapsed"}`}>
