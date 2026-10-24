@@ -341,7 +341,7 @@ export interface CategoryMatch {
 
 /**
  * 卡片/详情共用的分类归并：镜像仓 → 数据里的高频分类（与筛选栏一致）→ 固定分类 → null。
- * 固定分类按「标签 → 仓库名 → 简介」三级匹配，避免简介里的「可视化」之类词
+ * 固定分类按「标签 → 仓库名 → 简介 → README 摘要」四级匹配，避免简介里的「可视化」之类词
  * 抢走标签已明确的项目；镜像仓优先显示「镜像仓库」，让用户一眼看出它只是副本。
  */
 export function resolveCategory(
@@ -350,6 +350,7 @@ export function resolveCategory(
   desc: string,
   knownCategories: Set<string>,
   duplicate: boolean,
+  readme = "",
 ): CategoryMatch | null {
   if (duplicate) return { label: "镜像仓库" };
   const legacy = tags.find((tag) => knownCategories.has(tag));
@@ -367,6 +368,10 @@ export function resolveCategory(
   }
   for (const rule of CATEGORY_RULES) {
     if (rule.text?.test(desc)) return { label: rule.label };
+  }
+  // README 是最后一级兜底：没有简介/标签的条目只能靠它，命中什么算什么
+  for (const rule of CATEGORY_RULES) {
+    if (rule.text?.test(readme)) return { label: rule.label };
   }
   return null;
 }

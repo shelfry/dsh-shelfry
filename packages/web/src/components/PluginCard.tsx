@@ -219,7 +219,7 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
 
   // 与详情页同一套标签口径：先去噪声标签，再按固定分类体系归并出一个分类固定到右下角。
   const tags = meaningfulTags(item.tg);
-  const match = resolveCategory(tags, item.n, item.d, categories, item.dp === 1);
+  const match = resolveCategory(tags, item.n, item.d, categories, item.dp === 1, item.rs ?? "");
   // 分类没命中时，工具仍兜底「其他」，避免右下角空着和别的卡片不一致。
   const category = match?.label ?? (item.ec === "external" ? t("common.other") : null);
   const restTags = match?.tag ? tags.filter((t) => t !== match.tag) : tags;

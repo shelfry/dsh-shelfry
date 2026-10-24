@@ -72,6 +72,8 @@ export interface PluginEntry {
   firstSeenAt: string;
   /** 我方最近一次刷新时间。 */
   updatedAt: string;
+  /** README 首段摘要：只给上游没写简介的条目补，用于前端分类兜底。 */
+  readmeSummary?: string;
 }
 
 /** 浏览切片（首屏用）：短键名压体积，全站 13k 条也要足够小。 */
@@ -90,6 +92,8 @@ export interface LiteEntry {
   /** descriptionZh ?? description */ d: string;
   /** 镜像/存档仓 1（简介明确声明为上游镜像或存档）；正常条目省略 */
   dp?: 1;
+  /** README 摘要（无简介条目的分类兜底）；没有摘要时省略 */
+  rs?: string;
   /** external=独立工具；DSH 条目省略该字段以压体积 */
   ec?: "external";
 }
@@ -214,6 +218,7 @@ export function toLiteEntry(e: PluginEntry): LiteEntry {
     dl: e.downloads,
     tg: e.tags,
     d: e.descriptionZh ?? e.description,
+    ...(e.readmeSummary ? { rs: e.readmeSummary } : {}),
     ...(e.ecosystem === "external" ? { ec: "external" as const } : {}),
   };
 }

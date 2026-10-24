@@ -20,6 +20,7 @@ import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
 import { isPlaceholderSpec, resolveEvidence, writeDroppedList } from "./evidence.ts";
 import { resolveInstallCommands } from "./install-probe.ts";
+import { resolveReadmeSummaries } from "./readme.ts";
 
 /**
  * 收录管道 CLI。
@@ -283,6 +284,14 @@ async function main(): Promise<void> {
       `[collector] 工具质量门槛（<${MIN_TOOL_STARS} 星）剔除 ${weakTools.length} 条：${names}${weakTools.length > 8 ? " 等" : ""}`,
     );
   }
+
+  // README 摘要：上游没写简介的条目取首段文字，前端分类规则拿它兜底。
+  // 放在质量门槛之后 —— 已剔除的条目不再白读 README。
+  const readme = await resolveReadmeSummaries(active);
+  log(
+    args.silent,
+    `[collector] README 摘要：探测 ${readme.probed} 条 / 缓存命中 ${readme.cached} 条 / 补出 ${readme.filled} 条`,
+  );
 
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。
   const versionHits = await resolveVersions(active);

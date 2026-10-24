@@ -38,8 +38,9 @@ GITHUB_TOKEN=ghp_xxx npm run collect -- --source auto --limit 20000 --build
 1. **检索**：GitHub Search API 按关键词分片拉取（DSH 相关 topic、仓库名、描述），需要认证 token，未鉴权会被限流。
 2. **过滤**：只保留上游明确写出 `dsh add` / `dsh install` 安装规格的条目；全局安装命令与无效规格排除。
 3. **评分**：可装性权重最高，叠加维护活跃、实用度、生态热度、便捷度、信号质量。
-4. **标镜像**：同名仓库 ≥3 个或描述自称镜像/克隆时，产物里打 `dp: 1`，前端显示「镜像仓库」并在综合排序中沉底。
-5. **产出**：`lite.json`（全量浏览切片）、`pages/NNNN.json`（每页 60 条）、`catalog/NNNN.json`（明细分片）、`idmap.json`、`artifacts.json`、`meta.json`、`categories.json`。
+4. **补摘要**：上游没写简介的条目读一次 README，取首段有效文字存成 `readmeSummary`，前端分类规则在仓库名/简介都判不出来时用它兜底（单轮上限 `README_SUMMARY_LIMIT`，默认 600）。
+5. **标镜像**：同名仓库 ≥3 个或描述自称镜像/克隆时，产物里打 `dp: 1`，前端显示「镜像仓库」并在综合排序中沉底。
+6. **产出**：`lite.json`（全量浏览切片）、`pages/NNNN.json`（每页 60 条）、`catalog/NNNN.json`（明细分片）、`idmap.json`、`artifacts.json`、`meta.json`、`categories.json`。
 
 ## 部署
 
