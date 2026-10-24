@@ -205,6 +205,7 @@ export function validateEntry(input: unknown): string[] {
 }
 
 export function toLiteEntry(e: PluginEntry): LiteEntry {
+  const desc = e.descriptionZh ?? e.description;
   return {
     i: e.id,
     n: e.name,
@@ -217,8 +218,9 @@ export function toLiteEntry(e: PluginEntry): LiteEntry {
     vr: e.version,
     dl: e.downloads,
     tg: e.tags,
-    d: e.descriptionZh ?? e.description,
-    ...(e.readmeSummary ? { rs: e.readmeSummary } : {}),
+    d: desc,
+    // 已有简介时分类规则不会用到摘要，别把它带进切片白占体积
+    ...(e.readmeSummary && !desc ? { rs: e.readmeSummary } : {}),
     ...(e.ecosystem === "external" ? { ec: "external" as const } : {}),
   };
 }
