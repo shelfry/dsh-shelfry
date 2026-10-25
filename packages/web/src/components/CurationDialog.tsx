@@ -389,23 +389,20 @@ export function CurationDialog({
                     {t(isQueue ? "curation.queueList" : "curation.blockList", { n: current.length })}
                   </h3>
                   <span className="curation-list-tools">
-                    {isQueue && indexed.length > 0 && (
+                    {/* 批量清理只在展开时可用：收起状态看不到记录，避免一次清空全部 */}
+                    {isQueue && listOpen && indexed.length > 0 && (
                       <button type="button" className="curation-item-btn" disabled={busy} onClick={() => void prune()}>
                         {t("curation.prune", { n: indexed.length })}
                       </button>
                     )}
-                    {current.length > 0 && (
-                      <button
-                        type="button"
-                        className="curation-item-btn"
-                        aria-expanded={listOpen}
-                        onClick={() => setListOpen((v) => !v)}
-                      >
-                        {listOpen
-                          ? t("curation.collapse")
-                          : t("curation.expand", { n: current.length })}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="curation-item-btn"
+                      aria-expanded={listOpen}
+                      onClick={() => setListOpen((v) => !v)}
+                    >
+                      {listOpen ? t("curation.collapse") : t("curation.expand")}
+                    </button>
                   </span>
                 </div>
 
