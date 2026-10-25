@@ -309,11 +309,6 @@ export default function HomePage() {
     </button>
   ));
 
-  // 手机端「清空条件」并入最后一组的选项行右侧，与上面各行同高同基线，不单独占一行
-  const resetChip = hasFilters ? (
-    <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
-  ) : null;
-
   return (
     <main className="wrap">
       <section className="hero">
@@ -370,22 +365,26 @@ export default function HomePage() {
 
         {isMobile ? (
           <div className="filter-row filter-advanced">
-            {/* 手机端：排序与三个分组共用一条左标签列，四行左边缘对齐；筛选开关放在排序行右侧 */}
+            {/* 手机端：折叠开关 + 重置独占一行，排序常显，类型/星标/兼容按组收起 */}
+            <div className="filter-bar">
+              <button
+                type="button"
+                className="chip chip-sm filter-toggle"
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((v) => !v)}
+              >
+                {t("filters.toggle")}
+                {advancedActive > 0 && <span className="chip-count">{advancedActive}</span>}
+                <span className="filter-caret" aria-hidden="true">{advancedOpen ? "▴" : "▾"}</span>
+              </button>
+              {hasFilters && (
+                <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>
+              )}
+            </div>
+
             <div className="filter-sort">
               <span className="filter-label">{t("filters.sort")}</span>
-              <div className="filter-chips">{sortChips}</div>
-              <div className="filter-sort-end">
-                <button
-                  type="button"
-                  className="chip chip-sm filter-toggle"
-                  aria-expanded={advancedOpen}
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                >
-                  {t("filters.toggle")}
-                  {advancedActive > 0 && <span className="chip-count">{advancedActive}</span>}
-                  <span className="filter-caret" aria-hidden="true">{advancedOpen ? "▴" : "▾"}</span>
-                </button>
-              </div>
+              {sortChips}
             </div>
 
             <div className={`filter-groups${advancedOpen ? "" : " is-collapsed"}`}>
@@ -398,18 +397,12 @@ export default function HomePage() {
               )}
               <div className="filter-group">
                 <span className="filter-label">{t("filters.stars")}</span>
-                <div className="filter-chips">
-                  {starChips}
-                  {isTools && resetChip}
-                </div>
+                <div className="filter-chips">{starChips}</div>
               </div>
               {!isTools && (
                 <div className="filter-group">
                   <span className="filter-label">{t("filters.compat")}</span>
-                  <div className="filter-chips">
-                    {compatChips}
-                    {resetChip}
-                  </div>
+                  <div className="filter-chips">{compatChips}</div>
                 </div>
               )}
             </div>

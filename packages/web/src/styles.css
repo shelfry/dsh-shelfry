@@ -852,34 +852,16 @@ a { color: inherit; text-decoration: none; }
   .filter-label { font-size: 11.5px; }
   .chip { padding: 5px 9px; font-size: 12.5px; }
   .chip-sm { padding: 4px 8px; font-size: 12px; }
-  /* 分割线本身位置不动，只把线下方留白降到 4px（+1px 线身 = 5px），全块行间距统一 5px */
-  .filter-advanced { flex-direction: column; align-items: stretch; gap: 5px; padding-top: 4px; }
-  .filter-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; row-gap: 6px; order: -3; }
-  /* 标签与按钮统一度量：同字号、同 27px 盒高、同为 flex 居中。
-     真机字体度量与桌面模拟不同，之前标签 11.5px / 按钮 12.5px 混用，改盒高也只能在 Chrome 里对齐 */
-  .filter-advanced .filter-label { font-size: 12.5px; line-height: 1; display: flex; align-items: center; height: 27px; }
-  .filter-advanced .chip { display: inline-flex; align-items: center; height: 27px; line-height: 1; }
-  .filter-advanced .chip-sm { font-size: 12.5px; height: 27px; }
-  .filter-sort .filter-label { flex: 0 0 28px; margin: 0; }
-  /* 选项按内容参与换行计算：放不下时整组按钮落到下一行右对齐，而不是让筛选按钮吊在两行中间 */
-  .filter-sort .filter-chips { flex: 1 1 auto; min-width: 0; }
-  .filter-sort-end { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
-  /* 「筛选」按钮在部分真机上会被字体度量撑高（比 chip 高出一截），把整行拔高到 40px，
-     连带排序行上下的留白都比别的行大；这里上下都锁死 27px，行高与其它行一致 */
-  .filter-toggle {
-    display: inline-flex; align-items: center; gap: 3px; flex: none;
-    box-sizing: border-box; height: 27px; min-height: 27px; max-height: 27px;
-    padding: 0 8px; line-height: 1;
-  }
-  .filter-toggle .chip-count, .filter-toggle .filter-caret { line-height: 1; }
-  .filter-groups { display: flex; flex-direction: column; gap: 5px; order: -1; }
+  /* 恢复 10-24 22:47 前的手机端结构：筛选开关与清空条件单独一行，排序常显，分组收起 */
+  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; }
+  .filter-bar { display: flex; align-items: center; gap: 6px; order: -3; }
+  .filter-toggle { display: inline-flex; align-items: center; gap: 4px; }
+  .filter-bar .chip-reset { margin-left: auto; }
+  .filter-sort { display: flex; align-items: center; order: -2; flex-wrap: wrap; gap: 6px; margin-left: 0; padding-left: 0; border-left: 0; }
+  .filter-groups { display: flex; flex-direction: column; gap: 9px; order: -1; }
   /* 只在手机断点隐藏，桌面走另一套结构，不受影响 */
   .filter-groups.is-collapsed { display: none; }
-  .filter-group { display: flex; align-items: flex-start; gap: 4px; margin-right: 0; }
-  .filter-group .filter-label { flex: 0 0 28px; margin: 0; }
-  .filter-group .filter-chips { flex: 1; }
-  /* 清空条件并入最后一组的选项行，靠右贴容器边缘，与上面各行同一基线；不单独占一行 */
-  .filter-group .chip-reset { margin-left: auto; }
+  .filter-group { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-right: 0; }
   .filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .card-desc { min-height: auto; }
   .header-stat { display: none; }
