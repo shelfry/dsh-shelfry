@@ -406,9 +406,11 @@ export function CurationDialog({
                   </span>
                 </div>
 
-                {current.length === 0 ? (
+                {/* 空态也在展开后才出现：收起时只留标题与展开按钮，避免列表区常驻提示 */}
+                {listOpen && current.length === 0 && (
                   <p className="curation-empty">{t(isQueue ? "curation.queueEmpty" : "curation.blockEmpty")}</p>
-                ) : listOpen && (
+                )}
+                {listOpen && current.length > 0 && (
                   <ul className="curation-list">
                     {current.map((id) => (
                       <li className={`curation-item${collected?.has(id) ? " is-collected" : ""}`} key={id}>
