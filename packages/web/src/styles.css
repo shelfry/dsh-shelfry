@@ -141,9 +141,6 @@ a { color: inherit; text-decoration: none; }
 .filter-label:first-child { margin-left: 0; }
 .filter-sep { width: 1px; height: 16px; background: var(--border); margin: 0 8px; }
 
-/* 手机端高级筛选的分组结构；桌面仍用上面单行直出的老结构 */
-.filter-caret { font-size: 10px; color: var(--text-faint); }
-
 .chip {
   padding: 6px 11px; border: 1px solid var(--border); border-radius: 7px;
   background: var(--surface); color: var(--text-dim); font-size: 13px; cursor: pointer;
@@ -847,22 +844,6 @@ a { color: inherit; text-decoration: none; }
   .grid-similar { grid-template-columns: minmax(0, 1fr); }
   .filters { padding: 12px; }
   .filter-sep { display: none; }
-  /* 手机端：分类只铺两行，筛选区压缩成「筛选 / 排序」两行，高级筛选按组展开 */
-  .filter-cats { gap: 5px; row-gap: 7px; }
-  .filter-label { font-size: 11.5px; }
-  .chip { padding: 5px 9px; font-size: 12.5px; }
-  .chip-sm { padding: 4px 8px; font-size: 12px; }
-  /* 恢复 10-24 22:47 前的手机端结构：筛选开关与清空条件单独一行，排序常显，分组收起 */
-  .filter-advanced { flex-direction: column; align-items: stretch; gap: 9px; }
-  .filter-bar { display: flex; align-items: center; gap: 6px; order: -3; }
-  .filter-toggle { display: inline-flex; align-items: center; gap: 4px; }
-  .filter-bar .chip-reset { margin-left: auto; }
-  .filter-sort { display: flex; align-items: center; order: -2; flex-wrap: wrap; gap: 6px; margin-left: 0; padding-left: 0; border-left: 0; }
-  .filter-groups { display: flex; flex-direction: column; gap: 9px; order: -1; }
-  /* 只在手机断点隐藏，桌面走另一套结构，不受影响 */
-  .filter-groups.is-collapsed { display: none; }
-  .filter-group { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-right: 0; }
-  .filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .card-desc { min-height: auto; }
   .header-stat { display: none; }
   /* 手机头部固定两层：第一行品牌 + 图标，第二行导航；换行位置不再随内容宽度变化 */

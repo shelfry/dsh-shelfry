@@ -79,7 +79,6 @@ const ZH = {
   "filters.compat": "兼容",
   "filters.sort": "排序",
   "filters.reset": "清空条件",
-  "filters.toggle": "筛选",
   "filters.expand": "展开 {n} 个",
 
   "type.all": "全部类型",
@@ -377,7 +376,6 @@ const EN: Record<TKey, string> = {
   "filters.compat": "Compat",
   "filters.sort": "Sort",
   "filters.reset": "Clear filters",
-  "filters.toggle": "Filters",
   "filters.expand": "Show {n} more",
 
   "type.all": "All types",
