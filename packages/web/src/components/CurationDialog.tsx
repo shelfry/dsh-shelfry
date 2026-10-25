@@ -62,6 +62,8 @@ export function CurationDialog({
   /** 已收录仓库：用来给队列条目标状态，并决定「清理已收录」是否可点 */
   const [collected, setCollected] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 名单默认收起：只露标题与数量，点「展开记录」才列出条目 */
+  const [listOpen, setListOpen] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -95,6 +97,7 @@ export function CurationDialog({
       setNotice(null);
       setLists(null);
       setCollected(null);
+      setListOpen(false);
       return;
     }
     const onDown = (e: PointerEvent) => {
@@ -190,6 +193,8 @@ export function CurationDialog({
       setLists(next);
       setNotice({ kind: "ok", text: t(okKey) });
       if (action !== "unqueue") setRepo("");
+      // 剔除成功后直接展开，让用户马上看到新记录和它的下线状态
+      if (action === "block") setListOpen(true);
     } catch (err) {
       fail(err);
     } finally {
@@ -274,6 +279,7 @@ export function CurationDialog({
                   setTab(key);
                   setNotice(null);
                   setRepo("");
+                  setListOpen(false);
                 }}
               >
                 {key === "pending"
@@ -382,16 +388,30 @@ export function CurationDialog({
                   <h3 className="curation-list-title">
                     {t(isQueue ? "curation.queueList" : "curation.blockList", { n: current.length })}
                   </h3>
-                  {isQueue && indexed.length > 0 && (
-                    <button type="button" className="curation-item-btn" disabled={busy} onClick={() => void prune()}>
-                      {t("curation.prune", { n: indexed.length })}
-                    </button>
-                  )}
+                  <span className="curation-list-tools">
+                    {isQueue && indexed.length > 0 && (
+                      <button type="button" className="curation-item-btn" disabled={busy} onClick={() => void prune()}>
+                        {t("curation.prune", { n: indexed.length })}
+                      </button>
+                    )}
+                    {current.length > 0 && (
+                      <button
+                        type="button"
+                        className="curation-item-btn"
+                        aria-expanded={listOpen}
+                        onClick={() => setListOpen((v) => !v)}
+                      >
+                        {listOpen
+                          ? t("curation.collapse")
+                          : t("curation.expand", { n: current.length })}
+                      </button>
+                    )}
+                  </span>
                 </div>
 
                 {current.length === 0 ? (
                   <p className="curation-empty">{t(isQueue ? "curation.queueEmpty" : "curation.blockEmpty")}</p>
-                ) : (
+                ) : listOpen && (
                   <ul className="curation-list">
                     {current.map((id) => (
                       <li className={`curation-item${collected?.has(id) ? " is-collected" : ""}`} key={id}>
@@ -403,6 +423,38 @@ export function CurationDialog({
                             <span className={`curation-badge${collected.has(id) ? " ok" : ""}`}>
                               {t(collected.has(id) ? "curation.status.collected" : "curation.status.waiting")}
                             </span>
+                          )}
+                          {/* 剔除状态：站点里还能找到就是等下次构建下线，找不到就是已下线 */}
+                          {!isQueue && collected && (
+                            collected.has(id) ? (
+                              <span
+                                className="curation-icon"
+                                role="img"
+                                aria-label={t("curation.status.blockPending")}
+                                title={t("curation.status.blockPending")}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+                                </svg>
+                              </span>
+                            ) : (
+                              <span
+                                className="curation-icon done"
+                                role="img"
+                                aria-label={t("curation.status.blockDone")}
+                                title={t("curation.status.blockDone")}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                                  <path
+                                    d="M2.5 7.5l3 3 6-7"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            )
                           )}
                           {/* 已收录的条目不在这里下架：收纳进归档，站点继续保留 */}
                           {(!isQueue || (collected && !collected.has(id))) && (

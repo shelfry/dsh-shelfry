@@ -18,6 +18,7 @@
   --warn-text: #8a5a00;
   --warn-bg: #fdf3e0;
   --danger: #d0453c;
+  --ok: #2e7d32;
   --overlay: rgba(17, 24, 39, 0.45);
   --bar-mid: #7fa4f0;
   --bar-low: #c3d3ee;
@@ -52,6 +53,7 @@
   --warn-text: #e8bd6d;
   --warn-bg: #2c2417;
   --danger: #f08a83;
+  --ok: #6cc26c;
   --overlay: rgba(0, 0, 0, 0.64);
   --bar-mid: #5577c6;
   --bar-low: #3d4c6b;
@@ -804,6 +806,10 @@ a { color: inherit; text-decoration: none; }
 .curation-item:hover { background: var(--surface-2); }
 .curation-item.is-collected .curation-repo { color: var(--text-faint); }
 .curation-item-side { display: flex; align-items: center; gap: 6px; flex: none; }
+/* 剔除状态图标：空心圆=等下次构建下线，绿色对勾=已下线 */
+.curation-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: var(--text-faint); flex: none; }
+.curation-icon.done { color: var(--ok); }
+.curation-list-tools { display: flex; align-items: center; gap: 6px; flex: none; }
 .curation-badge {
   flex: none; padding: 1px 6px; border-radius: 5px; font-size: 11px;
   background: var(--surface-2); color: var(--text-faint); white-space: nowrap;
