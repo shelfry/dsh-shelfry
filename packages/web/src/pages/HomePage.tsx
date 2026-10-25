@@ -409,27 +409,25 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="filter-row filter-advanced">
-            {/* 桌面端每组「标签 + 选项」捆成整体换行：分割线不会落在行尾，换行后也从最左侧起排 */}
             {!isTools && (
-              <div className="filter-seg">
+              <>
                 <span className="filter-label">{t("filters.type")}</span>
                 {typeChips}
-              </div>
+                <span className="filter-sep" />
+              </>
             )}
-            <div className="filter-seg">
-              <span className="filter-label">{t("filters.stars")}</span>
-              {starChips}
-            </div>
+            <span className="filter-label">{t("filters.stars")}</span>
+            {starChips}
             {!isTools && (
-              <div className="filter-seg">
+              <>
+                <span className="filter-sep" />
                 <span className="filter-label">{t("filters.compat")}</span>
                 {compatChips}
-              </div>
+              </>
             )}
-            <div className="filter-seg">
-              <span className="filter-label">{t("filters.sort")}</span>
-              {sortChips}
-            </div>
+            <span className="filter-sep" />
+            <span className="filter-label">{t("filters.sort")}</span>
+            {sortChips}
             {hasFilters && <button className="chip chip-sm chip-reset" onClick={resetFilters}>{t("filters.reset")}</button>}
           </div>
         )}
