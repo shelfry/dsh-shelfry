@@ -298,6 +298,48 @@ async function main(): Promise<void> {
     `[collector] 安装命令补全：探测 ${probe.probed} 条 / 缓存命中 ${probe.cached} 条 / 补出 DSH 命令 ${probe.dsh} 条 / 上游安装器 ${probe.native} 条`,
   );
 
+  // 早期写入的历史命令没有 --profile（该参数在 dsh 里必填），站点上的 profile 选择
+  // 替换不到目标，等于形同虚设。命令里还能取出规格的补回默认 web；只剩 flag 的
+  // （如 `dsh plugin add -w`）没有可执行规格，直接清空。
+  // 同时把「标成 pnpm-profile 却没有任何命令」的条目归位，避免详情页宣称 pnpm 安装。
+  let repairedCmd = 0;
+  let clearedCmd = 0;
+  let fixedMethod = 0;
+  for (const e of active) {
+    const install = e.install;
+    const cmd = install.command;
+    if (install.method !== "pnpm-profile") continue;
+    if (!cmd) {
+      install.method = "unknown";
+      fixedMethod++;
+      continue;
+    }
+    if (!/\bdsh\s+plugin\b/.test(cmd) || /--profile(\s+|=)/.test(cmd)) continue;
+    const tokens = cmd.trim().split(/\s+/);
+    const at = Math.max(tokens.lastIndexOf("add"), tokens.lastIndexOf("install"));
+    let spec: string | null = null;
+    if (at >= 0) {
+      let j = at + 1;
+      while (j < tokens.length && tokens[j]?.startsWith("-")) j++;
+      const token = tokens[j];
+      const pkg = install.packageName;
+      spec = pkg && !pkg.startsWith("-") ? pkg : token && !token.startsWith("-") ? token : null;
+    }
+    if (!spec) {
+      install.command = null;
+      install.packageName = null;
+      install.method = "unknown";
+      clearedCmd++;
+      continue;
+    }
+    install.command = `dsh plugin --profile web add ${spec}`;
+    install.packageName = spec;
+    repairedCmd++;
+  }
+  if (repairedCmd > 0) log(args.silent, `[collector] 为 ${repairedCmd} 条历史安装命令补回 --profile web`);
+  if (clearedCmd > 0) log(args.silent, `[collector] 清除 ${clearedCmd} 条没有可执行规格的历史命令`);
+  if (fixedMethod > 0) log(args.silent, `[collector] 归位 ${fixedMethod} 条 pnpm-profile 但无命令的安装方式`);
+
   // 桌面客户端与教程/清单类仓库都不该出现在列表里：前者不是插件，后者不是工具。
   // 放在补全之后，避免把「README 里其实写了 dsh plugin add」的插件误删。
   const apps = active.filter((e) => looksLikeDesktopClient(e) || looksLikeNonTool(e));
