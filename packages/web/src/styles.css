@@ -692,6 +692,8 @@ a { color: inherit; text-decoration: none; }
 /* ---------- footer ---------- */
 .site-footer { border-top: 1px solid var(--border); padding: 26px 0 40px; color: var(--text-faint); font-size: 12.5px; }
 .site-footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; }
+/* 当前加载的样式表哈希：手机上用来核对是否已是最新构建 */
+.footer-build { font-family: var(--mono); font-size: 11.5px; opacity: 0.75; }
 .footer-warn { color: var(--warn-text); background: var(--warn-bg); padding: 1px 8px; border-radius: 999px; font-size: 11.5px; }
 
 /* ---------- header tools：主题 / 语言 / 收藏 ---------- */

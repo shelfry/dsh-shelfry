@@ -19,6 +19,12 @@ export default function App() {
   const [meta, setMeta] = useState<CatalogMeta | null>(null);
   const { t } = useT();
 
+  // 页脚展示当前实际加载的样式表哈希：手机上刷新后一眼就能核对是否拿到了最新构建
+  const [cssTag] = useState(() => {
+    const href = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"]')?.getAttribute("href") ?? "";
+    return href.match(/index-([A-Za-z0-9_-]+)\.css/)?.[1] ?? "";
+  });
+
   useEffect(() => {
     loadMeta().then(setMeta).catch(() => { /* 头部统计取不到不影响主体 */ });
   }, []);
@@ -40,6 +46,7 @@ export default function App() {
           <span>{siteConfig.siteName} · {siteConfig.license}</span>
           <span>{t("footer.source")}</span>
           <span>{t("footer.updated", { time: meta?.generatedAt.slice(0, 16).replace("T", " ") ?? "—" })}</span>
+          {cssTag && <span className="footer-build">CSS {cssTag}</span>}
           {/* 没拿到 token 或检索失败时收录走镜像兜底，数据可能滞后，别让用户以为它是新鲜的 */}
           {meta?.collectSource?.label === "mirror" && (
             <span className="footer-warn" title={meta.collectSource.reason ?? t("footer.mirrorReason")}>
