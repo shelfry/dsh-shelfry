@@ -10,6 +10,17 @@ import SubmitPage from "./pages/SubmitPage";
 import FavoritesPage from "./pages/FavoritesPage";
 
 /**
+ * 页脚更新时间统一按北京时间（UTC+8）展示。
+ * 产物里的 generatedAt 是 UTC 的 ISO 串，直接截取会让访客看到早 8 小时的时间。
+ */
+function beijingTime(iso?: string): string {
+  if (!iso) return "—";
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "—";
+  return new Date(ms + 8 * 60 * 60 * 1000).toISOString().slice(0, 16).replace("T", " ");
+}
+
+/**
  * 应用外壳：头部 + 路由 + 页脚。
  *
  * 路由：列表（/）、详情（/p/:id）、榜单（/top）、收藏（/favorites）、提交（/submit）。
@@ -45,8 +56,9 @@ export default function App() {
         <div className="wrap">
           <span>{siteConfig.siteName} · {siteConfig.license}</span>
           <span>{t("footer.source")}</span>
-          <span>{t("footer.updated", { time: meta?.generatedAt.slice(0, 16).replace("T", " ") ?? "—" })}</span>
-          {cssTag && <span className="footer-build">CSS {cssTag}</span>}
+          <span>{t("footer.updated", { time: beijingTime(meta?.generatedAt) })}</span>
+          {/* 页脚只展示版本号；悬停可看构建哈希，需要精确核对时仍能对上产物文件名 */}
+          <span className="footer-build" title={cssTag ? `构建哈希 ${cssTag}` : undefined}>{__BUILD_VERSION__}</span>
           {/* 没拿到 token 或检索失败时收录走镜像兜底，数据可能滞后，别让用户以为它是新鲜的 */}
           {meta?.collectSource?.label === "mirror" && (
             <span className="footer-warn" title={meta.collectSource.reason ?? t("footer.mirrorReason")}>

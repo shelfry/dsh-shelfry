@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,21 @@ const here = dirname(fileURLToPath(import.meta.url));
 const site = JSON.parse(readFileSync(resolve(here, "../../site.config.json"), "utf8")) as Record<string, unknown>;
 
 const ORIGIN = `https://${String(site.domain)}`;
+
+/**
+ * 构建版本号：取 git 提交总数拼成 v1.0.<n>，只在有新提交时增长。
+ * CI 里必须配合 fetch-depth: 0，否则浅克隆的计数恒为 1；
+ * 本地非 git 环境或命令失败时退化为 v1.0.0，不影响构建。
+ */
+function buildVersion(): string {
+  if (process.env.BUILD_VERSION) return process.env.BUILD_VERSION;
+  try {
+    const count = Number.parseInt(execSync("git rev-list --count HEAD", { cwd: here, encoding: "utf8" }).trim(), 10);
+    return Number.isFinite(count) && count > 0 ? `v1.0.${count}` : "v1.0.0";
+  } catch {
+    return "v1.0.0";
+  }
+}
 
 /** sitemap 只收质量靠前的条目：两万条薄页面全塞进去会稀释整站权重。 */
 const SITEMAP_LIMIT = 3000;
@@ -65,6 +81,8 @@ export default defineConfig({
   plugins: [react(), seoArtifacts()],
   define: {
     __SITE__: JSON.stringify(site),
+    // 页脚展示的构建版本号，由 git 提交数生成
+    __BUILD_VERSION__: JSON.stringify(buildVersion()),
   },
   build: {
     outDir: "dist",
