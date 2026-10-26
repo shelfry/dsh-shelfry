@@ -2,11 +2,12 @@ import type { LiteEntry } from "@dsh-shelfry/schema";
 import Fuse from "fuse.js";
 
 /**
- * 客户端检索：Fuse.js over 浏览切片。
+ * 客户端检索：一次线性扫描 + 字段权重打分，Fuse 只做零命中兜底。
  *
- * 实测依据（M0-spike3）：全量切片 brotli 仅 ~0.46MB（13k 条），
- * 客户端模糊检索完全扛得住，因此 MVP 直接用 Fuse，不引入查询时的索引分片往返。
- * 构建期已产出倒排索引分片（artifacts.index），留给后续「输入即出结果」的即时检索路径。
+ * 实测依据：14.6k 条下 4-key Fuse 单次检索 98–306ms，逐条子串扫描仅 8–14ms；
+ * 因此常规关键词、链接、仓库全名都走扫描，只有「一个都没命中」时才构建 Fuse
+ * 处理拼写错误。构建期倒排索引分片（artifacts.index）召回更窄（整词建索引、
+ * 连字符仓库名算一个词），暂不接入。
  */
 
 export interface SearchHit {
@@ -25,7 +26,7 @@ export type Searcher = (query: string) => SearchHit[];
  * 返回值：可直接交给 Fuse 的检索串；归一化后不足 2 字符时返回空串。
  *
  * 必须做这一步的原因：Fuse 的 bitap 耗时随词数叠加，直接拿 40 字符的链接检索
- * 实测 2 秒级；链接类输入改走直搜（见 isRepoQuery），关键词才交给 Fuse。
+ * 实测 2 秒级；归一化成短词后既能走逐条扫描，也能在兜底时喂给 Fuse。
  */
 export function normalizeQuery(raw: string): string {
   // 用户输入属于系统边界，非法入参直接返回空串，不让异常透传
@@ -70,9 +71,67 @@ export function isRepoQuery(raw: string): boolean {
   );
 }
 
+/** 字段权重：仓库全名命中比简介里蹭到一词更该排前面。 */
+const FIELD_WEIGHT = { id: 4, name: 3, tags: 2, desc: 1 } as const;
+
+/** 单个词能拿到的最高权重（四个字段全中，再加整词命中的 1 分）。 */
+const TOKEN_MAX_WEIGHT = FIELD_WEIGHT.id + FIELD_WEIGHT.name + FIELD_WEIGHT.tags + FIELD_WEIGHT.desc + 1;
+
+/** 严格命中少于这个数时，用「只命中部分词」的条目补齐，避免窄查询只剩一两条。 */
+const MIN_STRICT_HITS = 60;
+
+interface EntryScore {
+  /** 命中的查询词数：等于词数即为严格命中。 */
+  matched: number;
+  /** 四字段权重累计，用于把结果压成 0–1 的分数。 */
+  weight: number;
+  /** 整词命中的词数（名称全等 / 仓库名尾段 / 标签全等）。 */
+  exact: number;
+}
+
+/** 判断空格分隔的串里是否存在整词，避免为每条目的标签额外建数组。 */
+function hasWholeWord(joined: string, word: string): boolean {
+  return (
+    joined === word ||
+    joined.startsWith(`${word} `) ||
+    joined.endsWith(` ${word}`) ||
+    joined.includes(` ${word} `)
+  );
+}
+
+/**
+ * 给单个条目打分：逐词检查仓库名、名称、标签、简介。
+ *
+ * 入参 entry 为一条浏览切片，tokens 为已归一化并过滤掉单字符的查询词。
+ * 返回值只描述「命中几个词、权重多少」，换算成分数由调用方决定。
+ */
+function scoreEntry(entry: LiteEntry, tokens: string[]): EntryScore {
+  // 每个条目只小写化一次，不能在每个词上重复拼接整串
+  const id = entry.i.toLowerCase();
+  const name = (entry.n ?? "").toLowerCase();
+  const tags = (entry.tg ?? []).join(" ").toLowerCase();
+  const desc = (entry.d ?? "").toLowerCase();
+
+  let matched = 0;
+  let weight = 0;
+  let exact = 0;
+  for (const token of tokens) {
+    let hit = false;
+    if (id.includes(token)) { weight += FIELD_WEIGHT.id; hit = true; }
+    if (name.includes(token)) { weight += FIELD_WEIGHT.name; hit = true; }
+    if (tags.includes(token)) { weight += FIELD_WEIGHT.tags; hit = true; }
+    if (desc.includes(token)) { weight += FIELD_WEIGHT.desc; hit = true; }
+    if (!hit) continue;
+    matched += 1;
+    // 整词可信度高于子串：名称就是这个词、仓库名尾段、标签项完全相等
+    if (name === token || id.endsWith(`/${token}`) || hasWholeWord(tags, token)) exact += 1;
+  }
+  return { matched, weight, exact };
+}
+
 export function createSearcher(lite: LiteEntry[]): Searcher {
-  // Fuse 索引在浏览器里要几百毫秒，只有关键词检索才用得到；
-  // 链接直搜不该为它买单，所以第一次真正需要模糊检索时再建。
+  // Fuse 索引在建索引时最贵（实测 14.6k 条约 850ms），
+  // 只有在「逐条扫描一个都没命中」时才需要它，所以继续懒构建。
   let fuse: Fuse<LiteEntry> | null = null;
   const getFuse = (): Fuse<LiteEntry> => {
     if (!fuse) {
@@ -93,30 +152,46 @@ export function createSearcher(lite: LiteEntry[]): Searcher {
   };
 
   /**
-   * 直搜：把归一化后的每个词都要求出现在条目的仓库名/名称/标签/简介里。
-   * 一次线性遍历，成本与词数无关（实测 6 词约 8ms），不需要预建索引占内存。
+   * 一次遍历同时收集严格命中与部分命中，用字段权重代替模糊编辑距离。
+   *
+   * 分数区间约定（rankHits 只比大小）：
+   * - 严格命中落在 [0, 1]，权重越高越接近 0；
+   * - 补齐用的部分命中落在 (1, 2]，永远排在严格命中之后。
    */
-  const directSearch = (raw: string): SearchHit[] => {
-    const tokens = normalizeQuery(raw).split(" ").filter((tok) => tok.length >= 2);
-    if (!tokens.length) return [];
-    const hits: SearchHit[] = [];
+  const scan = (tokens: string[]): { strict: SearchHit[]; loose: SearchHit[] } => {
+    const strict: SearchHit[] = [];
+    const loose: SearchHit[] = [];
+    const maxWeight = tokens.length * TOKEN_MAX_WEIGHT;
     for (const [index, entry] of lite.entries()) {
-      const hay = `${entry.i} ${entry.n ?? ""} ${(entry.tg ?? []).join(" ")} ${entry.d ?? ""}`.toLowerCase();
-      if (tokens.every((tok) => hay.includes(tok))) hits.push({ index, item: entry, fuzzyScore: 0 });
+      const { matched, weight, exact } = scoreEntry(entry, tokens);
+      if (!matched) continue;
+      if (matched === tokens.length) {
+        strict.push({ index, item: entry, fuzzyScore: 1 - (weight + exact) / maxWeight });
+      } else {
+        const partialMax = tokens.length * (TOKEN_MAX_WEIGHT - 1);
+        loose.push({ index, item: entry, fuzzyScore: 1 + (1 - weight / partialMax) });
+      }
     }
-    return hits;
+    return { strict, loose };
   };
 
   return (query: string) => {
     const q = normalizeQuery(query);
     if (!q) return [];
-    // 链接/仓库全名走直搜，其余关键词仍用 Fuse 保留拼写容错
-    if (isRepoQuery(query)) return directSearch(query);
-    return getFuse().search(q).map((r) => ({
-      index: r.refIndex,
-      item: r.item,
-      fuzzyScore: r.score ?? 1,
-    }));
+    const tokens = q.split(" ").filter((tok) => tok.length >= 2);
+    if (!tokens.length) return [];
+    const { strict, loose } = scan(tokens);
+
+    // 链接/仓库全名是精确标识：只认严格命中，不补齐、不猜拼写错的仓库名
+    if (isRepoQuery(query)) return strict;
+    // 一个都没命中时才动用 Fuse，保住拼错仍有结果的兜底能力
+    if (!strict.length && !loose.length) {
+      return getFuse().search(q).map((r) => ({ index: r.refIndex, item: r.item, fuzzyScore: r.score ?? 1 }));
+    }
+    if (strict.length >= MIN_STRICT_HITS) return strict;
+    // 窄查询补齐：部分命中按权重取前几条，接在严格命中之后
+    loose.sort((a, b) => a.fuzzyScore - b.fuzzyScore);
+    return strict.concat(loose.slice(0, MIN_STRICT_HITS - strict.length));
   };
 }
 

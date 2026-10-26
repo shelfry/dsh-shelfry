@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { LiteEntry } from "@dsh-shelfry/schema";
 
-import { createSearcher, isRepoQuery, normalizeQuery } from "./search.ts";
+import { createSearcher, isRepoQuery, normalizeQuery, rankHits } from "./search.ts";
 
 /** 统一断言入口：便于在失败信息里直接看到原始输入。 */
 const expectQuery = (raw: string, want: string) => {
@@ -121,6 +121,64 @@ test("createSearcher：普通关键词仍走模糊检索", () => {
   const hits = search("worksapce");
   assert.equal(hits.length, 1);
   assert.equal(hits[0]?.item.i, "a/dsh-workspace-groups");
+});
+
+test("createSearcher：名称整词命中排在仅简介命中之前", () => {
+  const lite = [
+    entry("x/alpha", "alpha", []),
+    entry("y/beta", "beta", [], "alpha 工具"),
+  ];
+  const hits = rankHits(createSearcher(lite)("alpha"));
+  assert.equal(hits.length, 2);
+  // 名称全等拿到的字段权重更高，必须先出
+  assert.equal(hits[0]?.item.i, "x/alpha");
+});
+
+test("createSearcher：多词查询的严格命中排在第一", () => {
+  const lite = [
+    entry("a/dsh-workspace", "dsh-workspace", []),
+    entry("b/dsh-memory", "dsh-memory", []),
+  ];
+  const hits = rankHits(createSearcher(lite)("dsh workspace"));
+  assert.equal(hits[0]?.item.i, "a/dsh-workspace");
+  // 只命中 dsh 的条目按部分命中补齐，排在严格命中之后
+  assert.equal(hits[1]?.item.i, "b/dsh-memory");
+});
+
+test("createSearcher：严格命中不足 60 条时补足候选，补齐项分数更大", () => {
+  const lite = [
+    entry("a/one-two", "one-two", []),
+    entry("b/one", "one", []),
+  ];
+  const hits = rankHits(createSearcher(lite)("one two"));
+  assert.equal(hits.length, 2);
+  assert.equal(hits[0]?.item.i, "a/one-two");
+  assert.ok((hits[0]?.fuzzyScore ?? 0) < (hits[1]?.fuzzyScore ?? 0));
+});
+
+test("createSearcher：严格命中足够多时不再混入部分命中", () => {
+  const lite = [
+    ...Array.from({ length: 60 }, (_, i) => entry(`o${i}/dsh-tool`, "dsh-tool", [])),
+    entry("z/single", "single", [], "dsh"),
+  ];
+  const hits = rankHits(createSearcher(lite)("dsh tool"));
+  assert.equal(hits.length, 60);
+  assert.ok(hits.every((h) => h.item.i !== "z/single"));
+});
+
+test("createSearcher：中文只认完整词，含部分字不算命中", () => {
+  const lite = [
+    entry("a/workarea", "workspace", ["工作区"]),
+    entry("b/partial", "partial", [], "工作流"),
+  ];
+  const hits = createSearcher(lite)("工作区");
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0]?.item.i, "a/workarea");
+});
+
+test("createSearcher：大小写不敏感", () => {
+  const lite = [entry("A/DSH-Workspace", "DSH-Workspace", ["Workspace"])];
+  assert.equal(createSearcher(lite)("dsh WORKSPACE").length, 1);
 });
 
 test("createSearcher：空查询与清洗后无效的查询返回空数组", () => {
