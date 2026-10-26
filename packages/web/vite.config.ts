@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,13 +14,21 @@ const ORIGIN = `https://${String(site.domain)}`;
 
 /**
  * 构建版本号：取 git 提交总数拼成 v1.0.<n>，只在有新提交时增长。
- * CI 里必须配合 fetch-depth: 0，否则浅克隆的计数恒为 1；
- * 本地非 git 环境或命令失败时退化为 v1.0.0，不影响构建。
+ * 统计时排除 curation 目录 —— CI 每轮都会自动提交名单同步，把它算进来会让
+ * 版本号在没有任何代码改动时也上涨。用 execFileSync 传参，避免 shell 解析
+ * `:(exclude)` 里的括号。CI 里必须配合 fetch-depth: 0，否则浅克隆计数恒为 1。
  */
 function buildVersion(): string {
   if (process.env.BUILD_VERSION) return process.env.BUILD_VERSION;
   try {
-    const count = Number.parseInt(execSync("git rev-list --count HEAD", { cwd: here, encoding: "utf8" }).trim(), 10);
+    const count = Number.parseInt(
+      execFileSync("git", ["rev-list", "--count", "HEAD", "--", ".", ":(exclude)curation"], {
+        // 必须以仓库根目录为基准，否则 "." 只匹配到 packages/web，计数会偏小
+        cwd: resolve(here, "../.."),
+        encoding: "utf8",
+      }).trim(),
+      10,
+    );
     return Number.isFinite(count) && count > 0 ? `v1.0.${count}` : "v1.0.0";
   } catch {
     return "v1.0.0";
