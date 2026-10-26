@@ -44,6 +44,30 @@ interface ApiError {
 
 const API = "/api/curation";
 
+/**
+ * 名单右侧状态图标：空心圆 = 等下次构建生效，绿色对勾 = 已生效。
+ * 收录队列与剔除记录共用同一套视觉，避免两处状态样式不一致。
+ */
+function StatusIcon({ done, label }: { done: boolean; label: string }) {
+  return (
+    <span className={`curation-icon${done ? " done" : ""}`} role="img" aria-label={label} title={label}>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        {done ? (
+          <path
+            d="M2.5 7.5l3 3 6-7"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
 export function CurationDialog({
   open,
   onClose,
@@ -418,42 +442,18 @@ export function CurationDialog({
                           {id}
                         </a>
                         <span className="curation-item-side">
+                          {/* 状态图标：空心圆=等下次构建生效，绿色对勾=已生效 */}
                           {isQueue && collected && (
-                            <span className={`curation-badge${collected.has(id) ? " ok" : ""}`}>
-                              {t(collected.has(id) ? "curation.status.collected" : "curation.status.waiting")}
-                            </span>
+                            <StatusIcon
+                              done={collected.has(id)}
+                              label={t(collected.has(id) ? "curation.status.collected" : "curation.status.waiting")}
+                            />
                           )}
-                          {/* 剔除状态：站点里还能找到就是等下次构建下线，找不到就是已下线 */}
                           {!isQueue && collected && (
-                            collected.has(id) ? (
-                              <span
-                                className="curation-icon"
-                                role="img"
-                                aria-label={t("curation.status.blockPending")}
-                                title={t("curation.status.blockPending")}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
-                                </svg>
-                              </span>
-                            ) : (
-                              <span
-                                className="curation-icon done"
-                                role="img"
-                                aria-label={t("curation.status.blockDone")}
-                                title={t("curation.status.blockDone")}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                                  <path
-                                    d="M2.5 7.5l3 3 6-7"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </span>
-                            )
+                            <StatusIcon
+                              done={!collected.has(id)}
+                              label={t(collected.has(id) ? "curation.status.blockPending" : "curation.status.blockDone")}
+                            />
                           )}
                           {/* 已收录的条目不在这里下架：收纳进归档，站点继续保留 */}
                           {(!isQueue || (collected && !collected.has(id))) && (

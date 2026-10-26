@@ -722,7 +722,9 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-dim); font-size: 13px; font-family: inherit; text-align: left; cursor: pointer;
 }
 .settings-item:hover { background: var(--surface-2); color: var(--text); }
-.settings-item.is-active { color: var(--text); font-weight: 550; }
+/* 选中项保留底色：只靠 hover 的话鼠标一移开就看不出来了 */
+.settings-item.is-active { background: var(--surface-2); color: var(--text); font-weight: 550; }
+.settings-item.is-active:hover { background: var(--surface-2); }
 .settings-check { color: var(--accent); font-size: 12px; }
 
 .header-fav { display: inline-flex; align-items: center; gap: 5px; }
@@ -801,7 +803,7 @@ a { color: inherit; text-decoration: none; }
 .curation-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .curation-item {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 7px 8px; border-radius: 7px;
+  min-width: 0; padding: 7px 8px; border-radius: 7px;
 }
 .curation-item:hover { background: var(--surface-2); }
 .curation-item.is-collected .curation-repo { color: var(--text-faint); }
@@ -810,12 +812,16 @@ a { color: inherit; text-decoration: none; }
 .curation-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: var(--text-faint); flex: none; }
 .curation-icon.done { color: var(--ok); }
 .curation-list-tools { display: flex; align-items: center; gap: 6px; flex: none; }
-.curation-badge {
-  flex: none; padding: 1px 6px; border-radius: 5px; font-size: 11px;
-  background: var(--surface-2); color: var(--text-faint); white-space: nowrap;
+/* 仓库名一律单行：超长时横向滚动查看，滚动条做细条避免撑高行距 */
+.curation-repo {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--mono); font-size: 12.5px; color: var(--text);
+  white-space: nowrap; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
-.curation-badge.ok { background: var(--accent-soft); color: var(--accent); }
-.curation-repo { font-family: var(--mono); font-size: 12.5px; color: var(--text); overflow-wrap: anywhere; }
+.curation-repo::-webkit-scrollbar { height: 4px; }
+.curation-repo::-webkit-scrollbar-track { background: transparent; }
+.curation-repo::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
 .curation-repo:hover { color: var(--accent); }
 .curation-item-btn {
   flex: none; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border);
@@ -826,7 +832,7 @@ a { color: inherit; text-decoration: none; }
 /* 待确认条目：标题行放仓库与两个操作，下面补充访客填的信息 */
 .curation-pending { padding: 8px; border-radius: 7px; }
 .curation-pending:hover { background: var(--surface-2); }
-.curation-pending-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.curation-pending-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .curation-pending-btns { display: flex; flex: none; gap: 6px; }
 .curation-item-btn.primary { color: var(--accent); border-color: var(--accent); }
 .curation-item-btn.primary:hover { color: var(--accent-fg); background: var(--accent); }
