@@ -45,7 +45,8 @@ interface ApiError {
 const API = "/api/curation";
 
 /**
- * 名单右侧状态图标：空心圆 = 等下次构建生效，绿色对勾 = 已生效。
+ * 名单右侧状态图标：空心圆 = 等下次构建生效，圈内绿勾 = 已生效。
+ * 两种状态的圈径与线宽完全一致，切换时只是圈内多一笔勾，图标不会跳动。
  * 收录队列与剔除记录共用同一套视觉，避免两处状态样式不一致。
  */
 function StatusIcon({ done, label }: { done: boolean; label: string }) {
@@ -53,13 +54,17 @@ function StatusIcon({ done, label }: { done: boolean; label: string }) {
     <span className={`curation-icon${done ? " done" : ""}`} role="img" aria-label={label} title={label}>
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
         {done ? (
-          <path
-            d="M2.5 7.5l3 3 6-7"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <>
+            {/* 圈与待生效的空心圆同径同粗，只在内部多一个勾 */}
+            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+            <path
+              d="M4.5 7.2l1.6 1.6 3.3-3.6"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
         ) : (
           <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
         )}
@@ -442,7 +447,7 @@ export function CurationDialog({
                           {id}
                         </a>
                         <span className="curation-item-side">
-                          {/* 状态图标：空心圆=等下次构建生效，绿色对勾=已生效 */}
+                          {/* 状态图标：空心圆=等下次构建生效，圈内对勾=已生效 */}
                           {isQueue && collected && (
                             <StatusIcon
                               done={collected.has(id)}
