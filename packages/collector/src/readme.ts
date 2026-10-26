@@ -66,8 +66,8 @@ const isFresh = (row: CacheRow, entry: PluginEntry): boolean => {
   return (row.p ?? null) === (entry.pushedAt ?? null);
 };
 
-/** 去掉徽章、图片、HTML、代码块与表格，只留人读的正文。 */
-function stripMarkdown(body: string): string[] {
+/** 去掉徽章、图片、HTML、代码块与表格，只留人读的正文。空 README 门槛也复用这一份清洗规则。 */
+export function stripMarkdown(body: string): string[] {
   return body
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/```[\s\S]*?```/g, " ")

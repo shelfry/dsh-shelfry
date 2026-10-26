@@ -17,6 +17,7 @@ const FILES = {
   queue: "curation/queue.json",
   curated: "curation/curated.json",
   blocklist: "curation/blocklist.json",
+  purge: "curation/purge.json",
 } as const;
 
 export interface CurationLists {
@@ -24,8 +25,14 @@ export interface CurationLists {
   queue: string[];
   /** 已收录归档：从队列清理出来但必须继续强制收录的仓库 */
   curated: string[];
-  /** 永久剔除的仓库 */
+  /** 站长手动逐个剔除的仓库 */
   blocklist: string[];
+  /**
+   * 规则批量清退的仓库（如「0 星 + README 空」）。
+   * 单独一份文件：CI 同步站内名单时只会覆盖 queue/curated/blocklist，
+   * 混进 blocklist 会被 KV 里的手动名单冲掉，也不该在剔除弹窗里渲染上万条。
+   */
+  purge: string[];
 }
 
 function readList(file: string): string[] {
@@ -56,5 +63,6 @@ export function loadCuration(): CurationLists {
     queue: readList(FILES.queue),
     curated: readList(FILES.curated),
     blocklist: readList(FILES.blocklist),
+    purge: readList(FILES.purge),
   };
 }

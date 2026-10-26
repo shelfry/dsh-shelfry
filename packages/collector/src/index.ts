@@ -15,12 +15,14 @@ import {
 import { normalizeRecord, type RawRecord } from "./normalize.ts";
 import { fetchMirrorRecords } from "./sources/mirror.ts";
 import { fetchGithubRecords, fetchReposByNames } from "./sources/github.ts";
+import { fetchCatalogIndex, mergeCatalog } from "./sources/catalog.ts";
 import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
 import { isPlaceholderSpec, resolveEvidence, writeDroppedList } from "./evidence.ts";
 import { resolveInstallCommands } from "./install-probe.ts";
 import { resolveReadmeSummaries } from "./readme.ts";
+import { resolveEmptyReadme } from "./readme-gate.ts";
 import { loadCuration } from "./curation.ts";
 
 /**
@@ -176,6 +178,30 @@ async function main(): Promise<void> {
 
   // 一次性补录：CI 用 workflow_dispatch 的 rescue 输入传入仓库全名，逐条取详情后并入本轮。
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
+  const curation = loadCuration();
+
+  // 第三方目录源（awesome-dsh-plugin）：只补我们还没有的仓库。目录不决定是否入库 ——
+  // 已删除的仓库由 GitHub API 天然挡掉，星标/标签/质量门槛仍走后面的统一规则。
+  // 必须排在补录与收录队列之前：同 id 时后写入者生效，队列的 curation 标记不能被冲掉。
+  if (!token) {
+    log(args.silent, "[collector] 未配置 GITHUB_TOKEN，跳过目录源");
+  } else {
+    const catalog = await fetchCatalogIndex();
+    if (catalog) {
+      const known = new Set(prev.entries.map((e) => e.id.toLowerCase()));
+      const taken = new Set(records.map((r) => String(r.id ?? r.fullName ?? "").toLowerCase()));
+      const manual = new Set([...curation.queue, ...curation.curated, ...curation.blocklist, ...curation.purge]);
+      const candidates = catalog.items.filter((it) => !known.has(it.key) && !taken.has(it.key) && !manual.has(it.key));
+      const fetched = candidates.length > 0 ? await fetchReposByNames(candidates.map((it) => it.id), token) : [];
+      const fromCatalog = mergeCatalog(fetched, candidates);
+      records.push(...fromCatalog);
+      log(
+        args.silent,
+        `[collector] 目录源：索引 ${catalog.total} 条 / 去重后 ${catalog.items.length} 条（重复 ${catalog.duplicates} / 缺字段 ${catalog.skipped}）/ 候选 ${candidates.length} 条 / GitHub 取回 ${fetched.length} 条 / 并入 ${fromCatalog.length} 条`,
+      );
+    }
+  }
+
   const rescueNames = (process.env.RESCUE_REPOS ?? "")
     .split(/[\s,]+/)
     .map((s) => s.trim())
@@ -195,7 +221,6 @@ async function main(): Promise<void> {
   // 站内「收录」弹框写入的队列 + 已收录归档：跳过检索发现层，直接按全名拉取。
   // 归档是「清理已收录」后的去向，仍然要强制收录，否则下次构建可能掉出站点。
   // 人工指定只负责「进候选」，类型判定与分类仍走后面的自动规则。
-  const curation = loadCuration();
   const manual = [...new Set([...curation.queue, ...curation.curated])];
   if (manual.length > 0) {
     if (token) {
@@ -227,19 +252,22 @@ async function main(): Promise<void> {
   const merged = mergeEntries(prev, incoming);
   let entries = merged.catalog.entries;
 
-  // 站长永久剔除的仓库。队列优先：同一仓库同时出现在两边时按「要收录」处理，
-  // 这样恢复收录只需要把它加回队列，不必关心黑名单里是否还留着旧记录。
-  if (curation.blocklist.length > 0) {
-    const queued = new Set(manual);
-    const blocked = new Set(curation.blocklist.filter((id) => !queued.has(id)));
-    if (blocked.size > 0) {
-      const removed = entries.filter((e) => blocked.has(e.id.toLowerCase()));
-      if (removed.length > 0) {
-        entries = entries.filter((e) => !blocked.has(e.id.toLowerCase()));
-        merged.catalog.entries = entries;
-        const names = removed.slice(0, 8).map((e) => e.id).join("、");
-        log(args.silent, `[collector] 黑名单剔除 ${removed.length} 条：${names}${removed.length > 8 ? " 等" : ""}`);
-      }
+  // 站长永久剔除的仓库 + 规则批量清退的仓库。队列优先：同一仓库同时出现在两边时
+  // 按「要收录」处理，恢复收录只需把它加回队列，不必关心两份名单里是否还留着旧记录。
+  const queued = new Set(manual);
+  const manualBlocked = new Set(curation.blocklist.filter((id) => !queued.has(id)));
+  const rulePurged = new Set(curation.purge.filter((id) => !queued.has(id)));
+  const blocked = new Set([...manualBlocked, ...rulePurged]);
+  if (blocked.size > 0) {
+    const removed = entries.filter((e) => blocked.has(e.id.toLowerCase()));
+    if (removed.length > 0) {
+      entries = entries.filter((e) => !blocked.has(e.id.toLowerCase()));
+      merged.catalog.entries = entries;
+      const names = removed.slice(0, 8).map((e) => e.id).join("、");
+      log(
+        args.silent,
+        `[collector] 名单剔除 ${removed.length} 条（手动 ${manualBlocked.size} 个 / 规则清退 ${rulePurged.size} 个）：${names}${removed.length > 8 ? " 等" : ""}`,
+      );
     }
   }
 
@@ -372,6 +400,26 @@ async function main(): Promise<void> {
   log(
     args.silent,
     `[collector] README 摘要：探测 ${readme.probed} 条 / 缓存命中 ${readme.cached} 条 / 补出 ${readme.filled} 条`,
+  );
+
+  // 空 README 门槛：0 星且 README 读不出正文的条目按权重先剔除（安装命令不作豁免）；
+  // README 有正文的即使 0 星也保留 —— 新插件天然 0 星，正文与安装命令才是可用信号。
+  // 结论走 .data 缓存，日常构建只探测新增与有新提交的仓库；unknown 本轮保留。
+  const gate = await resolveEmptyReadme(active);
+  if (gate.empty.length > 0) {
+    const emptyIds = new Set(gate.empty.map((e) => e.id));
+    active = active.filter((e) => !emptyIds.has(e.id));
+    entries = active;
+    merged.catalog.entries = active;
+    const names = gate.empty.slice(0, 8).map((e) => e.id).join("、");
+    log(
+      args.silent,
+      `[collector] 空 README 门槛剔除 ${gate.empty.length} 条（缺失 ${gate.missing} / 无正文 ${gate.blank}）：${names}${gate.empty.length > 8 ? " 等" : ""}`,
+    );
+  }
+  log(
+    args.silent,
+    `[collector] 空 README 探测：探测 ${gate.probed} 条 / 缓存命中 ${gate.cached} 条 / 无法判定保留 ${gate.unknown} 条`,
   );
 
   // 版本号补齐必须发生在写产物之前 —— lite 切片要带 vr 字段。

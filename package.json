@@ -15,7 +15,9 @@
     "dev": "npm run dev -w @dsh-shelfry/web",
     "build": "npm run build -w @dsh-shelfry/web",
     "preview": "npm run preview -w @dsh-shelfry/web",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test packages/collector/src/*.test.ts packages/collector/src/sources/*.test.ts",
+    "audit:empty-readme": "tsx packages/collector/src/audit-empty-readme.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

@@ -30,3 +30,9 @@ export const WEB_PUBLIC_DATA_DIR = resolve(REPO_ROOT, "packages/web/public/data"
 
 /** 上游冷启动镜像源（按需镜像对手数据，不作为长期主源）。 */
 export const MIRROR_LITE_URL = "https://dsh.market/plugins-lite.json";
+
+/**
+ * 第三方目录源（awesome-dsh-plugin），每天在 npm 上发版。
+ * 必须用 plugins.json（全量 6,896 条），index.json 只是已发布 npm 包子集。
+ */
+export const CATALOG_URL = "https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/plugins.json";
