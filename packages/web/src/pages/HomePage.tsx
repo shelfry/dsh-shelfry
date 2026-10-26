@@ -16,7 +16,7 @@ import {
   type CatalogScope,
   type Category,
 } from "../lib/data";
-import { createSearcher, rankHits, sortItems, type SearchHit, type SortKey } from "../lib/search";
+import { createSearcher, normalizeQuery, rankHits, sortItems, type SearchHit, type SortKey } from "../lib/search";
 import { categoryLabel } from "../lib/labels";
 import { useFavorites } from "../lib/favorites";
 import { useT } from "../lib/i18n";
@@ -83,7 +83,11 @@ export default function HomePage() {
   const [extraPages, setExtraPages] = useState<LiteEntry[]>([]);
   const [loadedPages, setLoadedPages] = useState(0);
 
+  // input 是输入框里的原文，query 是「已提交、真正参与检索」的词。
+  // 拆成两个状态是为了只在你按回车/点搜索时才跑全量模糊检索，输入过程不触发。
+  const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
+  const composingRef = useRef(false);
   const [category, setCategory] = useState<string>("");
   const [type, setType] = useState<TypeFilter>("all");
   const [stars, setStars] = useState<StarsFilter>("all");
@@ -144,7 +148,7 @@ export default function HomePage() {
 
   // 工具视图本身就是一次筛选，必须切到全量切片才能包含第一页之外的条目
   const hasFilters =
-    scope === "tools" || !!query.trim() || !!category || type !== "all" || stars !== "all" || compat !== "all" || sort !== "score";
+    scope === "tools" || !!query || !!category || type !== "all" || stars !== "all" || compat !== "all" || sort !== "score";
 
   // 全量切片：搜索、任一筛选、非默认排序都要求它。
   useEffect(() => {
@@ -161,15 +165,15 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [hasFilters, fullLite]);
 
-  // 检索：输入 ≥2 字符才走 Fuse（索引按需建一次）。
+  // 检索：只在你按下回车 / 点「搜索」后跑一次（query 是已提交的值），
+  // 输入过程不再触发 Fuse，避免每次按键都占用主线程上百毫秒。
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) { setHits(null); return; }
+    if (!query) { setHits(null); return; }
     if (!fullLite) return;
     let cancelled = false;
     (async () => {
       if (!searcherRef.current) searcherRef.current = createSearcher(fullLite);
-      if (!cancelled) setHits(rankHits(searcherRef.current(q)));
+      if (!cancelled) setHits(rankHits(searcherRef.current(query)));
     })();
     return () => { cancelled = true; };
   }, [query, fullLite]);
@@ -220,6 +224,9 @@ export default function HomePage() {
     setShown((s) => s + PAGE_STEP);
   }, [canLoadMore]);
 
+  // 卡片是 memo 的，这个 Set 必须保持引用稳定，否则每次输入都会让整屏卡片重渲染
+  const categorySet = useMemo(() => new Set(categories.map((c) => c.t)), [categories]);
+
   // 首屏 60 条里混着工具，插件视图筛掉后只剩 43/44 条，会留下半行空位。
   // 这里自动补拉下一页，直到够 60 条（能被 1/2/3/4/5/6 列整除）或数据取完。
   const fillingRef = useRef(false);
@@ -241,6 +248,7 @@ export default function HomePage() {
   }, [hasFilters, artifacts, normalCount, shown, loadedPages]);
 
   const resetFilters = useCallback(() => {
+    setInput("");
     setQuery("");
     setCategory("");
     setType("all");
@@ -249,6 +257,17 @@ export default function HomePage() {
     setSort("score");
     setScope("plugins");
   }, [setScope]);
+
+  /**
+   * 提交检索：回车与「搜索」按钮共用。
+   * 归一化后不足 2 字符按空查询处理，直接回到默认列表，避免停留在全量列表的中间态。
+   */
+  const submitSearch = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // 中文输入法选词时按下的回车只负责上屏，不算提交
+    if (composingRef.current) return;
+    setQuery(normalizeQuery(input));
+  }, [input]);
 
   const isTools = scope === "tools";
 
@@ -264,7 +283,6 @@ export default function HomePage() {
   }
 
   const visibleCategories = showAllCategories ? categories : categories.slice(0, 14);
-  const categorySet = new Set(categories.map((c) => c.t));
 
   return (
     <main className="wrap">
@@ -272,15 +290,31 @@ export default function HomePage() {
         <h1>{t(isTools ? "home.title.tools" : "home.title.plugins")}</h1>
         <p>{t(isTools ? "home.sub.tools" : "home.sub.plugins")}</p>
         <div className="search-row">
-          <div className="search-box">
+          <form className="search-box" onSubmit={submitSearch} role="search">
             <span className="icon">⌕</span>
             <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={input}
+              onChange={(e) => {
+                const next = e.target.value;
+                setInput(next);
+                // 删空立即回到默认列表，不用再按一次回车
+                if (!next.trim()) setQuery("");
+              }}
+              // 聚焦时后台预取全量切片：首次提交不用再等 2.5MB 下载
+              onFocus={() => { void loadLite().catch(() => { /* 预取失败不影响输入，提交时会再拉一次 */ }); }}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onKeyDown={(e) => {
+                // 拼音/五笔候选词上屏的回车不提交（Safari 走 keyCode 229）
+                if (e.key === "Enter" && (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229)) {
+                  e.preventDefault();
+                }
+              }}
               placeholder={t(isTools ? "home.search.tools" : "home.search.plugins")}
               aria-label={t(isTools ? "home.searchAria.tools" : "home.searchAria.plugins")}
             />
-          </div>
+            <button type="submit" className="search-submit">{t("home.searchSubmit")}</button>
+          </form>
           <div className="scope-switch" role="tablist" aria-label={t("home.scope")}>
             {(["plugins", "tools"] as CatalogScope[]).map((key) => (
               <button

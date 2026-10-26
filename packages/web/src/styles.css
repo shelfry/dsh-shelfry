@@ -105,7 +105,8 @@ a { color: inherit; text-decoration: none; }
 
 .search-box { position: relative; }
 .search-box input {
-  width: 100%; padding: 13px 14px 13px 40px; font-size: 14.5px;
+  /* 右侧留出「搜索」按钮的位置，避免长文本被按钮压住 */
+  width: 100%; padding: 13px 96px 13px 40px; font-size: 14.5px;
   border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
   color: var(--text); outline: none; box-shadow: var(--shadow-sm);
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
@@ -113,6 +114,17 @@ a { color: inherit; text-decoration: none; }
 .search-box input::placeholder { color: var(--text-faint); }
 .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 .search-box .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 15px; }
+/* 手动确认检索：按钮贴在输入框右内侧，输入过程不触发全量模糊检索 */
+.search-submit {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  height: 34px; padding: 0 14px; border: 0; border-radius: 9px;
+  background: var(--accent); color: var(--accent-fg);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: filter 0.12s ease, transform 0.12s ease;
+}
+.search-submit:hover { filter: brightness(1.06); }
+.search-submit:active { transform: translateY(-50%) scale(0.97); }
+.search-submit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* 搜索框右侧的范围切换：插件 / 工具。用分段控件而不是导航项，
    这样「看什么」和「找什么」在同一处，切换后列表与筛选整体跟着走。 */

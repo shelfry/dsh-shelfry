@@ -16,7 +16,7 @@
     "build": "npm run build -w @dsh-shelfry/web",
     "preview": "npm run preview -w @dsh-shelfry/web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test packages/collector/src/*.test.ts packages/collector/src/sources/*.test.ts",
+    "test": "node --import tsx --test packages/collector/src/*.test.ts packages/collector/src/sources/*.test.ts packages/web/src/lib/*.test.ts",
     "audit:empty-readme": "tsx packages/collector/src/audit-empty-readme.ts"
   },
   "devDependencies": {

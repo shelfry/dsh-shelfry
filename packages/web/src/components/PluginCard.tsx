@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
@@ -196,7 +196,7 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
 /** 最多铺 2 条标签，其余收进 +N —— 再多就会挤到右下角的分类。 */
 const MAX_TAGS = 2;
 
-export function PluginCard({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
+function PluginCardBase({ item, categories }: { item: LiteEntry; categories: Set<string> }) {
   const [installOpen, setInstallOpen] = useState(false);
   const version = versionLabel(item.vr);
   const { t } = useT();
@@ -283,3 +283,6 @@ export function PluginCard({ item, categories }: { item: LiteEntry; categories: 
     </article>
   );
 }
+
+/** 输入框打字只改本地文本，不该让整屏卡片跟着重渲染；item 与 categories 引用稳定时直接跳过。 */
+export const PluginCard = memo(PluginCardBase);
