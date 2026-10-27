@@ -20,6 +20,7 @@ import { resolveVersions } from "./versions.ts";
 import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
 import { isPlaceholderSpec, resolveEvidence, writeDroppedList } from "./evidence.ts";
+import { isAuthError } from "./token-guard.ts";
 import { resolveInstallCommands } from "./install-probe.ts";
 import { resolveReadmeSummaries } from "./readme.ts";
 import { resolveEmptyReadme } from "./readme-gate.ts";
@@ -162,7 +163,13 @@ async function loadRawRecords(args: Args): Promise<LoadedRecords> {
     });
     return { records, sourceLabel: "github" };
   } catch (err) {
-    return fromMirror(`GitHub 检索失败（${err instanceof Error ? err.message : String(err)}）`);
+    const detail = err instanceof Error ? err.message : String(err);
+    // 令牌失效或权限不足属于配置问题，降级到镜像只会让数据静默停更：
+    // 直接抛出让构建失败，GitHub 的失败通知才会把问题推给站长。
+    if (isAuthError(detail)) {
+      throw new Error(`GitHub 令牌无效或权限不足，请更新 CI 的 GH_SEARCH_TOKEN —— ${detail}`);
+    }
+    return fromMirror(`GitHub 检索失败（${detail}）`);
   }
 }
 
