@@ -105,6 +105,8 @@ export default function HomePage() {
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   /** hits 对应的查询词：换词后结果还没算出来时，旧结果不能拿来判断页签归属 */
   const [hitsQuery, setHitsQuery] = useState("");
+  /** 每次点「搜索」自增：让自动切页签把这一次点击当成新的意图重新判断 */
+  const [searchTick, setSearchTick] = useState(0);
   const searcherRef = useRef<ReturnType<typeof createSearcher> | null>(null);
   const { t } = useT();
   useSeo({
@@ -230,15 +232,16 @@ export default function HomePage() {
   useEffect(() => {
     // hitsQuery 与 query 不一致说明这批结果还是上一条词的，不能据此切页签
     if (!query || !hits || hitsQuery !== query) return;
-    // 同一条查询已经在同一个起始页签发过切换，就不再插手（用户可能手动切回来了）
-    const mark = `${query}|${scope}`;
+    // 同一次搜索意图（查询 + 起始页签 + 点击序号）只自动切一次；
+    // 你每点一次「搜索」都是新意图，所以在哪个页签点都会重新判断该不该跳
+    const mark = `${query}|${scope}|${searchTick}`;
     if (autoScopeRef.current === mark) return;
     if (hits.some((h) => matchesFilters(h.item, scope))) return;
     const other: CatalogScope = scope === "tools" ? "plugins" : "tools";
     if (!hits.some((h) => matchesFilters(h.item, other))) return;
     autoScopeRef.current = mark;
     setScope(other);
-  }, [query, hits, hitsQuery, scope, matchesFilters, setScope]);
+  }, [query, hits, hitsQuery, searchTick, scope, matchesFilters, setScope]);
 
   const totalInScope = useMemo(() => {
     if (!hasFilters && meta) return scopeCount(meta, scope);
@@ -301,6 +304,8 @@ export default function HomePage() {
     // 中文输入法选词时按下的回车只负责上屏，不算提交
     if (composingRef.current) return;
     setQuery(normalizeQuery(input));
+    // 每次点击/回车都算一次新意图，自动切页签据此重新判断
+    setSearchTick((n) => n + 1);
   }, [input]);
 
   const isTools = scope === "tools";
