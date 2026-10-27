@@ -101,9 +101,11 @@ function earlyHintsHeaders(): Plugin {
       const css = html.match(/href="(\/assets\/[^"]+\.css)"/)?.[1];
       if (!js && !css) return;
 
+      // 产物里的 script/link 都带 crossorigin，预加载头必须一致，
+      // 否则凭据模式不匹配会被浏览器丢弃，等于白白多下一次
       const links = [
-        js ? `  Link: <${js}>; rel=preload; as=script` : "",
-        css ? `  Link: <${css}>; rel=preload; as=style` : "",
+        js ? `  Link: <${js}>; rel=preload; as=script; crossorigin` : "",
+        css ? `  Link: <${css}>; rel=preload; as=style; crossorigin` : "",
       ].filter(Boolean);
 
       const headersPath = resolve(outDir, "_headers");
