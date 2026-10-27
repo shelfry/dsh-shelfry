@@ -187,3 +187,59 @@ test("createSearcher：空查询与清洗后无效的查询返回空数组", () 
   assert.deepEqual(search("  "), []);
   assert.deepEqual(search("https://"), []);
 });
+
+test("createSearcher：名称相同的条目整组排最前，组内按综合分排", () => {
+  const lite = [
+    { ...entry("a/dsh-market", "dsh-market", ["dsh", "market"]), sc: 10 },
+    { ...entry("b/dsh-market", "dsh-market", ["dsh", "market"]), sc: 90 },
+    // 标签里恰好同时写了 dsh 与 market 的相似名，只能排在同名组之后
+    { ...entry("c/dsh-plugin-market", "dsh-plugin-market", ["dsh", "market"]), sc: 99 },
+  ];
+  const hits = rankHits(createSearcher(lite)("dsh-market"));
+  assert.deepEqual(hits.map((h) => h.item.i), ["b/dsh-market", "a/dsh-market", "c/dsh-plugin-market"]);
+});
+
+test("createSearcher：连字符、下划线、无分隔符视为同名", () => {
+  const lite = [
+    { ...entry("x/dsh_market", "dsh_market", []), sc: 20 },
+    { ...entry("y/dshmarket", "dshmarket", []), sc: 30 },
+    { ...entry("z/dsh-market-plus", "dsh-market-plus", []), sc: 99 },
+  ];
+  const hits = rankHits(createSearcher(lite)("dsh-market"));
+  assert.deepEqual(hits.map((h) => h.item.i), ["y/dshmarket", "x/dsh_market", "z/dsh-market-plus"]);
+});
+
+test("createSearcher：owner/repo 输入时 id 完全相符的条目锁第一位", () => {
+  const lite = [
+    { ...entry("dsh-market/dsh-market", "dsh-market", []), sc: 5 },
+    { ...entry("2BingLing/dsh-market", "dsh-market", []), sc: 95 },
+    { ...entry("c/dsh-plugin-market", "dsh-plugin-market", ["dsh", "market"]), sc: 99 },
+  ];
+  const hits = rankHits(createSearcher(lite)("dsh-market/dsh-market"));
+  assert.deepEqual(
+    hits.map((h) => h.item.i),
+    ["dsh-market/dsh-market", "2BingLing/dsh-market", "c/dsh-plugin-market"],
+  );
+});
+
+test("createSearcher：名称含完整短语排在仅字段命中之前", () => {
+  const lite = [
+    { ...entry("a/plain", "plain", [], "关于 dsh market 的说明"), sc: 99 },
+    { ...entry("b/safer-dsh-market", "safer-dsh-market", []), sc: 1 },
+  ];
+  const hits = rankHits(createSearcher(lite)("dsh-market"));
+  assert.deepEqual(hits.map((h) => h.item.i), ["b/safer-dsh-market", "a/plain"]);
+});
+
+test("createSearcher：owner/repo 被切成重复词时先去重，不改变同名组次序", () => {
+  const lite = [
+    { ...entry("dsh-market/dsh-market", "dsh-market", []), sc: 5 },
+    { ...entry("2BingLing/dsh-market", "dsh-market", []), sc: 95 },
+  ];
+  const byKeyword = rankHits(createSearcher(lite)("dsh-market")).map((h) => h.item.i);
+  // 去重后两次查询除「id 精确项」外顺序一致，说明重复词没有把权重翻倍
+  assert.deepEqual(byKeyword, ["2BingLing/dsh-market", "dsh-market/dsh-market"]);
+  const byRepo = rankHits(createSearcher(lite)("dsh-market/dsh-market")).map((h) => h.item.i);
+  assert.deepEqual(byRepo, ["dsh-market/dsh-market", "2BingLing/dsh-market"]);
+});
+

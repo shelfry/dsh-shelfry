@@ -80,6 +80,30 @@ const TOKEN_MAX_WEIGHT = FIELD_WEIGHT.id + FIELD_WEIGHT.name + FIELD_WEIGHT.tags
 /** 严格命中少于这个数时，用「只命中部分词」的条目补齐，避免窄查询只剩一两条。 */
 const MIN_STRICT_HITS = 60;
 
+/**
+ * 相关度分层：层级数字直接作为分数，越小越靠前。
+ *
+ * 必须分层的原因：`dsh-market` 会被拆成 `dsh` + `market` 两个词，
+ * 标签里恰好写了这两个词的 `dsh-plugin-market` 靠权重就能反超，
+ * 把名称就叫 `dsh-market` 的条目挤到十几名之外。
+ * 分层后同名条目整组置顶，组内由综合分决定先后。
+ */
+const TIER_ID_EXACT = -1;
+const TIER_NONE = 99;
+/** 没有短语级命中时退回字段权重打分，分数带排在所有分层之后。 */
+const TIER_WEIGHT_BASE = 5;
+/** 部分命中（补齐用）的分数带，永远排在严格命中之后。 */
+const TIER_LOOSE_BASE = 7;
+
+interface QueryContext {
+  /** 去重后的查询词，避免 owner/repo 的斜杠把同一个词重复计权。 */
+  tokens: string[];
+  /** 查询词的紧凑形态（去掉分隔符），用于短语级比较。 */
+  compact: string;
+  /** 仓库全名查询的靶子 id；关键词查询为 null。 */
+  repoId: string | null;
+}
+
 interface EntryScore {
   /** 命中的查询词数：等于词数即为严格命中。 */
   matched: number;
@@ -87,6 +111,31 @@ interface EntryScore {
   weight: number;
   /** 整词命中的词数（名称全等 / 仓库名尾段 / 标签全等）。 */
   exact: number;
+}
+
+/** 紧凑形态：小写后去掉 `- _ . 空格` 等分隔符，保留 `/` 区分 owner 与 repo。 */
+function compactForm(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5/]+/g, "");
+}
+
+/**
+ * 取「仓库全名」查询的目标标识：链接剥掉协议、域名、查询串与 .git 后缀后的路径。
+ *
+ * 入参 raw：输入框原文。
+ * 返回值：形如 owner/repo 的路径；不是两段式仓库标识时返回 null。
+ */
+function repoPathOf(raw: string): string | null {
+  if (typeof raw !== "string") return null;
+  const path = raw
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z]+:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/^[^/\s]+\.[a-z]{2,}\//, "")
+    .replace(/[?#].*$/, "")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "");
+  return /^[^\s/]+\/[^\s/]+$/.test(path) ? path : null;
 }
 
 /** 判断空格分隔的串里是否存在整词，避免为每条目的标签额外建数组。 */
@@ -129,6 +178,32 @@ function scoreEntry(entry: LiteEntry, tokens: string[]): EntryScore {
   return { matched, weight, exact };
 }
 
+/**
+ * 判断条目命中的相关度层级。
+ *
+ * 入参 entry 为一条浏览切片，ctx 已含去重查询词与紧凑形态。
+ * 返回值：-1 仓库 id 完全相符、0–4 短语级命中、TIER_NONE 表示只能靠字段权重排序。
+ */
+function tierOf(entry: LiteEntry, ctx: QueryContext): number {
+  const id = entry.i.toLowerCase();
+  // 输入就是 owner/repo 时，id 完全相符的那条必须最先被看到
+  if (ctx.repoId !== null && id === ctx.repoId) return TIER_ID_EXACT;
+
+  const nameCompact = compactForm(entry.n ?? "");
+  // 同名条目的不同写法（dsh-market / dsh_market / dshmarket）视为同一个名字
+  if (nameCompact === ctx.compact) return 0;
+
+  const idCompact = compactForm(id);
+  const tail = idCompact.slice(idCompact.lastIndexOf("/") + 1);
+  if (idCompact === ctx.compact || tail === ctx.compact) return 1;
+
+  if (nameCompact.includes(ctx.compact)) return 2;
+  if (idCompact.includes(ctx.compact)) return 3;
+  // 标签逐个比较，避免「dsh」「market」两个独立标签被拼成短语
+  if ((entry.tg ?? []).some((tag) => compactForm(tag).includes(ctx.compact))) return 4;
+  return TIER_NONE;
+}
+
 export function createSearcher(lite: LiteEntry[]): Searcher {
   // Fuse 索引在建索引时最贵（实测 14.6k 条约 850ms），
   // 只有在「逐条扫描一个都没命中」时才需要它，所以继续懒构建。
@@ -152,24 +227,29 @@ export function createSearcher(lite: LiteEntry[]): Searcher {
   };
 
   /**
-   * 一次遍历同时收集严格命中与部分命中，用字段权重代替模糊编辑距离。
+   * 一次遍历同时收集严格命中与部分命中。
    *
-   * 分数区间约定（rankHits 只比大小）：
-   * - 严格命中落在 [0, 1]，权重越高越接近 0；
-   * - 补齐用的部分命中落在 (1, 2]，永远排在严格命中之后。
+   * 分数区间约定（rankHits 只比大小，从小到大）：
+   * - 短语级命中直接用层级当分数（-1 最优，0–4 依次靠后），层内按综合分排；
+   * - 只有字段权重命中的严格命中落在 [5, 6)；
+   * - 补齐用的部分命中落在 [7, 8)，永远排在严格命中之后。
    */
-  const scan = (tokens: string[]): { strict: SearchHit[]; loose: SearchHit[] } => {
+  const scan = (ctx: QueryContext): { strict: SearchHit[]; loose: SearchHit[] } => {
+    const { tokens } = ctx;
     const strict: SearchHit[] = [];
     const loose: SearchHit[] = [];
     const maxWeight = tokens.length * TOKEN_MAX_WEIGHT;
+    const partialMax = tokens.length * (TOKEN_MAX_WEIGHT - 1);
     for (const [index, entry] of lite.entries()) {
       const { matched, weight, exact } = scoreEntry(entry, tokens);
       if (!matched) continue;
       if (matched === tokens.length) {
-        strict.push({ index, item: entry, fuzzyScore: 1 - (weight + exact) / maxWeight });
+        const tier = tierOf(entry, ctx);
+        const fuzzyScore =
+          tier === TIER_NONE ? TIER_WEIGHT_BASE + (1 - (weight + exact) / maxWeight) : tier;
+        strict.push({ index, item: entry, fuzzyScore });
       } else {
-        const partialMax = tokens.length * (TOKEN_MAX_WEIGHT - 1);
-        loose.push({ index, item: entry, fuzzyScore: 1 + (1 - weight / partialMax) });
+        loose.push({ index, item: entry, fuzzyScore: TIER_LOOSE_BASE + (1 - weight / partialMax) });
       }
     }
     return { strict, loose };
@@ -178,12 +258,19 @@ export function createSearcher(lite: LiteEntry[]): Searcher {
   return (query: string) => {
     const q = normalizeQuery(query);
     if (!q) return [];
-    const tokens = q.split(" ").filter((tok) => tok.length >= 2);
+    // owner/repo 被斜杠切成重复词，先去重再计权，避免同一个词被算两遍
+    const tokens = [...new Set(q.split(" ").filter((tok) => tok.length >= 2))];
     if (!tokens.length) return [];
-    const { strict, loose } = scan(tokens);
+    const repoQuery = isRepoQuery(query);
+    const ctx: QueryContext = {
+      tokens,
+      compact: tokens.join(""),
+      repoId: repoQuery ? repoPathOf(query) : null,
+    };
+    const { strict, loose } = scan(ctx);
 
     // 链接/仓库全名是精确标识：只认严格命中，不补齐、不猜拼写错的仓库名
-    if (isRepoQuery(query)) return strict;
+    if (repoQuery) return strict;
     // 一个都没命中时才动用 Fuse，保住拼错仍有结果的兜底能力
     if (!strict.length && !loose.length) {
       return getFuse().search(q).map((r) => ({ index: r.refIndex, item: r.item, fuzzyScore: r.score ?? 1 }));
