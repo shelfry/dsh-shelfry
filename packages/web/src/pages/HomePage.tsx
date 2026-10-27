@@ -227,8 +227,9 @@ export default function HomePage() {
     return normal.concat(mirrors);
   }, [hits, hasFilters, fullLite, firstPage, extraPages, scope, sort, matchesFilters]);
 
-  // 命中的条目全在另一页签时自动切过去：当前页签本来就是空白页，切走只赚不亏。
-  // 只在「当前页签一条都没有」时触发，所以你主动选的页签不会被无故切走。
+  // 搜索命中在另一页签更精确时自动切过去。
+  // 判据是「对侧最佳分数更小」而不是「本侧为空」：像 juliusbrussee/caveman 这种
+  // 关键词检索会在插件侧捞到一堆名字近似的条目，只按空/非空判断就永远切不过去。
   useEffect(() => {
     // hitsQuery 与 query 不一致说明这批结果还是上一条词的，不能据此切页签
     if (!query || !hits || hitsQuery !== query) return;
@@ -236,9 +237,18 @@ export default function HomePage() {
     // 你每点一次「搜索」都是新意图，所以在哪个页签点都会重新判断该不该跳
     const mark = `${query}|${scope}|${searchTick}`;
     if (autoScopeRef.current === mark) return;
-    if (hits.some((h) => matchesFilters(h.item, scope))) return;
+    // 分数越小越精确：精确命中落在 -1～4，仅部分词命中的补齐落在 7～8，空则视为无穷大
+    const bestOf = (targetScope: CatalogScope): number => {
+      let best = Number.POSITIVE_INFINITY;
+      for (const h of hits) {
+        if (!matchesFilters(h.item, targetScope)) continue;
+        const score = h.fuzzyScore ?? 0;
+        if (score < best) best = score;
+      }
+      return best;
+    };
     const other: CatalogScope = scope === "tools" ? "plugins" : "tools";
-    if (!hits.some((h) => matchesFilters(h.item, other))) return;
+    if (!(bestOf(other) < bestOf(scope))) return;
     autoScopeRef.current = mark;
     setScope(other);
   }, [query, hits, hitsQuery, searchTick, scope, matchesFilters, setScope]);
