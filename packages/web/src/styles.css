@@ -840,7 +840,7 @@ a { color: inherit; text-decoration: none; }
 .curation-menu {
   position: fixed; top: var(--curation-top, 66px); right: var(--curation-right, 20px); z-index: 45;
   display: flex; flex-direction: column;
-  width: 380px; max-width: calc(100vw - 24px); max-height: min(72vh, 560px); overflow-y: auto;
+  width: 380px; max-width: calc(100vw - 24px); max-height: min(72vh, 560px); overflow: hidden;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--shadow-md); overscroll-behavior: contain;
 }
@@ -851,7 +851,14 @@ a { color: inherit; text-decoration: none; }
 }
 .curation-tab:hover { color: var(--text); }
 .curation-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 550; }
-.curation-body { padding: 16px 16px 18px; }
+/* 标题栏与标签页钉在顶部，滚动只发生在内容区；滚动条隐藏但滚轮/触控板照常可用 */
+.curation-menu > .modal-head { flex: none; }
+.curation-body {
+  padding: 16px 16px 18px;
+  overflow-y: auto; min-height: 0;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.curation-body::-webkit-scrollbar { width: 0; height: 0; }
 .curation-note { margin: 0 0 14px; font-size: 12.5px; line-height: 1.6; color: var(--text-dim); }
 .curation-actions { display: flex; gap: 8px; margin-bottom: 4px; }
 .curation-actions input {
