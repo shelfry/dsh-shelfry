@@ -106,9 +106,15 @@ export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promi
   return loadEntryAt(artifacts, index);
 }
 
-/** 收录弹窗用：拿到全部已收录仓库，给队列条目标「已收录」/「待下次构建」。 */
+/**
+ * 收录弹窗用：拿到全部已收录仓库，给队列条目标「已收录」/「待下次构建」。
+ *
+ * 键统一转小写：数据里的 id 是 GitHub 原始大小写（如 `Moessif/code-video-showcase`），
+ * 而收录队列被提交时转成了小写；GitHub 仓库名本身不区分大小写，比较时必须忽略大小写，
+ * 否则已上线的条目会被误判成「待收录」，「清理已收录」也筛不到它。
+ */
 export async function loadCollectedIds(): Promise<Set<string>> {
-  return new Set(Object.keys(await loadIdMap()));
+  return new Set(Object.keys(await loadIdMap()).map((id) => id.toLowerCase()));
 }
 
 /**

@@ -97,6 +97,14 @@ export function CurationDialog({
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * 判断某个仓库是否已收录。
+   *
+   * 入参 id：队列里的仓库全名，大小写可能与数据里的原始写法不同。
+   * 返回值：已收录为 true；名单尚未加载完成时返回 false。
+   */
+  const isCollected = (id: string) => collected?.has(id.toLowerCase()) ?? false;
+
   // 面板直接挂在 body 上（头部有 backdrop-filter，fixed 子元素会被困在头部盒子里）：
   // 桌面贴着固定导航下沿、右边缘与「收录」按钮对齐；手机版交给媒体查询改成居中弹窗。
   useLayoutEffect(() => {
@@ -233,7 +241,7 @@ export function CurationDialog({
 
   /** 只清理「确实已经在站点里」的队列条目，未收录的保持不动 */
   const prune = async () => {
-    const targets = (lists?.queue ?? []).filter((id) => collected?.has(id));
+    const targets = (lists?.queue ?? []).filter((id) => isCollected(id));
     if (targets.length === 0) return;
     setBusy(true);
     setNotice(null);
@@ -254,7 +262,7 @@ export function CurationDialog({
   const isQueue = tab === "queue";
   const pending = lists?.pending ?? [];
   const current = lists ? (isQueue ? lists.queue : lists.blocklist) : [];
-  const indexed = isQueue && collected ? current.filter((id) => collected.has(id)) : [];
+  const indexed = isQueue && collected ? current.filter((id) => isCollected(id)) : [];
 
   return createPortal(
     <div
@@ -442,7 +450,7 @@ export function CurationDialog({
                 {listOpen && current.length > 0 && (
                   <ul className="curation-list">
                     {current.map((id) => (
-                      <li className={`curation-item${collected?.has(id) ? " is-collected" : ""}`} key={id}>
+                      <li className={`curation-item${isCollected(id) ? " is-collected" : ""}`} key={id}>
                         <a className="curation-repo" href={`https://github.com/${id}`} target="_blank" rel="noreferrer">
                           {id}
                         </a>
@@ -450,18 +458,18 @@ export function CurationDialog({
                           {/* 状态图标：空心圆=等下次构建生效，圈内对勾=已生效 */}
                           {isQueue && collected && (
                             <StatusIcon
-                              done={collected.has(id)}
-                              label={t(collected.has(id) ? "curation.status.collected" : "curation.status.waiting")}
+                              done={isCollected(id)}
+                              label={t(isCollected(id) ? "curation.status.collected" : "curation.status.waiting")}
                             />
                           )}
                           {!isQueue && collected && (
                             <StatusIcon
-                              done={!collected.has(id)}
-                              label={t(collected.has(id) ? "curation.status.blockPending" : "curation.status.blockDone")}
+                              done={!isCollected(id)}
+                              label={t(isCollected(id) ? "curation.status.blockPending" : "curation.status.blockDone")}
                             />
                           )}
                           {/* 已收录的条目不在这里下架：收纳进归档，站点继续保留 */}
-                          {(!isQueue || (collected && !collected.has(id))) && (
+                          {(!isQueue || (collected && !isCollected(id))) && (
                             <button
                               type="button"
                               className="curation-item-btn"
