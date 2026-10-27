@@ -8,6 +8,7 @@ import DetailPage from "./pages/DetailPage";
 import TopPage from "./pages/TopPage";
 import SubmitPage from "./pages/SubmitPage";
 import FavoritesPage from "./pages/FavoritesPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 /**
  * 页脚更新时间统一按北京时间（UTC+8）展示。
@@ -50,7 +51,8 @@ export default function App() {
         <Route path="/submit" element={<SubmitPage />} />
         {/* id 形如 owner/repo，含斜杠，必须用通配段接住 */}
         <Route path="/p/*" element={<DetailPage />} />
-        <Route path="*" element={<HomePage />} />
+        {/* 其余路径给 404 提示，不再回落首页：服务端同时会返回真实 404 状态码 */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <footer className="site-footer">
         <div className="wrap">

@@ -88,6 +88,8 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
   const composingRef = useRef(false);
+  /** 清除按钮用：清空后把焦点放回输入框，方便立刻重新输入 */
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<string>("");
   const [type, setType] = useState<TypeFilter>("all");
   const [stars, setStars] = useState<StarsFilter>("all");
@@ -290,9 +292,10 @@ export default function HomePage() {
         <h1>{t(isTools ? "home.title.tools" : "home.title.plugins")}</h1>
         <p>{t(isTools ? "home.sub.tools" : "home.sub.plugins")}</p>
         <div className="search-row">
-          <form className="search-box" onSubmit={submitSearch} role="search">
+          <form className={`search-box${input ? " has-value" : ""}`} onSubmit={submitSearch} role="search">
             <span className="icon">⌕</span>
             <input
+              ref={searchInputRef}
               value={input}
               onChange={(e) => {
                 const next = e.target.value;
@@ -313,6 +316,22 @@ export default function HomePage() {
               placeholder={t(isTools ? "home.search.tools" : "home.search.plugins")}
               aria-label={t(isTools ? "home.searchAria.tools" : "home.searchAria.plugins")}
             />
+            {input && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label={t("home.searchClear")}
+                title={t("home.searchClear")}
+                onClick={() => {
+                  // 清空输入框与已提交的查询词，回到默认列表；焦点留在输入框方便重新输入
+                  setInput("");
+                  setQuery("");
+                  searchInputRef.current?.focus();
+                }}
+              >
+                ×
+              </button>
+            )}
             <button type="submit" className="search-submit">{t("home.searchSubmit")}</button>
           </form>
           <div className="scope-switch" role="tablist" aria-label={t("home.scope")}>

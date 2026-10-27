@@ -63,6 +63,7 @@ const ZH = {
   "home.searchAria.plugins": "搜索插件",
   "home.searchAria.tools": "搜索工具",
   "home.searchSubmit": "搜索",
+  "home.searchClear": "清空搜索",
   "home.scope": "浏览范围",
   "home.total.plugins": "共 {n} 个插件",
   "home.total.tools": "共 {n} 个工具",
@@ -319,6 +320,9 @@ const ZH = {
   "fav.browse": "去首页逛逛",
   "fav.save": "收藏",
   "fav.saved": "已收藏",
+  "notFound.title": "页面不存在",
+  "notFound.desc": "这个地址没有对应的内容，可能是链接输错，或者页面已经被移除了。",
+  "notFound.back": "返回首页",
 };
 
 export type TKey = keyof typeof ZH;
@@ -365,6 +369,7 @@ const EN: Record<TKey, string> = {
   "home.searchAria.plugins": "Search plugins",
   "home.searchAria.tools": "Search tools",
   "home.searchSubmit": "Search",
+  "home.searchClear": "Clear search",
   "home.scope": "Browse scope",
   "home.total.plugins": "{n} plugins",
   "home.total.tools": "{n} tools",
@@ -621,6 +626,9 @@ const EN: Record<TKey, string> = {
   "fav.browse": "Browse the catalog",
   "fav.save": "Save",
   "fav.saved": "Saved",
+  "notFound.title": "Page not found",
+  "notFound.desc": "Nothing lives at this address. The link may be mistyped, or the page has been removed.",
+  "notFound.back": "Back to home",
 };
 
 const DICT: Record<Lang, Record<TKey, string>> = { zh: ZH, en: EN };
