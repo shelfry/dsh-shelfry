@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -83,10 +83,45 @@ function seoArtifacts(): Plugin {
   };
 }
 
+/**
+ * 构建收尾：把首屏 JS/CSS 写进 _headers 的 Link 头，配合 Zone 的 Early Hints。
+ *
+ * 资源名带构建哈希，静态 _headers 里写死会失效，所以只能构建后动态追加。
+ * 浏览器收到 103 Early Hints 就能在 HTML 到达前开始下载，白屏时间更短；
+ * 即便没走 103，200 响应里的 Link 头也会被预加载扫描器识别。
+ */
+function earlyHintsHeaders(): Plugin {
+  return {
+    name: "early-hints-headers",
+    apply: "build",
+    closeBundle() {
+      const outDir = resolve(here, "dist");
+      const html = readFileSync(resolve(outDir, "index.html"), "utf8");
+      const js = html.match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
+      const css = html.match(/href="(\/assets\/[^"]+\.css)"/)?.[1];
+      if (!js && !css) return;
+
+      const links = [
+        js ? `  Link: <${js}>; rel=preload; as=script` : "",
+        css ? `  Link: <${css}>; rel=preload; as=style` : "",
+      ].filter(Boolean);
+
+      const headersPath = resolve(outDir, "_headers");
+      const existing = existsSync(headersPath) ? readFileSync(headersPath, "utf8") : "";
+      // 结束时补齐换行，避免与已有规则粘在同一行
+      const prefix = existing.endsWith("\n") || !existing ? existing : `${existing}\n`;
+      writeFileSync(
+        headersPath,
+        `${prefix}\n# 首屏资源提前预加载：文件名带构建哈希，只能构建后生成\n/\n${links.join("\n")}\n`,
+      );
+    },
+  };
+}
+
 export default defineConfig({
   // 深链是真实路径（/p/owner/repo），资源必须走根路径绝对地址，否则会被解析到 /p/owner/ 下。
   base: "/",
-  plugins: [react(), seoArtifacts()],
+  plugins: [react(), seoArtifacts(), earlyHintsHeaders()],
   define: {
     __SITE__: JSON.stringify(site),
     // 页脚展示的构建版本号，由 git 提交数生成
