@@ -787,6 +787,49 @@ a { color: inherit; text-decoration: none; }
   font-size: 13px; font-weight: 550;
 }
 .btn-browse:hover { opacity: 0.88; }
+/* 次要按钮：描边款，和实心主按钮并排出现在 404 页 */
+.btn-outline {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--border-strong); color: var(--text);
+  font-size: 13px; font-weight: 550;
+}
+.btn-outline:hover { border-color: var(--text-dim); }
+
+/* ---------- 空状态（404 页 / 详情页未收录） ---------- */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 64px 0 80px; text-align: center;
+}
+.empty-state__title { margin: 8px 0 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.empty-state__hint { margin: 0; max-width: 420px; color: var(--text-dim); font-size: 13px; line-height: 1.65; }
+.empty-state .back-link { margin: 10px 0 0; }
+
+/* 机器人：终端窗口造型，只动 transform 与 opacity，不触发布局 */
+.robot-mark { display: flex; justify-content: center; }
+.robot-mark svg { display: block; width: 100%; height: auto; overflow: visible; }
+.robot-mark--accent .robot-mark__eye { fill: var(--accent); }
+.robot-mark--muted .robot-mark__eye { fill: var(--text-faint); }
+/* 系统开启「减少动态效果」时保持静止，只留静态插画 */
+@media (prefers-reduced-motion: no-preference) {
+  .robot-mark { animation: robotFloat 4s ease-in-out infinite; }
+  .robot-mark__eye { animation: robotBlink 5s ease-in-out infinite; }
+  .robot-mark__tip { animation: robotTip 2.4s ease-in-out infinite; }
+}
+@keyframes robotFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes robotBlink { 0%, 92%, 100% { opacity: 1; } 95% { opacity: 0.15; } }
+@keyframes robotTip { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* 404 页：超大号 404 只做背景水印，压在机器人后面 */
+.not-found { position: relative; padding: 76px 0 96px; }
+.not-found__watermark {
+  position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
+  font-size: 132px; font-weight: 700; line-height: 1; letter-spacing: 2px;
+  color: var(--text); opacity: 0.05;
+  pointer-events: none; user-select: none;
+}
+.not-found__title { font-size: 24px; letter-spacing: -0.01em; }
+.not-found__actions { display: flex; gap: 10px; margin-top: 18px; }
 
 /* ---------- curation panel ---------- */
 /* 头部里是按钮而不是链接，去掉浏览器默认外观，只剩悬停淡底 */

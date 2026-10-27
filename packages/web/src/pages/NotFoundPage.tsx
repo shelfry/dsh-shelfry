@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { RobotMark } from "../components/RobotMark";
 import { useT } from "../lib/i18n";
 import { SEO_SITE_NAME, useSeo } from "../lib/seo";
 
@@ -20,13 +21,17 @@ export default function NotFoundPage() {
 
   return (
     <main className="wrap">
-      <section className="hero">
-        <h1>{t("notFound.title")}</h1>
-        <p>{t("notFound.desc")}</p>
+      <section className="empty-state not-found">
+        {/* 超大号 404 只做背景水印，压在机器人后面 */}
+        <span className="not-found__watermark">404</span>
+        <RobotMark size={132} />
+        <h1 className="empty-state__title not-found__title">{t("notFound.title")}</h1>
+        <p className="empty-state__hint">{t("notFound.desc")}</p>
+        <div className="not-found__actions">
+          <Link className="btn-browse" to="/">{t("notFound.back")}</Link>
+          <Link className="btn-outline" to="/top">{t("notFound.top")}</Link>
+        </div>
       </section>
-      <div className="empty">
-        <Link className="btn-browse" to="/">{t("notFound.back")}</Link>
-      </div>
     </main>
   );
 }

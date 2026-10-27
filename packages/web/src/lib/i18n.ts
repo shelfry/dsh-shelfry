@@ -134,6 +134,7 @@ const ZH = {
 
   "detail.loading": "正在加载条目信息…",
   "detail.missing": "没有收录 {id}",
+  "detail.missingHint": "这个仓库可能已经下架，或者链接拼错了。",
   "detail.error": "插件信息加载失败，请稍后重试。",
   "detail.back.plugins": "← 返回全部插件",
   "detail.back.tools": "← 返回全部工具",
@@ -323,6 +324,7 @@ const ZH = {
   "notFound.title": "页面不存在",
   "notFound.desc": "这个地址没有对应的内容，可能是链接输错，或者页面已经被移除了。",
   "notFound.back": "返回首页",
+  "notFound.top": "去看看榜单",
 };
 
 export type TKey = keyof typeof ZH;
@@ -440,6 +442,7 @@ const EN: Record<TKey, string> = {
 
   "detail.loading": "Loading entry…",
   "detail.missing": "{id} isn't in the catalog",
+  "detail.missingHint": "This repo may have been taken down, or the link is mistyped.",
   "detail.error": "Failed to load this entry. Please try again later.",
   "detail.back.plugins": "← Back to all plugins",
   "detail.back.tools": "← Back to all tools",
@@ -629,6 +632,7 @@ const EN: Record<TKey, string> = {
   "notFound.title": "Page not found",
   "notFound.desc": "Nothing lives at this address. The link may be mistyped, or the page has been removed.",
   "notFound.back": "Back to home",
+  "notFound.top": "Browse the leaderboard",
 };
 
 const DICT: Record<Lang, Record<TKey, string>> = { zh: ZH, en: EN };

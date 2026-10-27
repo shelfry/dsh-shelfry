@@ -7,6 +7,7 @@ import { copyText } from "../lib/clipboard";
 import { assistantPrompt } from "../lib/assistant";
 import { DEFAULT_PROFILE, applyProfile, useProfile } from "../lib/install";
 import { ProfilePicker } from "../components/ProfilePicker";
+import { RobotMark } from "../components/RobotMark";
 import { StarButton } from "../components/StarButton";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
@@ -240,8 +241,13 @@ export default function DetailPage() {
   if (state === "missing" || state === "error") {
     return (
       <main className="wrap detail">
-        <div className="empty">
-          <p>{state === "missing" ? t("detail.missing", { id: decoded }) : t("detail.error")}</p>
+        <div className="empty-state">
+          <RobotMark size={96} tone="muted" />
+          <p className="empty-state__title">
+            {state === "missing" ? t("detail.missing", { id: decoded }) : t("detail.error")}
+          </p>
+          {/* 未收录时才补一句可能的原因，加载失败不给猜测 */}
+          {state === "missing" && <p className="empty-state__hint">{t("detail.missingHint")}</p>}
           <Link className="back-link" to="/">{t("detail.back.plugins")}</Link>
         </div>
       </main>
