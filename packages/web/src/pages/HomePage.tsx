@@ -90,6 +90,8 @@ export default function HomePage() {
   const composingRef = useRef(false);
   /** 清除按钮用：清空后把焦点放回输入框，方便立刻重新输入 */
   const searchInputRef = useRef<HTMLInputElement>(null);
+  /** 已经自动切过页签的「查询 + 起始页签」，用户手动切回时不再弹走 */
+  const autoScopeRef = useRef("");
   const [category, setCategory] = useState<string>("");
   const [type, setType] = useState<TypeFilter>("all");
   const [stars, setStars] = useState<StarsFilter>("all");
@@ -101,6 +103,8 @@ export default function HomePage() {
 
   const [fullLite, setFullLite] = useState<LiteEntry[] | null>(null);
   const [hits, setHits] = useState<SearchHit[] | null>(null);
+  /** hits 对应的查询词：换词后结果还没算出来时，旧结果不能拿来判断页签归属 */
+  const [hitsQuery, setHitsQuery] = useState("");
   const searcherRef = useRef<ReturnType<typeof createSearcher> | null>(null);
   const { t } = useT();
   useSeo({
@@ -170,34 +174,47 @@ export default function HomePage() {
   // 检索：只在你按下回车 / 点「搜索」后跑一次（query 是已提交的值），
   // 输入过程不再触发 Fuse，避免每次按键都占用主线程上百毫秒。
   useEffect(() => {
-    if (!query) { setHits(null); return; }
+    if (!query) { setHits(null); setHitsQuery(""); return; }
     if (!fullLite) return;
     let cancelled = false;
     (async () => {
       if (!searcherRef.current) searcherRef.current = createSearcher(fullLite);
-      if (!cancelled) setHits(rankHits(searcherRef.current(query)));
+      if (!cancelled) {
+        setHits(rankHits(searcherRef.current(query)));
+        // 记下这批结果是哪条查询算出来的：换词瞬间 oldHits 还留着上一条的词，
+        // 自动切页签据此判断结果是否已就位，避免拿旧结果做决定
+        setHitsQuery(query);
+      }
     })();
     return () => { cancelled = true; };
   }, [query, fullLite]);
 
   useEffect(() => { setShown(PAGE_STEP); }, [query, category, type, stars, compat, sort]);
 
-  const filtered = useMemo(() => {
+  /**
+   * 判断条目是否该出现在指定页签下。
+   *
+   * 入参 v：一条浏览切片。
+   * 入参 targetScope：目标页签；自动切换时会用另一侧页签调用它。
+   * 返回值：通过页签与全部筛选条件为 true。
+   */
+  const matchesFilters = useCallback((v: LiteEntry, targetScope: CatalogScope): boolean => {
     const minStars = needStars(stars);
-    const keep = (v: LiteEntry): boolean => {
-      // 两个范围互斥：插件页不混入工具，工具页也不混入插件
-      if (scope === "tools" ? !isExternal(v) : isExternal(v)) return false;
-      if (minStars > 0 && v.s < minStars) return false;
-      if (type !== "all" && v.t !== type) return false;
-      if (compat === "declared" && !v.g) return false;
-      if (compat === "undeclared" && v.g) return false;
-      if (category && !v.tg.includes(category)) return false;
-      return true;
-    };
+    // 两个范围互斥：插件页不混入工具，工具页也不混入插件
+    if (targetScope === "tools" ? !isExternal(v) : isExternal(v)) return false;
+    if (minStars > 0 && v.s < minStars) return false;
+    if (type !== "all" && v.t !== type) return false;
+    if (compat === "declared" && !v.g) return false;
+    if (compat === "undeclared" && v.g) return false;
+    if (category && !v.tg.includes(category)) return false;
+    return true;
+  }, [stars, type, compat, category]);
+
+  const filtered = useMemo(() => {
     const asHit = (item: LiteEntry, index: number): SearchHit => ({ index, item, fuzzyScore: 0 });
 
     const base: SearchHit[] = hits ?? (hasFilters && fullLite ? fullLite.map(asHit) : firstPage.concat(extraPages).map(asHit));
-    const kept = base.filter((h) => keep(h.item));
+    const kept = base.filter((h) => matchesFilters(h.item, scope));
     // 搜索结果已按相关度排过，用户没改排序口径时不要打乱它。
     const sorted = hits && sort === "score" ? kept : sortItems(kept, sort);
     // 综合排序里把镜像/克隆仓沉底：不删除（搜索与筛选仍可见），只是不占前排。
@@ -206,7 +223,22 @@ export default function HomePage() {
     const mirrors: SearchHit[] = [];
     for (const h of sorted) (h.item.dp === 1 ? mirrors : normal).push(h);
     return normal.concat(mirrors);
-  }, [hits, hasFilters, fullLite, firstPage, extraPages, scope, type, stars, compat, category, sort]);
+  }, [hits, hasFilters, fullLite, firstPage, extraPages, scope, sort, matchesFilters]);
+
+  // 命中的条目全在另一页签时自动切过去：当前页签本来就是空白页，切走只赚不亏。
+  // 只在「当前页签一条都没有」时触发，所以你主动选的页签不会被无故切走。
+  useEffect(() => {
+    // hitsQuery 与 query 不一致说明这批结果还是上一条词的，不能据此切页签
+    if (!query || !hits || hitsQuery !== query) return;
+    // 同一条查询已经在同一个起始页签发过切换，就不再插手（用户可能手动切回来了）
+    const mark = `${query}|${scope}`;
+    if (autoScopeRef.current === mark) return;
+    if (hits.some((h) => matchesFilters(h.item, scope))) return;
+    const other: CatalogScope = scope === "tools" ? "plugins" : "tools";
+    if (!hits.some((h) => matchesFilters(h.item, other))) return;
+    autoScopeRef.current = mark;
+    setScope(other);
+  }, [query, hits, hitsQuery, scope, matchesFilters, setScope]);
 
   const totalInScope = useMemo(() => {
     if (!hasFilters && meta) return scopeCount(meta, scope);
