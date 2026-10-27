@@ -4,6 +4,7 @@ import type { PluginEntry } from "@dsh-shelfry/schema";
 
 import { DATA_DIR } from "./config.ts";
 import { README_NAMES } from "./evidence.ts";
+import { isManualPick } from "./manual-pick.ts";
 import { stripMarkdown } from "./readme.ts";
 
 /**
@@ -96,8 +97,8 @@ export function isPresenceFresh(row: CacheRow, pushedAt: string | null): boolean
 export function isPurgeCandidate(e: PluginEntry): boolean {
   if (e.stars !== 0) return false;
   if (e.ecosystem !== "dsh") return false;
-  if (e.curated) return false;
-  if (e.sources.includes("issue-submission") || e.sources.includes("curation")) return false;
+  // 站长点名收录的（队列 / 归档 / Issue）一律不清退，和生态判定用同一套判据
+  if (isManualPick(e)) return false;
   return true;
 }
 

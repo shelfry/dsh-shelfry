@@ -21,6 +21,7 @@ import { resolveDownloads } from "./downloads.ts";
 import { clearBorrowedPackageInfo } from "./identity.ts";
 import { isPlaceholderSpec, resolveEvidence, writeDroppedList } from "./evidence.ts";
 import { isAuthError } from "./token-guard.ts";
+import { isManualPick } from "./manual-pick.ts";
 import { resolveInstallCommands } from "./install-probe.ts";
 import { resolveReadmeSummaries } from "./readme.ts";
 import { resolveEmptyReadme } from "./readme-gate.ts";
@@ -377,7 +378,8 @@ async function main(): Promise<void> {
 
   // 桌面客户端与教程/清单类仓库都不该出现在列表里：前者不是插件，后者不是工具。
   // 放在补全之后，避免把「README 里其实写了 dsh plugin add」的插件误删。
-  const apps = active.filter((e) => looksLikeDesktopClient(e) || looksLikeNonTool(e));
+  // 站长点名收录的不受此限：手动加进来就是明确要的。
+  const apps = active.filter((e) => !isManualPick(e) && (looksLikeDesktopClient(e) || looksLikeNonTool(e)));
   if (apps.length > 0) {
     const appIds = new Set(apps.map((e) => e.id));
     active = active.filter((e) => !appIds.has(e.id));

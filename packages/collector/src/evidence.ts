@@ -4,6 +4,7 @@ import type { PluginEntry } from "@dsh-shelfry/schema";
 import { DATA_DIR } from "./config.ts";
 import { scoreEntry } from "./score.ts";
 import { findStandaloneCommand, type StandaloneHit } from "./standalone.ts";
+import { isManualPick } from "./manual-pick.ts";
 
 /**
  * 生态归属的实证判定。
@@ -361,6 +362,13 @@ export async function resolveEvidence(
   const pending: PluginEntry[] = [];
 
   for (const e of entries) {
+    // 站长点名收录的条目不做生态判定：手动加进来就是明确要的
+    if (isManualPick(e)) {
+      result.kept++;
+      // 缓存里若有旧的「判无关」结论，一并作废，避免下次又把它判掉
+      if (cache[e.fullName]?.v === "drop") delete cache[e.fullName];
+      continue;
+    }
     if (nameSaysDsh(e.fullName, e.description)) {
       result.named++;
       // 名称本身就自证生态：缓存里的旧「判无关」结论一律作废，否则补录回来的条目会被再次剔除
@@ -403,8 +411,10 @@ export async function resolveEvidence(
   await Promise.all(workers);
 
   saveCache(cache);
-  // 只有「名称不自证」的条目才可能被判无关；名称自证的那批即使缓存里残留 drop 也不算
-  const dropped = entries.filter((e) => !nameSaysDsh(e.fullName, e.description) && cache[e.fullName]?.v === "drop");
+  // 只有「名称不自证」且非点名收录的条目才可能被判无关；点名收录的即使缓存里残留 drop 也不算
+  const dropped = entries.filter(
+    (e) => !isManualPick(e) && !nameSaysDsh(e.fullName, e.description) && cache[e.fullName]?.v === "drop",
+  );
   return { result, dropped };
 }
 
