@@ -3,6 +3,7 @@ import type { CatalogMeta, LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { loadLite, loadMeta } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, relativeTime, versionLabel } from "../components/PluginCard";
+import { RankSkeleton } from "../components/CardSkeleton";
 import { detailPath } from "../lib/data";
 import { useT } from "../lib/i18n";
 import { SEO_SITE_NAME, useSeo } from "../lib/seo";
@@ -83,7 +84,7 @@ export default function TopPage() {
       </section>
 
       {!lite ? (
-        <div className="empty">{t("top.loading")}</div>
+        <RankSkeleton />
       ) : rows.length === 0 ? (
         <div className="empty">{t("top.empty")}</div>
       ) : (

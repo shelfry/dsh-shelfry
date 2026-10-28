@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { LiteEntry } from "@dsh-shelfry/schema";
 import { PluginCard } from "../components/PluginCard";
+import { CardSkeleton } from "../components/CardSkeleton";
 import { loadCategories, loadLite } from "../lib/data";
 import { useFavorites } from "../lib/favorites";
 import { useT } from "../lib/i18n";
@@ -58,7 +59,7 @@ export default function FavoritesPage() {
           <Link className="btn-browse" to="/">{t("fav.browse")}</Link>
         </div>
       ) : !lite ? (
-        <div className="empty">{t("fav.loading")}</div>
+        <CardSkeleton count={3} />
       ) : items.length === 0 ? (
         <div className="empty fav-empty">
           <p>{t("fav.empty")}</p>

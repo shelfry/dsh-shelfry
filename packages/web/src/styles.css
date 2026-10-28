@@ -984,3 +984,45 @@ a { color: inherit; text-decoration: none; }
     max-height: min(560px, calc(100dvh - var(--curation-top, 66px) - 16px));
   }
 }
+
+/* ---------- 列表加载骨架：尺寸与真实卡片一致，数据到达时不跳版 ---------- */
+.sk {
+  display: block; border-radius: 5px;
+  /* 呼吸式微光只改透明度：不动位置、不缩放，布局始终不变 */
+  background: var(--surface-2);
+  animation: sk-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sk-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+/* 尊重「减少动效」偏好：直接停在静态灰块 */
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; opacity: 0.8; }
+}
+
+.sk-card { pointer-events: none; }
+.sk-avatar { width: 18px; height: 18px; flex: none; }
+.sk-title { width: 46%; height: 13px; }
+.sk-meta { width: 34%; height: 18px; padding: 4px 0; background-clip: content-box; }
+.sk-path { width: 52%; height: 18px; padding: 4px 0; background-clip: content-box; }
+/* 简介固定 3 行、总高与 .card-desc 的 62px 对齐 */
+.sk-desc { display: flex; flex-direction: column; gap: 8px; height: 62px; }
+.sk-desc .sk { width: 100%; height: 10px; }
+.sk-desc .sk:nth-child(2) { width: 92%; }
+.sk-desc .sk:nth-child(3) { width: 64%; }
+.sk-tag { width: 54px; height: 16px; }
+.sk-tag-sm { width: 38px; }
+
+/* 榜单行骨架：与 .rank-row 同结构同高，行式列表加载时不会跳版 */
+.sk-rank-no { width: 26px; height: 14px; margin-top: 2px; flex: none; }
+/* 名称行盒高 20px，中间留 14px 灰条，和真实标题行高对齐 */
+.sk-rank-name { width: 42%; height: 20px; padding: 3px 0; background-clip: content-box; }
+.sk-rank-avatar { width: 16px; height: 16px; flex: none; }
+.sk-rank-id { width: 34%; height: 10px; }
+/* 简介固定两行高度：灰条用两端对齐撑满 39px，和真实描述行距一致 */
+.sk-rank-desc { display: flex; flex-direction: column; margin-top: 6px; height: 39px; justify-content: space-between; }
+.sk-rank-desc .sk { width: 100%; height: 10px; }
+.sk-rank-desc .sk:nth-child(2) { width: 68%; }
+.sk-num { width: 46px; height: 10px; }
+.sk-num-sm { width: 30px; }

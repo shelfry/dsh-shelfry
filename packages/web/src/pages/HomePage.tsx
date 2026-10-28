@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginType } from "@dsh-shelfry/schema";
 import { Link, useSearchParams } from "react-router-dom";
 import { PluginCard } from "../components/PluginCard";
+import { CardSkeleton } from "../components/CardSkeleton";
 import { HeaderSettings } from "../components/HeaderSettings";
 import { CurationDialog } from "../components/CurationDialog";
 import {
@@ -265,6 +266,9 @@ export default function HomePage() {
 
   const canLoadMore = shown < filtered.length || (!hasFilters && artifacts !== null && loadedPages < artifacts.pages.count);
 
+  // 列表空且数据还没到：首屏等第 0 页，搜索/筛选等全量切片，这两种都先铺骨架
+  const listPending = filtered.length === 0 && (hasFilters ? !fullLite : firstPage.length === 0 && !error);
+
   // 综合排序把镜像仓沉底后，首屏按「非镜像条目数」判断是否够一屏，不够就继续补页。
   const normalCount = useMemo(
     () => (sort === "score" && !hits ? filtered.reduce((n, h) => n + (h.item.dp === 1 ? 0 : 1), 0) : filtered.length),
@@ -477,11 +481,15 @@ export default function HomePage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="empty">
-          {hasFilters && !fullLite
-            ? t("home.loadingAll")
-            : t(isTools ? "home.empty.tools" : "home.empty.plugins")}
-        </div>
+        listPending ? (
+          <CardSkeleton />
+        ) : (
+          <div className="empty">
+            {hasFilters && !fullLite
+              ? t("home.loadingAll")
+              : t(isTools ? "home.empty.tools" : "home.empty.plugins")}
+          </div>
+        )
       ) : (
         <div className="grid">
           {filtered.slice(0, shown).map((h) => (
