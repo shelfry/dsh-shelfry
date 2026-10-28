@@ -90,8 +90,11 @@ export default function HomePage() {
   const composingRef = useRef(false);
   /** 清除按钮用：清空后把焦点放回输入框，方便立刻重新输入 */
   const searchInputRef = useRef<HTMLInputElement>(null);
-  /** 已经自动切过页签的「查询 + 起始页签」，用户手动切回时不再弹走 */
+  /** 已经自动切过页签的「查询 + 点击序号」，用户手动切回时不再弹走 */
   const autoScopeRef = useRef("");
+  /** 当前页签的实时快照：自动切换只在搜索提交后评估，不能依赖 scope 闭包 */
+  const scopeRef = useRef<CatalogScope>(scope);
+  scopeRef.current = scope;
   const [category, setCategory] = useState<string>("");
   const [type, setType] = useState<TypeFilter>("all");
   const [stars, setStars] = useState<StarsFilter>("all");
@@ -233,10 +236,12 @@ export default function HomePage() {
   useEffect(() => {
     // hitsQuery 与 query 不一致说明这批结果还是上一条词的，不能据此切页签
     if (!query || !hits || hitsQuery !== query) return;
-    // 同一次搜索意图（查询 + 起始页签 + 点击序号）只自动切一次；
-    // 你每点一次「搜索」都是新意图，所以在哪个页签点都会重新判断该不该跳
-    const mark = `${query}|${scope}|${searchTick}`;
+    // 同一次搜索提交只自动判一次：mark 不带 scope，
+    // 手动点页签也不会被重新评估、把第一次点击又切回去
+    const mark = `${query}|${searchTick}`;
     if (autoScopeRef.current === mark) return;
+    // 无论这次判不判切，都记下已评估，避免筛选条件变化时再次自动弹走
+    autoScopeRef.current = mark;
     // 分数越小越精确：精确命中落在 -1～4，仅部分词命中的补齐落在 7～8，空则视为无穷大
     const bestOf = (targetScope: CatalogScope): number => {
       let best = Number.POSITIVE_INFINITY;
@@ -247,11 +252,11 @@ export default function HomePage() {
       }
       return best;
     };
-    const other: CatalogScope = scope === "tools" ? "plugins" : "tools";
-    if (!(bestOf(other) < bestOf(scope))) return;
-    autoScopeRef.current = mark;
-    setScope(other);
-  }, [query, hits, hitsQuery, searchTick, scope, matchesFilters, setScope]);
+    // 起点取实时页签，而不是闭包里的 scope —— 依赖里已移除 scope
+    const from = scopeRef.current;
+    const other: CatalogScope = from === "tools" ? "plugins" : "tools";
+    if (bestOf(other) < bestOf(from)) setScope(other);
+  }, [query, hits, hitsQuery, searchTick, matchesFilters, setScope]);
 
   const totalInScope = useMemo(() => {
     if (!hasFilters && meta) return scopeCount(meta, scope);
@@ -313,7 +318,10 @@ export default function HomePage() {
     e.preventDefault();
     // 中文输入法选词时按下的回车只负责上屏，不算提交
     if (composingRef.current) return;
-    setQuery(normalizeQuery(input));
+    const raw = input.trim();
+    // 保留原文（含 owner/repo 的斜杠）交给检索器，内部再归一化；
+    // 若先归一化，isRepoQuery 认不出仓库全名，id 精确层级会失效
+    setQuery(normalizeQuery(raw) ? raw : "");
     // 每次点击/回车都算一次新意图，自动切页签据此重新判断
     setSearchTick((n) => n + 1);
   }, [input]);

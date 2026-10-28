@@ -243,3 +243,18 @@ test("createSearcher：owner/repo 被切成重复词时先去重，不改变同�
   assert.deepEqual(byRepo, ["dsh-market/dsh-market", "2BingLing/dsh-market"]);
 });
 
+test("createSearcher：仓库全名与空格写法都必须把同址条目排第一", () => {
+  // 复现线上：一堆名字里含 mattpocock-skills 的克隆仓综合分更高，
+  // 但真正的 mattpocock/skills 必须靠 id 层级压过它们
+  const lite = [
+    { ...entry("mattpocock/skills", "skills", []), sc: 84 },
+    { ...entry("a/dsh-mattpocock-skills-deck", "dsh-mattpocock-skills-deck", ["skills"]), sc: 86 },
+    { ...entry("b/mattpocock-skills-dsh", "mattpocock-skills-dsh", ["skills"]), sc: 69 },
+  ];
+  // 三种输入都要锁第一位：带斜杠、完整链接、以及归一化后的空格形态
+  for (const query of ["mattpocock/skills", "https://github.com/mattpocock/skills", "mattpocock skills"]) {
+    const hits = rankHits(createSearcher(lite)(query));
+    assert.equal(hits[0]?.item.i, "mattpocock/skills", `${query} 应命中 id 层级并置顶`);
+  }
+});
+

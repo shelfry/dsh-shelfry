@@ -113,9 +113,15 @@ interface EntryScore {
   exact: number;
 }
 
-/** 紧凑形态：小写后去掉 `- _ . 空格` 等分隔符，保留 `/` 区分 owner 与 repo。 */
+/**
+ * 紧凑形态：小写后去掉 `- _ . 空格 /` 等全部分隔符。
+ *
+ * 斜杠必须一起去掉：查询串归一化后已不含 `/`，若 id 这里保留斜杠，
+ * `mattpocock/skills` 这类「owner 与 repo 连写即同名」的条目永远匹配不上，
+ * 会被挤到字段权重分带里排在几十条克隆仓之后。
+ */
 function compactForm(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5/]+/g, "");
+  return text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "");
 }
 
 /**
