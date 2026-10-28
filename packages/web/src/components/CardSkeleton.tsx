@@ -1,34 +1,41 @@
 /**
- * 列表加载中的骨架卡片。
+ * 单张骨架卡片：与真实卡片同结构同高。
  *
  * 尺寸与真实卡片对齐（同一套 .card / .card-head / .card-foot 结构与固定高度），
  * 数据到达后直接把灰块换成真卡片，不会出现整块列表高度跳动。
  * 纯展示组件，无状态、无副作用；对读屏器隐藏，避免念一串空元素。
+ * 拆出来是为了让首页把「已渲染的真卡片」与「未渲染的占位卡」放进同一个网格。
  */
+export function SkeletonCard() {
+  return (
+    <div className="card sk-card" aria-hidden="true">
+      <div className="card-head">
+        <span className="sk sk-avatar" />
+        <span className="sk sk-title" />
+      </div>
+      <span className="sk sk-meta" />
+      <span className="sk sk-path" />
+      <div className="sk-desc">
+        <span className="sk" />
+        <span className="sk" />
+        <span className="sk" />
+      </div>
+      <div className="card-foot">
+        <span className="sk sk-tag" />
+        <span className="sk sk-tag sk-tag-sm" />
+      </div>
+    </div>
+  );
+}
+
 export function CardSkeleton({ count = 6 }: { count?: number }) {
-  // 数量只用于铺首屏，非法入参直接按默认值处理
-  const rows = Array.from({ length: Math.max(1, Math.min(24, count)) }, (_, i) => i);
+  // 数量只用于铺首屏，一次最多一页的量（60），超出按 120 截断防止误传大数
+  const rows = Array.from({ length: Math.max(1, Math.min(120, count)) }, (_, i) => i);
 
   return (
     <div className="grid" aria-hidden="true">
       {rows.map((i) => (
-        <div className="card sk-card" key={i}>
-          <div className="card-head">
-            <span className="sk sk-avatar" />
-            <span className="sk sk-title" />
-          </div>
-          <span className="sk sk-meta" />
-          <span className="sk sk-path" />
-          <div className="sk-desc">
-            <span className="sk" />
-            <span className="sk" />
-            <span className="sk" />
-          </div>
-          <div className="card-foot">
-            <span className="sk sk-tag" />
-            <span className="sk sk-tag sk-tag-sm" />
-          </div>
-        </div>
+        <SkeletonCard key={i} />
       ))}
     </div>
   );
