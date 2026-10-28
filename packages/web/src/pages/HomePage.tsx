@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginType } from "@dsh-shelfry/schema";
 import { Link, useSearchParams } from "react-router-dom";
 import { PluginCard } from "../components/PluginCard";
-import { CardSkeleton, SkeletonCard } from "../components/CardSkeleton";
+import { CardSkeleton } from "../components/CardSkeleton";
 import { HeaderSettings } from "../components/HeaderSettings";
 import { CurationDialog } from "../components/CurationDialog";
 import {
@@ -34,22 +34,17 @@ import { ORIGIN, SEO_DEFAULT_DESCRIPTION, SEO_SITE_NAME, useSeo } from "../lib/s
 const PAGE_STEP = 60;
 
 /**
- * 每次渲染的真实卡片数量。
- *
- * 数据仍按整页 60 条取回，但 DOM 分批铺：首屏只渲染 12 张真卡（3 列 4 行，
- * 覆盖大多数窗口的可视区），其余先摆同尺寸骨架，滚到附近再逐批换成真卡。
- * 这样首屏不必一次构建 60 张卡片，页面高度又保持稳定，滚动条不会跳。
- */
-const RENDER_STEP = 12;
-
-/**
  * 分类 chip 的占位宽度。
  *
  * 分类列表要等单独的分类产物返回，在此之前筛选行只有「全部」一个 chip，
  * 数据到达后 14 个分类一次性插入会把下方内容整体推下去。用与真实 chip
  * 等高的灰条先占位，行数与展开后的布局一致，避免整块页面跳动。
+ *
+ * 宽度按真实 chip 反推：左右内边距 11×2 + 边框 2 + 四字分类名 52 + 间距 3
+ * + 四位数计数约 26，实测落在 88–112 之间；取同一区间的错落值，桌面与窄屏的
+ * 换行数与真实标签基本一致。
  */
-const CATEGORY_SKELETON_WIDTHS = [64, 78, 70, 86, 74, 92, 66, 80, 72, 88, 62, 76, 84, 70];
+const CATEGORY_SKELETON_WIDTHS = [92, 106, 100, 110, 102, 112, 90, 104, 98, 108, 88, 102, 110, 100];
 
 /**
  * 首页范围切换：插件（默认）与工具分开浏览。
@@ -123,8 +118,6 @@ export default function HomePage() {
   const [sort, setSort] = useState<SortKey>("score");
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [shown, setShown] = useState(PAGE_STEP);
-  // 已渲染成真卡的数量：滚动到骨架附近时按 RENDER_STEP 递增
-  const [rendered, setRendered] = useState(RENDER_STEP);
   const [error, setError] = useState<string | null>(null);
 
   const [fullLite, setFullLite] = useState<LiteEntry[] | null>(null);
@@ -181,7 +174,6 @@ export default function HomePage() {
     setType("all");
     setCompat("all");
     setShown(PAGE_STEP);
-    setRendered(RENDER_STEP);
   }, [scope]);
 
   // 工具视图本身就是一次筛选，必须切到全量切片才能包含第一页之外的条目
@@ -221,7 +213,7 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [query, fullLite]);
 
-  useEffect(() => { setShown(PAGE_STEP); setRendered(RENDER_STEP); }, [query, category, type, stars, compat, sort]);
+  useEffect(() => { setShown(PAGE_STEP); }, [query, category, type, stars, compat, sort]);
 
   /**
    * 判断条目是否该出现在指定页签下。
@@ -305,36 +297,6 @@ export default function HomePage() {
     if (!canLoadMore) return;
     setShown((s) => s + PAGE_STEP);
   }, [canLoadMore]);
-
-  // 已取到手的条目数（分页边界）与其中已渲染成真卡的条目数
-  const available = Math.min(shown, filtered.length);
-  const renderCount = Math.min(rendered, available);
-  // 已取到但还没渲染的部分用等高骨架占位，保证网格总高度稳定
-  const pendingSlots = available - renderCount;
-
-  // 滚动分批渲染：哨兵接近可视区就补一批真卡。数据已在内存，替换是瞬时的，
-  // 不产生新请求；依赖里有 rendered，每次递增后重新观察，连滚时能连续补齐。
-  const renderMoreRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (pendingSlots <= 0) return;
-    const node = renderMoreRef.current;
-    if (!node) return;
-    // 环境不支持时直接铺满，不能让用户卡在骨架上
-    if (typeof IntersectionObserver === "undefined") {
-      setRendered(available);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setRendered((n) => Math.min(available, n + RENDER_STEP));
-        }
-      },
-      { rootMargin: "400px 0px" },
-    );
-    io.observe(node);
-    return () => io.disconnect();
-  }, [pendingSlots, available, rendered]);
 
   // 卡片是 memo 的，这个 Set 必须保持引用稳定，否则每次输入都会让整屏卡片重渲染
   const categorySet = useMemo(() => new Set(categories.map((c) => c.t)), [categories]);
@@ -488,7 +450,7 @@ export default function HomePage() {
                 </button>
               ))}
           {!categoriesReady ? (
-            <span className="chip chip-skeleton" aria-hidden="true"><span className="sk" style={{ width: 86 }} /></span>
+            <span className="chip chip-skeleton" aria-hidden="true"><span className="sk" style={{ width: 104 }} /></span>
           ) : categories.length > 14 ? (
             <button className="chip chip-toggle" onClick={() => setShowAllCategories((v) => !v)}>
               {showAllCategories ? t("common.collapse") : t("filters.expand", { n: categories.length - 14 })}
@@ -556,22 +518,15 @@ export default function HomePage() {
         )
       ) : (
         <div className="grid">
-          {filtered.slice(0, renderCount).map((h) => (
+          {filtered.slice(0, shown).map((h) => (
             <PluginCard key={h.item.i} item={h.item} categories={categorySet} />
-          ))}
-          {/* 已取到但还没滚到的部分先用等高骨架占位，滚到附近会被真卡替换 */}
-          {Array.from({ length: pendingSlots }, (_, i) => (
-            <SkeletonCard key={`pending-${i}`} />
           ))}
         </div>
       )}
 
-      {/* 分批渲染的观察哨兵：只负责把已取到的数据铺成真卡，不触发新请求 */}
-      <div ref={renderMoreRef} className="render-sentinel" aria-hidden="true" />
-
       <button className="load-more" onClick={loadMore} disabled={!canLoadMore}>
         {canLoadMore
-          ? t("home.loadMore", { shown: available, total: totalInScope })
+          ? t("home.loadMore", { shown: Math.min(shown, filtered.length), total: totalInScope })
           : t("home.end")}
       </button>
     </main>

@@ -46,6 +46,12 @@ export default function FavoritesPage() {
     return ids.map((id) => byId.get(id)).filter((v): v is LiteEntry => !!v);
   }, [lite, ids]);
 
+  // 收藏数量存在本地，进页面就能知道，不用等全量切片；加载态先行显示，
+  // 数据到达后只替换卡片内容，行数与高度都不变，页面不会跳动。
+  const count = lite ? items.length : ids.length;
+  // 骨架数量与实际收藏数保持一致，避免「3 张骨架 → 1 张卡」的高度突变
+  const skeletonCount = Math.min(ids.length, 60);
+
   return (
     <main className="wrap fav-page">
       <section className="hero">
@@ -58,21 +64,23 @@ export default function FavoritesPage() {
           <p>{t("fav.empty")}</p>
           <Link className="btn-browse" to="/">{t("fav.browse")}</Link>
         </div>
-      ) : !lite ? (
-        <CardSkeleton count={3} />
-      ) : items.length === 0 ? (
+      ) : lite && items.length === 0 ? (
         <div className="empty fav-empty">
           <p>{t("fav.empty")}</p>
           <Link className="btn-browse" to="/">{t("fav.browse")}</Link>
         </div>
       ) : (
         <>
-          <div className="result-line">{t("fav.count", { n: items.length })}</div>
-          <div className="grid">
-            {items.map((item) => (
-              <PluginCard key={item.i} item={item} categories={categories} />
-            ))}
-          </div>
+          <div className="result-line">{t("fav.count", { n: count })}</div>
+          {!lite ? (
+            <CardSkeleton count={skeletonCount} />
+          ) : (
+            <div className="grid">
+              {items.map((item) => (
+                <PluginCard key={item.i} item={item} categories={categories} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </main>

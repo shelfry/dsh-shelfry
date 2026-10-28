@@ -1029,7 +1029,5 @@ a { color: inherit; text-decoration: none; }
 
 /* 分类筛选加载占位：沿用 .chip 的盒模型，把文字条塞进去，行高与真实 chip 一致 */
 .chip-skeleton { pointer-events: none; cursor: default; }
-.chip-skeleton .sk { height: 10px; }
-
-/* 分批渲染的观察哨兵：只用来判断是否接近列表尾部，本身不可见、不占高度 */
-.render-sentinel { height: 1px; }
+/* 真实 chip 实测高 32.5px：去掉上下内边距 6×2 与边框 1×2，灰条需 18.5px 才等高 */
+.chip-skeleton .sk { height: 18.5px; }
