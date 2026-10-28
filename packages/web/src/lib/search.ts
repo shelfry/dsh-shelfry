@@ -89,11 +89,23 @@ const MIN_STRICT_HITS = 60;
  * 分层后同名条目整组置顶，组内由综合分决定先后。
  */
 const TIER_ID_EXACT = -1;
+/** 名称同名：条目名就叫查询词。 */
+const TIER_NAME_EXACT = 0;
+/** 仓库同名：id 与查询全等，或仓库尾段就是查询词。 */
+const TIER_REPO_EXACT = 1;
+/** 作者同名：owner 段就是查询词，搜作者 ID 时该作者的仓库优先露出。 */
+const TIER_OWNER_EXACT = 2;
+/** 名称含短语：只蹭到名字里的片段，排在作者同名之后。 */
+const TIER_NAME_PHRASE = 3;
+/** id 含短语：作者与仓库名都不完全相等。 */
+const TIER_ID_PHRASE = 4;
+/** 标签含短语：最容易蹭到，层级最低。 */
+const TIER_TAG_PHRASE = 5;
 const TIER_NONE = 99;
 /** 没有短语级命中时退回字段权重打分，分数带排在所有分层之后。 */
-const TIER_WEIGHT_BASE = 5;
+const TIER_WEIGHT_BASE = 6;
 /** 部分命中（补齐用）的分数带，永远排在严格命中之后。 */
-const TIER_LOOSE_BASE = 7;
+const TIER_LOOSE_BASE = 8;
 
 interface QueryContext {
   /** 去重后的查询词，避免 owner/repo 的斜杠把同一个词重复计权。 */
@@ -188,7 +200,8 @@ function scoreEntry(entry: LiteEntry, tokens: string[]): EntryScore {
  * 判断条目命中的相关度层级。
  *
  * 入参 entry 为一条浏览切片，ctx 已含去重查询词与紧凑形态。
- * 返回值：-1 仓库 id 完全相符、0–4 短语级命中、TIER_NONE 表示只能靠字段权重排序。
+ * 返回值：-1 仓库 id 完全相符、0 名称同名、1 仓库同名、2 作者同名、
+ * 3–5 短语级命中、TIER_NONE 表示只能靠字段权重排序。
  */
 function tierOf(entry: LiteEntry, ctx: QueryContext): number {
   const id = entry.i.toLowerCase();
@@ -197,16 +210,22 @@ function tierOf(entry: LiteEntry, ctx: QueryContext): number {
 
   const nameCompact = compactForm(entry.n ?? "");
   // 同名条目的不同写法（dsh-market / dsh_market / dshmarket）视为同一个名字
-  if (nameCompact === ctx.compact) return 0;
+  if (nameCompact === ctx.compact) return TIER_NAME_EXACT;
 
+  // 尾段与作者段必须从原始 id 切分：compactForm 会把斜杠一起去掉，
+  // 直接在压缩串上找 "/" 得到的尾段会退化成整个 id
   const idCompact = compactForm(id);
-  const tail = idCompact.slice(idCompact.lastIndexOf("/") + 1);
-  if (idCompact === ctx.compact || tail === ctx.compact) return 1;
+  const slashAt = id.indexOf("/");
+  const tail = slashAt === -1 ? idCompact : compactForm(id.slice(slashAt + 1));
+  if (idCompact === ctx.compact || tail === ctx.compact) return TIER_REPO_EXACT;
 
-  if (nameCompact.includes(ctx.compact)) return 2;
-  if (idCompact.includes(ctx.compact)) return 3;
+  // 搜作者 ID 时该作者名下的仓库优先露出，不能输给名字里蹭到同一片段的克隆仓
+  if (slashAt > 0 && compactForm(id.slice(0, slashAt)) === ctx.compact) return TIER_OWNER_EXACT;
+
+  if (nameCompact.includes(ctx.compact)) return TIER_NAME_PHRASE;
+  if (idCompact.includes(ctx.compact)) return TIER_ID_PHRASE;
   // 标签逐个比较，避免「dsh」「market」两个独立标签被拼成短语
-  if ((entry.tg ?? []).some((tag) => compactForm(tag).includes(ctx.compact))) return 4;
+  if ((entry.tg ?? []).some((tag) => compactForm(tag).includes(ctx.compact))) return TIER_TAG_PHRASE;
   return TIER_NONE;
 }
 
@@ -236,9 +255,9 @@ export function createSearcher(lite: LiteEntry[]): Searcher {
    * 一次遍历同时收集严格命中与部分命中。
    *
    * 分数区间约定（rankHits 只比大小，从小到大）：
-   * - 短语级命中直接用层级当分数（-1 最优，0–4 依次靠后），层内按综合分排；
-   * - 只有字段权重命中的严格命中落在 [5, 6)；
-   * - 补齐用的部分命中落在 [7, 8)，永远排在严格命中之后。
+   * - 短语级命中直接用层级当分数（-1 最优，0–5 依次靠后），层内按综合分排；
+   * - 只有字段权重命中的严格命中落在 [6, 7)；
+   * - 补齐用的部分命中落在 [8, 9)，永远排在严格命中之后。
    */
   const scan = (ctx: QueryContext): { strict: SearchHit[]; loose: SearchHit[] } => {
     const { tokens } = ctx;

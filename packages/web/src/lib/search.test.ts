@@ -258,3 +258,28 @@ test("createSearcher：仓库全名与空格写法都必须把同址条目排第
   }
 });
 
+test("createSearcher：搜作者 ID 时该作者名下的仓库排在名字近似条目前面", () => {
+  // 只搜作者名：克隆仓的名称里就带 mattpocock，但不能靠名称层级反超原作者
+  const lite = [
+    { ...entry("mattpocock/skills", "skills", []), sc: 84 },
+    { ...entry("a/dsh-mattpocock-skills-deck", "dsh-mattpocock-skills-deck", ["skills"]), sc: 86 },
+    { ...entry("b/mattpocock-skills-dsh", "mattpocock-skills-dsh", ["skills"]), sc: 69 },
+  ];
+  const hits = rankHits(createSearcher(lite)("mattpocock"));
+  assert.deepEqual(hits.map((h) => h.item.i), [
+    "mattpocock/skills",
+    "a/dsh-mattpocock-skills-deck",
+    "b/mattpocock-skills-dsh",
+  ]);
+});
+
+test("createSearcher：仓库尾段同名仍按仓库层级，不受斜杠被压缩影响", () => {
+  // id 压缩后不含 "/"，尾段必须从原始 id 切分，否则这条会掉到名称含短语层级
+  const lite = [
+    { ...entry("owner-one/skills", "dsh-skills-kit", []), sc: 10 },
+    { ...entry("owner-two/other-skills-tool", "other-skills-tool", ["skills"]), sc: 99 },
+  ];
+  const hits = rankHits(createSearcher(lite)("skills"));
+  assert.equal(hits[0]?.item.i, "owner-one/skills");
+});
+
