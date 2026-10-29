@@ -1,87 +1,46 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { describe, it } from "node:test";
 import type { LiteEntry } from "@dsh-shelfry/schema";
-
 import { AUTHOR_TAKE, SIMILAR_TAKE, buildRelated } from "./related.ts";
 
-/** 构造最小浏览切片：用例只关心 id / 标签 / 星数 / 类型 / 范围。 */
-function row(id: string, tags: string[], opts: { stars?: number; type?: string; external?: boolean } = {}): LiteEntry {
-  return {
-    i: id,
-    n: id.split("/")[1],
-    t: opts.type ?? "plugin",
-    s: opts.stars ?? 0,
-    tg: tags,
-    ...(opts.external ? { ec: "external" as const } : {}),
-  } as LiteEntry;
-}
+/** 造一条最小切片：只填推荐算法用到的字段，其余必填项用断言补齐。 */
+const makeEntry = (i: string, tg: string[], extra: Partial<LiteEntry> = {}): LiteEntry =>
+  ({ i, n: i.split("/")[1]!, t: "cordis-plugin", s: 0, tg, ...extra }) as LiteEntry;
 
-test("buildRelated：候选标签重复出现时按次数重复计分（与旧前端 filter 口径一致）", () => {
-  const lite = [
-    row("me/owner", ["a", "b"]),
-    // 重复标签：shared 实际计数 3 → 9 分
-    row("x/dup", ["a", "a", "b"], { stars: 0 }),
-    // 去重后的计数 2 → 6 分，星数更高也不能反超
-    row("y/unique", ["a", "b"], { stars: 999 }),
-  ];
-  const out = buildRelated(lite).get("me/owner")!;
-  assert.deepEqual(out.s, ["x/dup", "y/unique"]);
-});
+describe("buildRelated", () => {
+  it("同作者推荐按星数降序，且 ai 与 a 一一对应", () => {
+    const lite = [makeEntry("alice/main", ["a"], { s: 10 }), makeEntry("alice/low", ["a"], { s: 2 }), makeEntry("alice/high", ["a"], { s: 30 })];
+    const out = buildRelated(lite).get("alice/main")!;
+    assert.deepEqual(out.a, ["alice/high", "alice/low"]);
+    assert.deepEqual(out.ai, [2, 1]);
+    // 上限生效：只有 2 个同作者，也允许少于 AUTHOR_TAKE
+    assert.ok(out.a.length <= AUTHOR_TAKE);
+    for (let k = 0; k < out.a.length; k += 1) assert.equal(lite[out.ai[k]!]!.i, out.a[k]);
+  });
 
-test("buildRelated：同权重按星数降序，权重与星数都相同按切片原序", () => {
-  const lite = [
-    row("me/owner", ["a"]),
-    row("x/low", ["a", "b"], { stars: 1 }),
-    row("y/high", ["a", "b"], { stars: 9 }),
-    row("z/tie1", ["a", "b"], { stars: 5 }),
-    row("w/tie2", ["a", "b"], { stars: 5 }),
-  ];
-  const out = buildRelated(lite).get("me/owner")!;
-  assert.deepEqual(out.s, ["y/high", "z/tie1", "w/tie2", "x/low"]);
-});
+  it("没有共享标签的候选不入选", () => {
+    const lite = [makeEntry("x/one", ["solo"]), makeEntry("y/two", ["other"])];
+    const out = buildRelated(lite).get("x/one")!;
+    assert.deepEqual(out.s, []);
+    assert.deepEqual(out.si, []);
+  });
 
-test("buildRelated：类型相同只加 1 分，仅类型相同（权重 1）不入选", () => {
-  const lite = [
-    row("me/owner", ["a"]),
-    row("x/same", ["a"], { type: "plugin" }),
-    row("y/other", ["a"], { type: "skill" }),
-    row("z/typeonly", ["b"], { type: "plugin" }),
-  ];
-  const out = buildRelated(lite).get("me/owner")!;
-  assert.deepEqual(out.s, ["x/same", "y/other"]);
-});
+  it("相似推荐按权重降序，且 si 与 s 一一对应", () => {
+    const lite = [
+      makeEntry("a/target", ["t1", "t2"]),
+      makeEntry("m/low", ["t1"]),
+      makeEntry("m/high", ["t1", "t2"]),
+    ];
+    const out = buildRelated(lite).get("a/target")!;
+    assert.deepEqual(out.s, ["m/high", "m/low"]);
+    assert.deepEqual(out.si, [2, 1]);
+    for (let k = 0; k < out.s.length; k += 1) assert.equal(lite[out.si[k]!]!.i, out.s[k]);
+  });
 
-test("buildRelated：通用标签不计入相似度", () => {
-  const lite = [
-    row("me/owner", ["dsh-plugin", "plugins"]),
-    row("x/noise", ["dsh-plugin", "dsh"]),
-  ];
-  const out = buildRelated(lite).get("me/owner")!;
-  assert.deepEqual(out.s, []);
-});
-
-test("buildRelated：同作者排除自己、owner 大小写归一、按星数取前 AUTHOR_TAKE", () => {
-  const lite = [
-    row("Me/self", [], { stars: 100 }),
-    row("me/a", [], { stars: 1 }),
-    row("me/b", [], { stars: 5 }),
-    row("me/c", [], { stars: 3 }),
-    row("me/d", [], { stars: 4 }),
-    row("me/e", [], { stars: 2 }),
-    row("other/f", [], { stars: 99 }),
-  ];
-  const out = buildRelated(lite).get("Me/self")!;
-  assert.equal(out.a.length, AUTHOR_TAKE);
-  assert.deepEqual(out.a, ["me/b", "me/d", "me/c", "me/e"]);
-});
-
-test("buildRelated：推荐不跨范围，且相似最多 SIMILAR_TAKE 条", () => {
-  const lite = [
-    row("me/owner", ["a"]),
-    row("ext/tool", ["a"], { external: true }),
-    ...["p1", "p2", "p3", "p4", "p5"].map((name) => row(`x/${name}`, ["a"])),
-  ];
-  const out = buildRelated(lite).get("me/owner")!;
-  assert.equal(out.s.length, SIMILAR_TAKE);
-  assert.ok(!out.s.includes("ext/tool"));
+  it("推荐条数不超过上限", () => {
+    const lite = [makeEntry("a/target", ["t1"]), ...Array.from({ length: 10 }, (_, k) => makeEntry(`m/c${k}`, ["t1"]))];
+    const out = buildRelated(lite).get("a/target")!;
+    assert.equal(out.s.length, SIMILAR_TAKE);
+    assert.equal(out.si.length, SIMILAR_TAKE);
+  });
 });

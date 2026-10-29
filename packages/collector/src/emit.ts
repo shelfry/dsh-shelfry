@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { INDEX_SHARD_COUNT, SCHEMA_VERSION, idmapShardId, indexShardId, toLiteEntry } from "@dsh-shelfry/schema";
-import { DATA_DIR, WEB_PUBLIC_DATA_DIR } from "./config.ts";
+import { DATA_DIR, PAGE_SIZE, WEB_PUBLIC_DATA_DIR } from "./config.ts";
 import { pickTop } from "./top.ts";
 import { RELATED_SHARD_SIZE, buildRelated } from "./related.ts";
 
@@ -21,7 +21,6 @@ import { RELATED_SHARD_SIZE, buildRelated } from "./related.ts";
  */
 
 const DETAIL_SHARD_SIZE = 100;
-const PAGE_SIZE = 60;
 /** id 反查表分片数：26k 条切成 64 片，单片约 14 KB raw，详情页只取命中片。 */
 const IDMAP_SHARD_COUNT = 64;
 
@@ -72,7 +71,7 @@ export function writeRelated(lite: LiteEntry[]): { size: number; count: number; 
   for (let start = 0; start < lite.length; start += RELATED_SHARD_SIZE) {
     const rows = lite
       .slice(start, start + RELATED_SHARD_SIZE)
-      .map((v) => related.get(v.i) ?? { a: [], s: [] });
+      .map((v) => related.get(v.i) ?? { a: [], s: [], ai: [], si: [] });
     writeJson(resolve(DATA_DIR, `related/${String(start / RELATED_SHARD_SIZE).padStart(4, "0")}.json`), rows);
   }
   return {

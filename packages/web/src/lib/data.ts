@@ -1,6 +1,6 @@
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { idmapShardId } from "@dsh-shelfry/schema";
-import { pagePlan } from "./page-plan";
+import { pagePlan, indexPagePlan } from "./page-plan";
 import { dataUrl } from "./data-url";
 import { pickCategories, type CatalogBootstrap } from "./bootstrap";
 import { resolveEntryId } from "./idmap";
@@ -67,7 +67,14 @@ export const bootstrapMeta = (): CatalogMeta | null => BOOTSTRAP?.meta ?? null;
 /** 首帧可直接使用的分类清单；缺失时为 null。 */
 export const bootstrapCategories = (scope: CatalogScope): Category[] | null => pickCategories(BOOTSTRAP, scope);
 
-const artifactsCache = { v: null as ArtifactIndex | null };
+/**
+ * 产物清单缓存。
+ *
+ * 存 Promise 而不是结果：首页会并发发起 loadArtifacts / loadMeta / loadPage，
+ * 若只缓存结果，几个调用点同时看到缓存为空，就会在同一瞬间各发一次
+ * artifacts.json（实测每次首屏稳定 2 条重复请求）。
+ */
+let artifactsPending: Promise<ArtifactIndex> | null = null;
 
 /**
  * 拉产物清单。默认 no-cache（每次回源校验），兜底重查传 reload 彻底绕过缓存。
@@ -75,16 +82,25 @@ const artifactsCache = { v: null as ArtifactIndex | null };
  * 清单决定本次会话所有分片的版本号：缓存到旧清单会让新数据的序号落到
  * 分片之外，详情页就会误报「仓库已下架」。
  */
-async function fetchArtifacts(cache: RequestCache): Promise<ArtifactIndex> {
-  const res = await fetch(dataUrl(BASE, "artifacts.json", ""), { cache, headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`拉取 artifacts.json 失败: HTTP ${res.status}`);
-  const value = (await res.json()) as ArtifactIndex;
-  dataVersion = value.generatedAt;
-  artifactsCache.v = value;
-  return value;
+function loadArtifactsWith(cache: RequestCache): Promise<ArtifactIndex> {
+  if (!artifactsPending) {
+    const pending = (async () => {
+      const res = await fetch(dataUrl(BASE, "artifacts.json", ""), { cache, headers: { accept: "application/json" } });
+      if (!res.ok) throw new Error(`拉取 artifacts.json 失败: HTTP ${res.status}`);
+      const value = (await res.json()) as ArtifactIndex;
+      dataVersion = value.generatedAt;
+      return value;
+    })();
+    // 失败不要把 rejected promise 留在缓存里，否则后续调用永远失败
+    pending.catch(() => {
+      if (artifactsPending === pending) artifactsPending = null;
+    });
+    artifactsPending = pending;
+  }
+  return artifactsPending;
 }
 
-export const loadArtifacts = async (): Promise<ArtifactIndex> => artifactsCache.v ?? (await fetchArtifacts("no-cache"));
+export const loadArtifacts = (): Promise<ArtifactIndex> => loadArtifactsWith("no-cache");
 
 const metaCache: { v: CatalogMeta | null } = { v: BOOTSTRAP?.meta ?? null };
 export const loadMeta = async (): Promise<CatalogMeta> => {
@@ -131,10 +147,39 @@ export const loadTop = async (): Promise<TopLists> => {
 interface RelatedLists {
   a: string[];
   s: string[];
+  /** 与 a 对应的全局序号（新产物才有，老产物缺失时回退 id 反查） */
+  ai?: number[];
+  /** 与 s 对应的全局序号 */
+  si?: number[];
 }
 
 /**
- * 详情页推荐：走「推荐分片拿 id → 分页文件拿卡片」两步，不再拉全量切片。
+ * 已知全局序号时直接取卡片：跳过 idmap 反查，只拉命中的分页文件。
+ *
+ * 出参 index → 卡片，越界序号或空位直接跳过（不阻塞整批）。
+ */
+async function loadEntriesAt(pages: ArtifactIndex["pages"], indexes: number[]): Promise<Map<number, LiteEntry>> {
+  const out = new Map<number, LiteEntry>();
+  const plan = indexPagePlan(indexes, pages.size);
+  const jobs = [...plan.entries()];
+  for (let i = 0; i < jobs.length; i += FAVORITES_CONCURRENCY) {
+    const batch = jobs.slice(i, i + FAVORITES_CONCURRENCY);
+    await Promise.all(
+      batch.map(async ([page, list]) => {
+        if (page >= pages.count) return;
+        const rows = await loadPage(page);
+        for (const gi of list) {
+          const row = rows[gi - page * pages.size];
+          if (row) out.set(gi, row);
+        }
+      }),
+    );
+  }
+  return out;
+}
+
+/**
+ * 详情页推荐：走「推荐分片拿 id/序号 → 分页文件拿卡片」两步，不再拉全量切片。
  *
  * 入参 id：条目 id；出参同作者与相似的卡片，顺序按构建期算好的权重。
  * 产物缺推荐分片（老版本构建）或条目不在 idmap 里时返回空，页面留空即可。
@@ -149,6 +194,21 @@ export async function loadRelated(id: string): Promise<{ byAuthor: LiteEntry[]; 
   const rows = await getJson<RelatedLists[]>(`related/${String(shard).padStart(4, "0")}.json`);
   const row = rows[index - shard * size];
   if (!row) return empty;
+
+  // 新产物随推荐一起下发了全局序号：直接算分页、取卡片，每张卡省一次 idmap 反查
+  const ai = row.ai ?? [];
+  const si = row.si ?? [];
+  if (ai.length === row.a.length && si.length === row.s.length) {
+    const cards = await loadEntriesAt(artifacts.pages, [...ai, ...si]);
+    // 序号与产物错位（旧 bundle 配新数据）时 id 对不上，改用 id 反查兜底
+    const matches = (ids: string[], at: number[]) => ids.every((x, k) => cards.get(at[k] as number)?.i === x);
+    if (matches(row.a, ai) && matches(row.s, si)) {
+      const pick = (ids: string[], at: number[]) =>
+        ids.map((x, k) => cards.get(at[k] as number)).filter((v): v is LiteEntry => !!v);
+      return { byAuthor: pick(row.a, ai), similar: pick(row.s, si) };
+    }
+  }
+
   const cards = await loadEntriesByIds([...row.a, ...row.s]);
   const pick = (ids: string[]) => ids.map((x) => cards.get(x)).filter((v): v is LiteEntry => !!v);
   return { byAuthor: pick(row.a), similar: pick(row.s) };
@@ -289,14 +349,14 @@ async function lookupEntry(artifacts: ArtifactIndex, id: string): Promise<Plugin
  * 会造成这种组合；正常的无效链接不该触发，否则每访问一个 404 都要重拉数据。
  */
 async function refreshDataCaches(): Promise<void> {
-  artifactsCache.v = null;
+  artifactsPending = null;
   idShardCache.clear();
   legacyIdMapPending = null;
   collectedIdsPending = null;
   shardCache.clear();
   liteCache = null;
   topCache.v = null;
-  await fetchArtifacts("reload");
+  await loadArtifactsWith("reload");
 }
 
 /**
@@ -307,9 +367,10 @@ async function refreshDataCaches(): Promise<void> {
 export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
   const found = await lookupEntry(artifacts, id);
   if (found) return found;
+  // 反查表也查不到，说明这个仓库确实没收录：不触发回源重取
   if ((await lookupIndex(artifacts, id)) === undefined) return null;
   await refreshDataCaches();
-  return lookupEntry(artifactsCache.v!, id);
+  return lookupEntry(await loadArtifacts(), id);
 }
 
 let collectedIdsPending: Promise<Set<string>> | null = null;

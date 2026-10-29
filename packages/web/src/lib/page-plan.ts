@@ -38,3 +38,23 @@ export function pagePlan(idmap: Record<string, number>, ids: string[], pageSize:
   }
   return { pages, missing };
 }
+
+/**
+ * 已知全局序号时按分页分组，保证同一个分片只请求一次。
+ *
+ * 与 pagePlan 的区别：这里省掉 idmap 反查（序号已随推荐产物一起下发）。
+ * 非法序号（负数、非整数、重复）直接忽略，避免构造出越界分片请求。
+ */
+export function indexPagePlan(indexes: number[], pageSize: number): Map<number, number[]> {
+  const pages = new Map<number, number[]>();
+  const seen = new Set<number>();
+  for (const index of indexes) {
+    if (!Number.isInteger(index) || index < 0 || seen.has(index)) continue;
+    seen.add(index);
+    const page = Math.floor(index / pageSize);
+    const bucket = pages.get(page);
+    if (bucket) bucket.push(index);
+    else pages.set(page, [index]);
+  }
+  return pages;
+}

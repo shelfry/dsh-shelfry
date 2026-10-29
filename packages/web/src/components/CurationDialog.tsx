@@ -197,14 +197,12 @@ export function CurationDialog({
     setBusy(true);
     setNotice(null);
     try {
-      const [next, ids] = await Promise.all([
-        post({ action: "auth", password }),
-        // 名单状态是锦上添花：拉不到也不影响解锁和写操作
-        loadCollectedIds().catch(() => null),
-      ]);
+      // 先解锁再拉名单：密码错时不该白下载 400 KB 的反查表
+      const next = await post({ action: "auth", password });
       setLists(next);
-      setCollected(ids);
       setAuthed(true);
+      // 名单状态是锦上添花：拉不到也不影响解锁和写操作
+      setCollected(await loadCollectedIds().catch(() => null));
     } catch (err) {
       const status = (err as { status?: number }).status;
       setNotice({

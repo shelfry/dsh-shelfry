@@ -36,10 +36,18 @@ const NOISE_TAGS = new Set([
   "plugins",
 ]);
 
-/** 单条目的推荐 id 列表：a = 同作者，s = 相似。 */
+/**
+ * 单条目的推荐列表。
+ *
+ * a / s 是 id（跨版本稳定的唯一标识），ai / si 是同一批条目在全量切片里的全局序号。
+ * 前端拿序号可以直接算出分页文件、跳过 idmap 反查（每张卡省一次请求）；
+ * 但同时保留 id，取回后用 id 校验，序号与产物错位（旧 bundle 配新数据）时能回退。
+ */
 export interface RelatedLists {
   a: string[];
   s: string[];
+  ai: number[];
+  si: number[];
 }
 
 /** 条目 id 的 owner 段（GitHub 侧不区分大小写，统一小写比较）。 */
@@ -124,9 +132,11 @@ export function buildRelated(lite: LiteEntry[]): Map<string, RelatedLists> {
     const scope = scopes[i]!;
     const ownerGroup = ownerGroups.get(`${scope}|${owners[i]!}`) ?? [];
     const author: string[] = [];
+    const authorIndex: number[] = [];
     for (const j of ownerGroup) {
       if (j === i) continue;
       author.push(ids[j]!);
+      authorIndex.push(j);
       if (author.length === AUTHOR_TAKE) break;
     }
 
@@ -156,15 +166,16 @@ export function buildRelated(lite: LiteEntry[]): Map<string, RelatedLists> {
       return wb - wa || stars[b]! - stars[a]! || a - b;
     });
 
-    const similar: string[] = [];
+    const picked: number[] = [];
     for (const j of candidates) {
       const weight = weights[j]! + (types[j] === types[i] ? 1 : 0);
       if (weight < 3) continue;
-      similar.push(ids[j]!);
-      if (similar.length === SIMILAR_TAKE) break;
+      picked.push(j);
+      if (picked.length === SIMILAR_TAKE) break;
     }
+    const similar = picked.map((j) => ids[j]!);
 
-    out.set(ids[i]!, { a: author, s: similar });
+    out.set(ids[i]!, { a: author, s: similar, ai: authorIndex, si: picked });
   }
   return out;
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { pagePlan } from "./page-plan.ts";
+import { indexPagePlan, pagePlan } from "./page-plan.ts";
 
 /** 三页的分页表：索引 0/1 在第一页，60/119 在第二页，120 在第三页。 */
 const idmap: Record<string, number> = {
@@ -38,4 +38,23 @@ test("pagePlan：空收藏返回空计划", () => {
   const plan = pagePlan(idmap, [], 60);
   assert.equal(plan.pages.size, 0);
   assert.deepEqual(plan.missing, []);
+});
+
+test("indexPagePlan：已知序号按页聚合，同页只请求一次", () => {
+  const plan = indexPagePlan([0, 1, 60, 119, 120], 60);
+  assert.deepEqual([...plan.entries()], [
+    [0, [0, 1]],
+    [1, [60, 119]],
+    [2, [120]],
+  ]);
+});
+
+test("indexPagePlan：重复与非法序号被忽略", () => {
+  const plan = indexPagePlan([5, 5, -1, 1.5, Number.NaN], 60);
+  assert.deepEqual([...plan.entries()], [[0, [5]]]);
+});
+
+test("indexPagePlan：空输入返回空计划", () => {
+  const plan = indexPagePlan([], 60);
+  assert.equal(plan.size, 0);
 });
