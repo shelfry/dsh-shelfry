@@ -1,4 +1,5 @@
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
+import { pagePlan } from "./page-plan";
 import { pickCategories, type CatalogBootstrap } from "./bootstrap";
 import { resolveEntryId } from "./idmap";
 
@@ -83,6 +84,80 @@ export const loadCategories = (scope: CatalogScope = "plugins"): Promise<Categor
   });
 };
 export const loadPage = (page: number) => getJson<LiteEntry[]>(`pages/${String(page).padStart(4, "0")}.json`);
+
+/** 榜单三个页签的切片（构建期已排好序，每个页签 50 条）。 */
+export interface TopLists {
+  stars: LiteEntry[];
+  recent: LiteEntry[];
+  score: LiteEntry[];
+}
+
+const topCache = { v: null as TopLists | null };
+/**
+ * 榜单页专用：只用约 150 条，没必要为它拉全量 lite.json（约 1 MB br）。
+ * 排序在构建期完成，前端拿到的顺序即最终顺序。
+ */
+export const loadTop = async (): Promise<TopLists> => {
+  if (!topCache.v) topCache.v = await getJson<TopLists>("top.json");
+  return topCache.v;
+};
+
+/** 单条目的推荐 id 列表：a = 同作者，s = 相似。 */
+interface RelatedLists {
+  a: string[];
+  s: string[];
+}
+
+/**
+ * 详情页推荐：走「推荐分片拿 id → 分页文件拿卡片」两步，不再拉全量切片。
+ *
+ * 入参 id：条目 id；出参同作者与相似的卡片，顺序按构建期算好的权重。
+ * 产物缺推荐分片（老版本构建）或条目不在 idmap 里时返回空，页面留空即可。
+ */
+export async function loadRelated(id: string): Promise<{ byAuthor: LiteEntry[]; similar: LiteEntry[] }> {
+  const empty = { byAuthor: [] as LiteEntry[], similar: [] as LiteEntry[] };
+  const [idmap, artifacts] = await Promise.all([loadIdMap(), loadArtifacts()]);
+  const index = idmap[id];
+  if (index === undefined || !artifacts.related) return empty;
+  const { size } = artifacts.related;
+  const shard = Math.floor(index / size);
+  const rows = await getJson<RelatedLists[]>(`related/${String(shard).padStart(4, "0")}.json`);
+  const row = rows[index - shard * size];
+  if (!row) return empty;
+  const cards = await loadEntriesByIds([...row.a, ...row.s]);
+  const pick = (ids: string[]) => ids.map((x) => cards.get(x)).filter((v): v is LiteEntry => !!v);
+  return { byAuthor: pick(row.a), similar: pick(row.s) };
+}
+
+/** 同一时刻最多并发几个分片请求，避免收藏很多时一次打满连接池。 */
+const FAVORITES_CONCURRENCY = 6;
+
+/**
+ * 收藏页取数：按 id 只拉命中的分页文件，不再拉全量切片。
+ *
+ * 入参 ids：收藏 id 列表；出参 id → 完整卡片数据，查不到的 id 不出现在结果里。
+ * 与详情页共用 idmap 和 pages 产物，两者都不需要额外维护。
+ */
+export async function loadEntriesByIds(ids: string[]): Promise<Map<string, LiteEntry>> {
+  const out = new Map<string, LiteEntry>();
+  if (!ids.length) return out;
+  const [idmap, artifacts] = await Promise.all([loadIdMap(), loadArtifacts()]);
+  const { pages } = pagePlan(idmap, ids, artifacts.pages.size);
+  const jobs = [...pages.entries()];
+  for (let i = 0; i < jobs.length; i += FAVORITES_CONCURRENCY) {
+    const batch = jobs.slice(i, i + FAVORITES_CONCURRENCY);
+    await Promise.all(
+      batch.map(async ([page, indexes]) => {
+        const rows = await loadPage(page);
+        for (const gi of indexes) {
+          const row = rows[gi - page * artifacts.pages.size];
+          if (row) out.set(row.i, row);
+        }
+      }),
+    );
+  }
+  return out;
+}
 
 /** lite 切片里 external 用短键 ec 标记；缺失即 DSH 插件。 */
 export const isExternal = (e: LiteEntry): boolean => e.ec === "external";

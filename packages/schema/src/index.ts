@@ -126,6 +126,8 @@ export interface ArtifactIndex {
   index: { shardCount: number; shards: Array<{ id: number; file: string; tokens: number }> };
   /** 浏览分页文件：首屏只拉第 0 页。 */
   pages: { size: number; count: number; filePattern: string };
+  /** 详情页推荐关系分片（同作者 / 相似 id 列表），老产物可能没有。 */
+  related?: { size: number; count: number; filePattern: string };
   /** 中文意图词典文件（零 token 自建）。 */
   intents: string | null;
 }

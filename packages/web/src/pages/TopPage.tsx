@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import type { CatalogMeta, LiteEntry } from "@dsh-shelfry/schema";
+import { useEffect, useState } from "react";
+import type { CatalogMeta } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
-import { loadLite, loadMeta } from "../lib/data";
+import { loadTop, loadMeta, type TopLists } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, relativeTime, versionLabel } from "../components/PluginCard";
 import { RankSkeleton } from "../components/CardSkeleton";
 import { detailPath } from "../lib/data";
@@ -11,7 +11,8 @@ import { SEO_SITE_NAME, useSeo } from "../lib/seo";
 /**
  * 榜单页（#/top）：星标 / 最近更新 / 精选。
  *
- * 数据全部来自浏览切片 lite —— 首页本来就要拉它做检索，这里复用同一份，不额外加产物。
+ * 数据来自构建期预生成的 top.json（约 17 KB br），不再拉全量浏览切片：
+ * 榜单只要 150 条，为一个页面下载 1 MB 不划算。排序在构建期完成，这里直接取。
  */
 
 type Tab = "stars" | "recent" | "score";
@@ -27,7 +28,7 @@ const TAB_KEY: Record<Tab, { label: "top.tab.stars" | "top.tab.recent" | "top.ta
 const TAB_ORDER: Tab[] = ["stars", "recent", "score"];
 
 export default function TopPage() {
-  const [lite, setLite] = useState<LiteEntry[] | null>(null);
+  const [top, setTop] = useState<TopLists | null>(null);
   const [meta, setMeta] = useState<CatalogMeta | null>(null);
   const [tab, setTab] = useState<Tab>("stars");
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +42,8 @@ export default function TopPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [l, m] = await Promise.all([loadLite(), loadMeta()]);
-        setLite(l);
+        const [list, m] = await Promise.all([loadTop(), loadMeta()]);
+        setTop(list);
         setMeta(m);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -50,15 +51,8 @@ export default function TopPage() {
     })();
   }, []);
 
-  const rows = useMemo(() => {
-    if (!lite) return [];
-    // 榜单只排 DSH 插件：独立工具不是插件，混进来会把整个榜的语义打乱
-    const list = lite.filter((v) => v.ec !== "external");
-    if (tab === "stars") list.sort((a, b) => b.s - a.s || b.sc - a.sc);
-    else if (tab === "recent") list.sort((a, b) => (b.p ?? "").localeCompare(a.p ?? "") || b.s - a.s);
-    else list.sort((a, b) => b.sc - a.sc || b.s - a.s);
-    return list.slice(0, TOP_N);
-  }, [lite, tab]);
+  // 三个页签的排序在构建期已经排好，这里只取对应切片，不再重复排序
+  const rows = top ? top[tab] : [];
 
   if (error) {
     return <main className="wrap"><div className="empty">{t("common.dataError", { msg: error })}</div></main>;
@@ -83,7 +77,7 @@ export default function TopPage() {
         <p className="hint" style={{ marginTop: 10 }}>{t(TAB_KEY[tab].hint)}</p>
       </section>
 
-      {!lite ? (
+      {!top ? (
         <RankSkeleton count={TOP_N} />
       ) : rows.length === 0 ? (
         <div className="empty">{t("top.empty")}</div>

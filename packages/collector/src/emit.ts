@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { INDEX_SHARD_COUNT, SCHEMA_VERSION, indexShardId, toLiteEntry } from "@dsh-shelfry/schema";
 import { DATA_DIR, WEB_PUBLIC_DATA_DIR } from "./config.ts";
+import { pickTop } from "./top.ts";
+import { RELATED_SHARD_SIZE, buildRelated } from "./related.ts";
 
 /**
  * 产物生成。目标：首屏只拉「一小片」，全站 13k 条也不拖垮低端机。
@@ -10,6 +12,7 @@ import { DATA_DIR, WEB_PUBLIC_DATA_DIR } from "./config.ts";
  * 产物结构（全部落在 .data/，不进 git）：
  *   lite.json                     浏览切片（短键名，全量，按分数序）—— 搜索用
  *   pages/<NNNN>.json             分页浏览切片 —— 首屏只拉 0000
+ *   top.json                      榜单三个页签各 50 条 —— 榜单页专用
  *   meta.json                     站点元信息 + 三档计数
  *   catalog/<NNN>.json            明细分片（详情页按需拉）
  *   index/<NNN>.json              倒排索引分片（token 哈希落片，搜索时只载命中片）
@@ -45,6 +48,34 @@ export function buildMeta(
     types,
     sources: [...sources].sort(),
     ...(collectSource ? { collectSource } : {}),
+  };
+}
+
+/** 榜单产物：写一个几十 KB 的 top.json，榜单页单独拉取。 */
+export function writeTop(lite: LiteEntry[]): string {
+  const file = resolve(DATA_DIR, "top.json");
+  writeJson(file, pickTop(lite));
+  return file;
+}
+
+/**
+ * 推荐关系产物：每条目只存「同作者 4 个 id + 相似 4 个 id」。
+ *
+ * 分片按全局序号对齐（每片 RELATED_SHARD_SIZE 条），前端拿到序号后取对应片即可。
+ * 这样详情页不再为了 8 条推荐去下载全量切片，它们改为按 id 去分页文件取卡片。
+ */
+export function writeRelated(lite: LiteEntry[]): { size: number; count: number; filePattern: string } {
+  const related = buildRelated(lite);
+  for (let start = 0; start < lite.length; start += RELATED_SHARD_SIZE) {
+    const rows = lite
+      .slice(start, start + RELATED_SHARD_SIZE)
+      .map((v) => related.get(v.i) ?? { a: [], s: [] });
+    writeJson(resolve(DATA_DIR, `related/${String(start / RELATED_SHARD_SIZE).padStart(4, "0")}.json`), rows);
+  }
+  return {
+    size: RELATED_SHARD_SIZE,
+    count: Math.max(1, Math.ceil(lite.length / RELATED_SHARD_SIZE)),
+    filePattern: "related/{shard}.json",
   };
 }
 
