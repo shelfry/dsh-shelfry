@@ -29,6 +29,8 @@ const ZH = {
   "common.copied": "已复制",
   "common.collapse": "收起",
   "common.close": "关闭",
+  "common.confirm": "确认",
+  "common.cancel": "取消",
   "common.all": "全部",
   "common.plugin": "插件",
   "common.plugins": "插件",
@@ -75,7 +77,6 @@ const ZH = {
   "home.loadMore": "加载更多（已显示 {shown} / {total}）",
   "home.end": "已经到底了",
 
-  "filters.all": "全部",
   "filters.type": "类型",
   "filters.stars": "星标",
   "filters.compat": "兼容",
@@ -221,7 +222,6 @@ const ZH = {
   "top.hint.recent": "按仓库最近提交时间排序，反映还在维护",
   "top.hint.score": "按综合推荐分排序：生态热度、维护活跃、信息完整、上手便捷四项加权",
   "top.meta": "收录 {n} 个插件 · 展示前 {top}",
-  "top.loading": "正在加载榜单…",
   "top.empty": "这个榜单暂时没有条目。",
 
   "submit.title": "提交插件或工具",
@@ -295,8 +295,6 @@ const ZH = {
   "curation.pruned": "已归档 {n} 条已收录条目，它们仍会继续收录，不会掉出站点。",
   "curation.unqueue": "撤销收录",
   "curation.restore": "恢复收录",
-  "curation.loading": "正在读取名单…",
-  "curation.loadFailed": "读取名单失败：{msg}",
   "curation.badRepo": "地址格式不对，需要形如 owner/repo。",
   "curation.needPassword": "请先填写管理密码。",
   "curation.wrongPassword": "密码不对。",
@@ -307,6 +305,10 @@ const ZH = {
   "curation.blockHint": "剔除会记录在这里，下次构建从站点移除；点「恢复收录」可一键回到队列，重新上线。",
   "curation.restored": "已恢复收录，下次构建生效。",
   "curation.failed": "操作失败：{msg}",
+  "curation.confirmDismiss": "忽略会删除这条申请，确定？",
+  "curation.confirmUnqueue": "撤销后不再强制收录，确定？",
+  "curation.confirmPrune": "清理 {n} 条已收录记录，确定？",
+  "curation.confirmBlock": "剔除后 {repo} 将在下次构建下线，确定？",
 
   "footer.source": "收录数据来自 GitHub，每日自动刷新",
   "footer.updated": "数据 {time} 更新",
@@ -316,7 +318,6 @@ const ZH = {
   "fav.title": "收藏",
   "fav.intro": "收藏保存在这台设备的浏览器里，换设备或清除浏览器数据会丢失。",
   "fav.count": "{n} 个收藏",
-  "fav.loading": "正在加载收藏…",
   "fav.empty": "还没有收藏。在卡片或详情页点星标即可加入。",
   "fav.browse": "去首页逛逛",
   "fav.save": "收藏",
@@ -337,6 +338,8 @@ const EN: Record<TKey, string> = {
   "common.copied": "Copied",
   "common.collapse": "Collapse",
   "common.close": "Close",
+  "common.confirm": "Confirm",
+  "common.cancel": "Cancel",
   "common.all": "All",
   "common.plugin": "Plugin",
   "common.plugins": "Plugins",
@@ -383,7 +386,6 @@ const EN: Record<TKey, string> = {
   "home.loadMore": "Load more ({shown} / {total} shown)",
   "home.end": "No more results",
 
-  "filters.all": "All",
   "filters.type": "Type",
   "filters.stars": "Stars",
   "filters.compat": "Compat",
@@ -529,7 +531,6 @@ const EN: Record<TKey, string> = {
   "top.hint.recent": "Ranked by last commit, reflecting ongoing maintenance",
   "top.hint.score": "Ranked by overall score: popularity, maintenance, completeness, and convenience",
   "top.meta": "{n} plugins · top {top}",
-  "top.loading": "Loading leaderboard…",
   "top.empty": "No entries in this ranking yet.",
 
   "submit.title": "Submit a plugin or tool",
@@ -603,8 +604,6 @@ const EN: Record<TKey, string> = {
   "curation.pruned": "Archived {n} indexed entries — they stay force-included and will not drop out of the catalog.",
   "curation.unqueue": "Undo",
   "curation.restore": "Restore",
-  "curation.loading": "Loading lists…",
-  "curation.loadFailed": "Could not load lists: {msg}",
   "curation.badRepo": "Invalid URL — expected owner/repo.",
   "curation.needPassword": "Enter the admin password first.",
   "curation.wrongPassword": "Wrong password.",
@@ -615,6 +614,10 @@ const EN: Record<TKey, string> = {
   "curation.blockHint": "Blocked repos are recorded here and removed from the catalog on the next build. “Restore” puts one back in the queue.",
   "curation.restored": "Restored — effective from the next build.",
   "curation.failed": "Request failed: {msg}",
+  "curation.confirmDismiss": "Ignoring deletes this request. Continue?",
+  "curation.confirmUnqueue": "Remove this repo from the inclusion queue?",
+  "curation.confirmPrune": "Clear {n} indexed queue entries?",
+  "curation.confirmBlock": "Take {repo} offline on the next build?",
 
   "footer.source": "Catalog sourced from GitHub, refreshed daily",
   "footer.updated": "Data updated {time}",
@@ -624,7 +627,6 @@ const EN: Record<TKey, string> = {
   "fav.title": "Saved",
   "fav.intro": "Saved items live in this browser on this device. Switching devices or clearing browser data removes them.",
   "fav.count": "{n} saved",
-  "fav.loading": "Loading saved items…",
   "fav.empty": "Nothing saved yet. Tap the star on any card or detail page to add it.",
   "fav.browse": "Browse the catalog",
   "fav.save": "Save",
@@ -650,9 +652,6 @@ export function translate(lang: Lang, key: TKey, vars?: Vars): string {
   }
   return text;
 }
-
-/** 给非组件模块用的当前语言（如相对时间格式化）。 */
-export const currentLanguage = (): Lang => currentLang;
 
 const subscribe = (fn: () => void): (() => void) => {
   listeners.add(fn);

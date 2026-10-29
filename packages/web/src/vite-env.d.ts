@@ -15,3 +15,6 @@ declare const __SITE__: {
   dataBaseUrl: string;
   license: string;
 };
+
+/** 构建期从 public/data 内联的首屏筛选数据；数据文件缺失时为 null。 */
+declare const __CATALOG_BOOTSTRAP__: import("./lib/bootstrap").CatalogBootstrap | null;

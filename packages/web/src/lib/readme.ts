@@ -17,21 +17,28 @@ const TIMEOUT_MS = 9000;
 /** 仓库名里的 # 之类会影响 URL，逐段编码。 */
 const encodeRepo = (fullName: string) => fullName.split("/").map(encodeURIComponent).join("/");
 
+/**
+ * 依次探测常见 README 文件名。
+ *
+ * 五个候选名并行发请求：串行最坏要 5 × 9s 才判定「没有 README」，
+ * 并行后最坏只有 9s；结果按 CANDIDATES 顺序取第一个非空，优先级不变。
+ */
 async function fetchReadme(fullName: string): Promise<string | null> {
-  for (const name of CANDIDATES) {
-    try {
-      const res = await fetch(`${RAW}/${encodeRepo(fullName)}/HEAD/${name}`, {
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      if (res.ok) {
+  const texts = await Promise.all(
+    CANDIDATES.map(async (name) => {
+      try {
+        const res = await fetch(`${RAW}/${encodeRepo(fullName)}/HEAD/${name}`, {
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        if (!res.ok) return null;
         const text = await res.text();
-        if (text.trim()) return text;
+        return text.trim() ? text : null;
+      } catch {
+        return null;
       }
-    } catch {
-      // 换下一个文件名继续试
-    }
-  }
-  return null;
+    }),
+  );
+  return texts.find((t) => t) ?? null;
 }
 
 /** 把 README 里的相对图片/链接改成绝对地址，否则在站点上全是裂图。 */

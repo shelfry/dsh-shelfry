@@ -1,10 +1,13 @@
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
+import { pickCategories, type CatalogBootstrap } from "./bootstrap";
+import { resolveEntryId } from "./idmap";
 
 /**
  * 数据层：只读静态产物，无后端。
  *
- * 路径全部走 BASE_URL（base './'）⇒ 换域名 / 换子路径部署都不需要改一行代码。
- * 首屏只拉「清单 + 元信息 + 分类 + 第 0 页」四个小文件；
+ * 路径全部走 BASE_URL（base '/'）⇒ 换域名部署不需要改一行代码。
+ * 元信息与分类清单一并在构建期内联进 JS（见 bootstrap.ts），首屏不再为它们发请求；
+ * 第 0 页数据在首屏拉取；
  * 全量切片只在搜索/筛选时才拉，明细分片只在打开详情页时才拉。
  */
 
@@ -40,19 +43,35 @@ export interface Category {
 /** 首页的两个浏览范围：DSH 插件 / 非 DSH 独立工具。 */
 export type CatalogScope = "plugins" | "tools";
 
+/**
+ * 内联数据；数据文件缺失（未跑 collector）时为 null，退回运行时 fetch。
+ */
+const BOOTSTRAP: CatalogBootstrap | null = __CATALOG_BOOTSTRAP__;
+
+/** 首帧可直接使用的总量信息；缺失时为 null。 */
+export const bootstrapMeta = (): CatalogMeta | null => BOOTSTRAP?.meta ?? null;
+
+/** 首帧可直接使用的分类清单；缺失时为 null。 */
+export const bootstrapCategories = (scope: CatalogScope): Category[] | null => pickCategories(BOOTSTRAP, scope);
+
 const artifactsCache = { v: null as ArtifactIndex | null };
 export const loadArtifacts = async (): Promise<ArtifactIndex> => {
   if (!artifactsCache.v) artifactsCache.v = await getJson<ArtifactIndex>("artifacts.json");
   return artifactsCache.v;
 };
 
-const metaCache = { v: null as CatalogMeta | null };
+const metaCache: { v: CatalogMeta | null } = { v: BOOTSTRAP?.meta ?? null };
 export const loadMeta = async (): Promise<CatalogMeta> => {
   if (!metaCache.v) metaCache.v = await getJson<CatalogMeta>("meta.json");
   return metaCache.v;
 };
 
 const categoryCache = new Map<CatalogScope, Category[]>();
+// 有内联数据时直接预置缓存：loadCategories 命中缓存，不再发请求
+if (BOOTSTRAP) {
+  categoryCache.set("plugins", BOOTSTRAP.categories);
+  categoryCache.set("tools", BOOTSTRAP.categoriesTools);
+}
 /** 分类清单按范围分成两份：插件与工具的标签规模差太多，不能共用一张表。 */
 export const loadCategories = (scope: CatalogScope = "plugins"): Promise<Category[]> => {
   const cached = categoryCache.get(scope);
@@ -98,10 +117,12 @@ const loadIdMap = async (): Promise<Record<string, number>> => {
   return idMapCache;
 };
 
-/** 直达详情页时用：把 owner/repo 翻成全局序号。 */
+/** 直达详情页时用：把 owner/repo 翻成全局序号（大小写不一致也能命中）。 */
 export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
   const map = await loadIdMap();
-  const index = map[id];
+  const key = resolveEntryId(map, id);
+  if (!key) return null;
+  const index = map[key];
   if (index === undefined) return null;
   return loadEntryAt(artifacts, index);
 }

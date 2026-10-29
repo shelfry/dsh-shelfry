@@ -25,7 +25,7 @@ function beijingTime(iso?: string): string {
  * 应用外壳：头部 + 路由 + 页脚。
  *
  * 路由：列表（/）、详情（/p/:id）、榜单（/top）、收藏（/favorites）、提交（/submit）。
- * 用 hash 路由是因为 GitHub Pages 没有服务端 rewrite —— 用 history 路由刷新 /p/xxx 会直接 404。
+ * 用 BrowserRouter（history 路由）：Cloudflare Pages 有 SPA 回退，刷新 /p/xxx 不会 404。
  */
 export default function App() {
   const [meta, setMeta] = useState<CatalogMeta | null>(null);

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
 import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, type Category } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, PluginCard, relativeTime, versionLabel } from "../components/PluginCard";
@@ -9,6 +9,7 @@ import { DEFAULT_PROFILE, applyProfile, useProfile } from "../lib/install";
 import { ProfilePicker } from "../components/ProfilePicker";
 import { RobotMark } from "../components/RobotMark";
 import { StarButton } from "../components/StarButton";
+import { DetailSkeleton, ReadmeSkeleton } from "../components/DetailSkeleton";
 import { meaningfulTags } from "../lib/labels";
 import { loadReadme, type ReadmeResult } from "../lib/readme";
 import { useT } from "../lib/i18n";
@@ -41,6 +42,7 @@ const METHOD_SHORT: Record<MethodKey, "methodShort.pnpm-profile" | "methodShort.
 export default function DetailPage() {
   // route 是 /p/*：splat 取出 owner/repo（可能是 %2F 形式，这里统一解码）
   const params = useParams();
+  const navigate = useNavigate();
   const raw = params["*"] ?? "";
   const decoded = (() => {
     try { return decodeURIComponent(raw); } catch { return raw; }
@@ -61,6 +63,18 @@ export default function DetailPage() {
   const [tagsOpen, setTagsOpen] = useState(false);
   const [overflowTags, setOverflowTags] = useState(0);
   const { t } = useT();
+  // 分类名集合提到组件级：每次渲染都新建 Set 会让 PluginCard 的 memo 全部失效
+  const categorySet = useMemo(() => new Set(categories.map((c) => c.t)), [categories]);
+  // 复制反馈的定时器：连点时先清掉上一个，避免旧定时器提前抹掉新提示
+  const copyTimer = useRef<number | null>(null);
+  const pkgTimer = useRef<number | null>(null);
+  const assistantTimer = useRef<number | null>(null);
+  // 卸载时清掉未触发的复制反馈定时器，避免对已卸载组件 setState
+  useEffect(() => () => {
+    for (const ref of [copyTimer, pkgTimer, assistantTimer]) {
+      if (ref.current) window.clearTimeout(ref.current);
+    }
+  }, []);
   // 详情加载完再用条目自己的名字与简介覆盖默认标题，搜索引擎看到的就是这一条
   const seoDescription = (entry ? entry.descriptionZh ?? entry.description ?? SEO_DEFAULT_DESCRIPTION : SEO_DEFAULT_DESCRIPTION).slice(0, 160);
   useSeo({
@@ -128,14 +142,18 @@ export default function DetailPage() {
         const artifacts = await loadArtifacts();
         const found = await loadEntryById(artifacts, decoded);
         if (cancelled) return;
-        if (found) { setEntry(found); setState("ok"); }
-        else setState("missing");
+        if (found) {
+          setEntry(found);
+          setState("ok");
+          // 大小写兜底命中时把地址换成 GitHub 原始写法，保证复制出去的链接与仓库一致
+          if (found.id !== decoded) navigate(`/p/${found.id}`, { replace: true });
+        } else setState("missing");
       } catch {
         if (!cancelled) setState("error");
       }
     })();
     return () => { cancelled = true; };
-  }, [decoded]);
+  }, [decoded, navigate]);
 
   // README 与相似插件都依赖 entry，进页面后再异步补 —— 主信息先出来，别让用户干等
   useEffect(() => {
@@ -213,7 +231,8 @@ export default function DetailPage() {
     if (!shownCommand) return;
     if (await copyText(shownCommand)) {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1600);
     }
   };
 
@@ -222,7 +241,8 @@ export default function DetailPage() {
     if (!pkg) return;
     if (await copyText(pkg)) {
       setCopiedPkg(true);
-      setTimeout(() => setCopiedPkg(false), 1600);
+      if (pkgTimer.current) window.clearTimeout(pkgTimer.current);
+      pkgTimer.current = window.setTimeout(() => setCopiedPkg(false), 1600);
     }
   };
 
@@ -231,12 +251,19 @@ export default function DetailPage() {
     const ok = await copyText(assistantPrompt({ name: entry.name, repo: entry.fullName, command: shownCommand }));
     if (ok) {
       setCopiedAssistant(true);
-      setTimeout(() => setCopiedAssistant(false), 1600);
+      if (assistantTimer.current) window.clearTimeout(assistantTimer.current);
+      assistantTimer.current = window.setTimeout(() => setCopiedAssistant(false), 1600);
     }
   };
 
   if (state === "loading") {
-    return <main className="wrap detail"><div className="empty">{t("detail.loading")}</div></main>;
+    return (
+      <main className="wrap detail">
+        {/* 骨架对读屏器隐藏，加载状态用这段文字播报 */}
+        <span className="sr-only" role="status">{t("detail.loading")}</span>
+        <DetailSkeleton />
+      </main>
+    );
   }
   if (state === "missing" || state === "error") {
     return (
@@ -475,7 +502,12 @@ export default function DetailPage() {
 
       <section className="panel">
         <h2>{t("detail.readme")}</h2>
-        {readme === "loading" && <p className="hint" style={{ marginTop: 0 }}>{t("detail.readme.loading")}</p>}
+        {readme === "loading" && (
+          <>
+            <span className="sr-only" role="status">{t("detail.readme.loading")}</span>
+            <ReadmeSkeleton />
+          </>
+        )}
         {readme === null && (
           <p className="hint" style={{ marginTop: 0 }}>
             {t("detail.readme.missing.pre")}<a href={`https://github.com/${entry.fullName}`} target="_blank" rel="noreferrer">{t("detail.readme.missing.link")}</a>。
@@ -500,7 +532,7 @@ export default function DetailPage() {
           <h2>{t(isTool ? "detail.byAuthor.tools" : "detail.byAuthor.plugins")}</h2>
           <div className="grid grid-similar">
             {byAuthor.map((v) => (
-              <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
+              <PluginCard key={v.i} item={v} categories={categorySet} />
             ))}
           </div>
         </section>
@@ -511,7 +543,7 @@ export default function DetailPage() {
           <h2>{t(isTool ? "detail.similar.tools" : "detail.similar.plugins")}</h2>
           <div className="grid grid-similar">
             {similar.map((v) => (
-              <PluginCard key={v.i} item={v} categories={new Set(categories.map((c) => c.t))} />
+              <PluginCard key={v.i} item={v} categories={categorySet} />
             ))}
           </div>
         </section>

@@ -78,6 +78,12 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
+/* 视觉隐藏但保留给读屏器：骨架屏对读屏器不可见，加载提示靠这段文字播报 */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 .wrap { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
 
 /* ---------- header ---------- */
@@ -214,7 +220,6 @@ a { color: inherit; text-decoration: none; }
 .card-meta { display: flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: 12px; flex-wrap: nowrap; overflow: hidden; height: 18px; }
 .author-name { color: var(--text-dim); }
 .dot { color: var(--text-faint); }
-.card-stars { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .card-meta > span { white-space: nowrap; }
 
 /* 路径 + 版本号：紧跟名字下方，一眼看出是哪个仓库的哪个版本 */
@@ -378,9 +383,7 @@ a { color: inherit; text-decoration: none; }
 .detail-tags .tag { max-width: none; flex: none; }
 
 .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 550; white-space: nowrap; }
-.pill-type { color: var(--text-dim); background: var(--surface-2); }
 .pill-curated { color: var(--warn-text); background: var(--warn-bg); }
-.pill-compat { color: var(--text-dim); background: var(--surface-2); font-family: var(--mono); font-size: 11px; }
 .pill-soft { color: var(--text-dim); background: var(--surface-2); }
 /* 工具角标：和分类标签同一套观感 —— 小圆角矩形、常规字重、不大写 */
 .pill-tool {
@@ -887,7 +890,11 @@ a { color: inherit; text-decoration: none; }
 /* 剔除状态图标：空心圆=等下次构建下线，绿色对勾=已下线 */
 .curation-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: var(--text-faint); flex: none; }
 .curation-icon.done { color: var(--ok); }
-.curation-list-tools { display: flex; align-items: center; gap: 6px; flex: none; }
+/* 允许收缩：确认态文案较长，窄屏要能折行，否则工具条会撑破面板 */
+.curation-list-tools {
+  display: flex; align-items: center; gap: 6px;
+  flex: 0 1 auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end;
+}
 /* 仓库名一律单行：超长时横向滚动查看，滚动条做细条避免撑高行距 */
 .curation-repo {
   flex: 1 1 auto; min-width: 0;
@@ -912,6 +919,15 @@ a { color: inherit; text-decoration: none; }
 .curation-pending-btns { display: flex; flex: none; gap: 6px; }
 .curation-item-btn.primary { color: var(--accent); border-color: var(--accent); }
 .curation-item-btn.primary:hover { color: var(--accent-fg); background: var(--accent); }
+/* 删除类操作的二次确认：原地替换按钮，不弹窗；危险按钮用警示色，避免与普通操作混淆 */
+.curation-item-btn.danger { color: var(--danger); border-color: var(--danger); }
+.curation-item-btn.danger:hover { color: var(--accent-fg); background: var(--danger); border-color: var(--danger); }
+.curation-confirm {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  min-width: 0; padding: 4px 6px; border-radius: 7px;
+  background: var(--warn-bg); color: var(--warn-text); font-size: 11.5px;
+}
+.curation-confirm-text { min-width: 0; line-height: 1.45; overflow-wrap: anywhere; }
 .curation-pending-meta {
   display: flex; flex-direction: column; gap: 3px; margin-top: 5px;
   font-size: 11.5px; line-height: 1.5; color: var(--text-faint); overflow-wrap: anywhere;
@@ -971,6 +987,8 @@ a { color: inherit; text-decoration: none; }
   .modal-backdrop { padding: 0; }
   .modal { max-height: 100dvh; height: 100dvh; border-radius: 0; max-width: none; }
   .readme-clamp { max-height: 300px; }
+  /* 骨架与手机端 README 裁剪上限对齐，避免内容到达时这一块再多出 9px */
+  .sk-readme { max-height: 300px; overflow: hidden; }
   .readme-actions { gap: 10px; }
   .install-row { gap: 6px; }
   /* 窄屏没有空间横向滚动，命令直接折行，避免用户以为命令被截断 */
@@ -1031,3 +1049,84 @@ a { color: inherit; text-decoration: none; }
 .chip-skeleton { pointer-events: none; cursor: default; }
 /* 真实 chip 实测高 32.5px：去掉上下内边距 6×2 与边框 1×2，灰条需 18.5px 才等高 */
 .chip-skeleton .sk { height: 18.5px; }
+
+/* ---------- 详情页加载骨架：复用真实 class，只把文字换成灰条 ---------- */
+.detail-skeleton { pointer-events: none; }
+/* 返回链接行盒 20px（13px × 1.55）：灰条只占中间 8px，整行高度与 .back-link 一致 */
+.sk-detail-back { width: 64px; height: 20px; padding: 6px 0; background-clip: content-box; margin: 0 0 16px; }
+
+/* 标题区：h1 行盒 41.85px，灰条撑到 42px，避免标题区塌陷 */
+.sk-detail-title-row { min-height: 42px; }
+.sk-detail-name { width: 240px; height: 42px; padding: 11px 0; background-clip: content-box; border-radius: 6px; }
+.sk-detail-pill { width: 46px; height: 22px; border-radius: 999px; }
+.sk-detail-star { width: 84px; height: 32px; border-radius: 8px; }
+
+/* 作者行：头像 18px 圆形，文字按 13px 行盒 20px 占位 */
+.sk-detail-avatar { width: 18px; height: 18px; border-radius: 999px; flex: none; }
+.sk-detail-sub-bar { height: 20px; padding: 5px 0; background-clip: content-box; }
+.sk-detail-handle { width: 132px; }
+.sk-detail-ver { width: 56px; }
+.sk-detail-stat { width: 78px; }
+
+/* 面板标题：h2 行盒 18.6px + 下间距 12px */
+.sk-panel-title { width: 64px; height: 19px; padding: 4px 0; background-clip: content-box; margin: 0 0 12px; }
+
+/* 简介：两行文字高 49.3px（1.7em × 2），第三条只在手机（三行）显示 */
+.sk-detail-desc { display: flex; flex-direction: column; justify-content: space-between; font-size: 14.5px; min-height: calc(1.7em * 2); }
+.sk-detail-desc .sk { width: 100%; height: 10px; }
+.sk-detail-desc .sk:nth-child(2) { width: 88%; }
+.sk-detail-desc .sk:nth-child(3) { display: none; width: 54%; }
+
+/* 事实徽标：复用 .fact 的内边距与间距，两条灰条对齐 11px / 12.5px 文字行盒 */
+.sk-fact-k { width: 56%; height: 17px; padding: 5px 0; background-clip: content-box; }
+.sk-fact-v { width: 78%; height: 19px; padding: 5px 0; background-clip: content-box; }
+
+/* 标签：真实 .tag 高 22px（2px 行高 16px + 内边距 4 + 边框 2），容器沿用 is-capped 的 48px */
+.sk-detail-tag { width: 54px; height: 22px; }
+.sk-detail-tag:nth-child(2n) { width: 72px; }
+.sk-detail-tag:nth-child(3n) { width: 46px; }
+
+/* 评分卡：标题行 23px、四条 19px 的条行 + 两行说明 */
+.sk-score-title { width: 56px; height: 19px; padding: 4px 0; background-clip: content-box; }
+.sk-score-total { width: 64px; height: 23px; border-radius: 999px; }
+.sk-bar-label { width: 64px; height: 19px; padding: 4px 0; background-clip: content-box; flex: none; }
+/* 填充色要比轨道深一档：.sk 与 .bar-track 同为 surface-2，同色会让宽度差看不出来 */
+.sk-bar-fill { height: 100%; border-radius: 999px; background: var(--border); }
+.sk-score-note { display: flex; flex-direction: column; justify-content: space-between; height: 35px; margin: 10px 0 0; }
+.sk-score-note .sk { width: 100%; height: 7px; }
+.sk-score-note .sk:nth-child(2) { width: 76%; }
+
+/* 来源行：复用 .about-meta 的上边框与间距，两项各两条灰条 */
+.sk-meta-k { width: 44px; height: 19px; padding: 5px 0; background-clip: content-box; }
+.sk-meta-k-sm { width: 36px; }
+.sk-meta-v { width: 120px; height: 19px; padding: 5px 0; background-clip: content-box; }
+.sk-meta-v-sm { width: 76px; }
+
+/* 安装区：标签 19px、命令框沿用 .code 的内边距、说明行 22px（13px × 1.7） */
+.sk-install-k { width: 52px; height: 19px; padding: 4px 0; background-clip: content-box; }
+.sk-install-k-sm { width: 62px; }
+/* 命令框内容盒对齐 12.5px 的 19.4px 行盒：框高 = 19.4 + 内边距 20 + 边框 2 */
+.sk-code-line { width: 62%; height: 19.4px; padding: 4.7px 0; background-clip: content-box; }
+.sk-install-note { width: 72%; height: 22px; padding: 6px 0; background-clip: content-box; }
+.sk-kv-k { width: 56px; height: 20px; padding: 5px 0; background-clip: content-box; }
+.sk-kv-v { width: 88px; height: 20px; padding: 5px 0; background-clip: content-box; }
+
+/* README：按正文 23px 行距铺 14 行，正文到达后整块替换 */
+.sk-readme { display: flex; flex-direction: column; gap: 13px; }
+.sk-readme .sk { width: 100%; height: 10px; }
+.sk-readme .sk:nth-child(3n) { width: 92%; }
+.sk-readme .sk:nth-child(4n) { width: 78%; }
+.sk-readme .sk:nth-child(5n) { width: 64%; }
+.sk-readme-actions { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.sk-readme-btn { width: 96px; height: 34px; border-radius: 8px; }
+.sk-readme-link { width: 72px; height: 34px; padding: 8px 0; background-clip: content-box; }
+
+@media (max-width: 800px) {
+  /* 手机标题 22px：行盒收到 34px，标题灰条同步收窄，避免换行把星标挤到第二行 */
+  .sk-detail-title-row { min-height: 34px; }
+  .sk-detail-name { width: 168px; height: 34px; padding: 8px 0; }
+  /* 手机简介放宽到三行，与 .detail-desc 的 3 行高度保持一致 */
+  .sk-detail-desc { min-height: calc(1.7em * 3); }
+  .sk-detail-desc .sk:nth-child(3) { display: block; }
+  .sk-meta-v { width: 96px; }
+}

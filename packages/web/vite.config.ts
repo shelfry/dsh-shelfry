@@ -38,6 +38,28 @@ function buildVersion(): string {
 /** sitemap 只收质量靠前的条目：两万条薄页面全塞进去会稀释整站权重。 */
 const SITEMAP_LIMIT = 3000;
 
+/**
+ * 首屏筛选数据在构建期内联进 JS。
+ *
+ * 分类清单（约 1.3 KB）与总量（约 0.2 KB）本身很小，但要各走一次网络往返才拿到；
+ * 这段时间筛选行只能用估算宽度铺骨架，真实 chip 一到换行点就变，整行会横向跳一次。
+ * 内联后首帧直接是真实 chip 与真实计数，过渡窗口消失。
+ * 数据由 collector 生成且不入库：缺失时注入 null，前端退回运行时 fetch。
+ *
+ * 返回：{ meta, categories, categoriesTools }；任一文件缺失时为 null。
+ */
+function readCatalogBootstrap(): { meta: unknown; categories: unknown; categoriesTools: unknown } | null {
+  const dir = resolve(here, "public/data");
+  const read = (file: string) => {
+    const path = resolve(dir, file);
+    return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
+  };
+  const meta = read("meta.json");
+  const categories = read("categories.json");
+  const categoriesTools = read("categories-tools.json");
+  return meta && categories && categoriesTools ? { meta, categories, categoriesTools } : null;
+}
+
 function escapeXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -126,6 +148,8 @@ export default defineConfig({
   plugins: [react(), seoArtifacts(), earlyHintsHeaders()],
   define: {
     __SITE__: JSON.stringify(site),
+    // 首屏筛选数据（分类 + 总量）直接内联，避免首帧用估算宽度铺骨架
+    __CATALOG_BOOTSTRAP__: JSON.stringify(readCatalogBootstrap()),
     // 页脚展示的构建版本号，由 git 提交数生成
     __BUILD_VERSION__: JSON.stringify(buildVersion()),
   },

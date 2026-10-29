@@ -84,7 +84,7 @@ export default function TopPage() {
       </section>
 
       {!lite ? (
-        <RankSkeleton />
+        <RankSkeleton count={TOP_N} />
       ) : rows.length === 0 ? (
         <div className="empty">{t("top.empty")}</div>
       ) : (

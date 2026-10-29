@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { LiteEntry } from "@dsh-shelfry/schema";
 import { Link } from "react-router-dom";
 import { detailPath, loadArtifacts, loadEntryById } from "../lib/data";
@@ -124,11 +124,24 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
   // 卡片上的命令同样跟着 profile 选择走；上游安装器没有 --profile，原样返回
   const command = cmd ? applyProfile(cmd, profile) : null;
 
+  // 复制反馈的定时器：连点时先清掉上一个，避免旧定时器提前抹掉新提示
+  const copyTimer = useRef<number | null>(null);
+  const assistantTimer = useRef<number | null>(null);
+  // 卸载时清掉未触发的反馈定时器，避免对已卸载组件 setState
+  useEffect(() => () => {
+    for (const ref of [copyTimer, assistantTimer]) {
+      if (ref.current) window.clearTimeout(ref.current);
+    }
+  }, []);
+
   const copy = async () => {
     if (!command) return;
     const ok = await copyText(command);
     setState(ok ? "copied" : "manual");
-    if (ok) setTimeout(() => setState("ready"), 1600);
+    if (ok) {
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setState("ready"), 1600);
+    }
   };
 
   const copyAssistant = async () => {
@@ -136,7 +149,8 @@ function InstallSheet({ item, onClose }: { item: LiteEntry; onClose: () => void 
     const ok = await copyText(assistantPrompt({ name: item.n, repo: item.i, command }));
     if (ok) {
       setCopiedAssistant(true);
-      setTimeout(() => setCopiedAssistant(false), 1600);
+      if (assistantTimer.current) window.clearTimeout(assistantTimer.current);
+      assistantTimer.current = window.setTimeout(() => setCopiedAssistant(false), 1600);
     } else {
       setState("manual");
     }
@@ -217,6 +231,9 @@ function PluginCardBase({ item, categories }: { item: LiteEntry; categories: Set
     if (next) window.dispatchEvent(new CustomEvent(SHEET_EVENT, { detail: item.i }));
   };
 
+  // 引用稳定：否则浮层的 window 监听会跟着每次渲染重挂
+  const closeInstall = useCallback(() => setInstallOpen(false), []);
+
   // 与详情页同一套标签口径：先去噪声标签，再按固定分类体系归并出一个分类固定到右下角。
   const tags = meaningfulTags(item.tg);
   const match = resolveCategory(tags, item.n, item.d, categories, item.dp === 1, item.rs ?? "");
@@ -279,7 +296,7 @@ function PluginCardBase({ item, categories }: { item: LiteEntry; categories: Set
         {category && <span className="tag tag-cat" title={t("common.category")}>{category}</span>}
       </div>
 
-      {installOpen && <InstallSheet item={item} onClose={() => setInstallOpen(false)} />}
+      {installOpen && <InstallSheet item={item} onClose={closeInstall} />}
     </article>
   );
 }

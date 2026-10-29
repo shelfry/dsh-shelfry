@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadCategories, siteConfig, type Category } from "../lib/data";
 import { categoryLabel } from "../lib/labels";
@@ -45,6 +45,11 @@ export default function SubmitPage() {
   const [summary, setSummary] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [copied, setCopied] = useState(false);
+  // 复制反馈的定时器：连点时先清掉上一个，卸载时一并清理
+  const copyTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) window.clearTimeout(copyTimer.current);
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const { t } = useT();
@@ -92,7 +97,10 @@ export default function SubmitPage() {
   const onCopy = async () => {
     const ok = await copyText(`${title}\n\n${body}`);
     setCopied(ok);
-    if (ok) setTimeout(() => setCopied(false), 2000);
+    if (ok) {
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   // 站内提交：进待确认列表，等站长在收录面板核实

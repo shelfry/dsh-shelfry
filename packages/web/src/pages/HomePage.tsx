@@ -6,6 +6,8 @@ import { CardSkeleton } from "../components/CardSkeleton";
 import { HeaderSettings } from "../components/HeaderSettings";
 import { CurationDialog } from "../components/CurationDialog";
 import {
+  bootstrapCategories,
+  bootstrapMeta,
   isExternal,
   loadArtifacts,
   loadCategories,
@@ -91,10 +93,11 @@ export default function HomePage() {
   }, [searchParams, setSearchParams]);
 
   const [artifacts, setArtifacts] = useState<ArtifactIndex | null>(null);
-  const [meta, setMeta] = useState<CatalogMeta | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  // 内联数据在首帧就可用：不用等 fetch，筛选行直接是真实 chip 与计数
+  const [meta, setMeta] = useState<CatalogMeta | null>(() => bootstrapMeta());
+  const [categories, setCategories] = useState<Category[]>(() => bootstrapCategories(scope) ?? []);
   // 分类是否已落定（成功或失败都算）：占位灰条只在这之前显示
-  const [categoriesReady, setCategoriesReady] = useState(false);
+  const [categoriesReady, setCategoriesReady] = useState(() => bootstrapCategories(scope) !== null);
   const [firstPage, setFirstPage] = useState<LiteEntry[]>([]);
   const [extraPages, setExtraPages] = useState<LiteEntry[]>([]);
   const [loadedPages, setLoadedPages] = useState(0);
@@ -158,8 +161,14 @@ export default function HomePage() {
 
   // 分类清单按范围分开拉：工具的分类阈值与插件完全不同
   useEffect(() => {
+    // 有内联数据时同步落定：首帧与切换范围都不经过骨架
+    const inline = bootstrapCategories(scope);
+    if (inline) {
+      setCategories(inline);
+      setCategoriesReady(true);
+      return;
+    }
     let cancelled = false;
-    setCategoriesReady(false);
     loadCategories(scope)
       .then((rows) => { if (!cancelled) setCategories(rows); })
       .catch(() => { if (!cancelled) setCategories([]); })
