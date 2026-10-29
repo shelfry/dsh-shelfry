@@ -148,6 +148,11 @@ export function CurationDialog({
       const target = e.target as Node;
       if (anchorRef.current?.contains(target)) return;
       if (menuRef.current?.contains(target)) return;
+      // 确认框开着时点面板外只收起确认框，面板本身留着，避免一次误点丢掉整个操作现场
+      if (confirm) {
+        setConfirm(null);
+        return;
+      }
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
