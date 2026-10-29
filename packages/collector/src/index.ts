@@ -463,6 +463,7 @@ async function main(): Promise<void> {
   const related = writeRelated(lite);
   const shards = writeDetailShards(active);
   const index = writeIndexShards(active);
+  const idMap = writeIdMap(entries);
   const artifacts: ArtifactIndex = {
     schemaVersion: SCHEMA_VERSION,
     generatedAt: meta.generatedAt,
@@ -470,15 +471,15 @@ async function main(): Promise<void> {
     index,
     pages,
     related,
+    idmap: idMap.value,
     intents: null,
   };
   const artifactFile = writeArtifactIndex(artifacts);
   const metaFile = writeMeta(meta);
   const categoryFiles = writeCategories(entries);
-  const idMapFile = writeIdMap(entries);
   log(args.silent, `[collector] 产物：lite=${lite.length} 条 / 分页 ${pages.count} 页 / 明细 ${shards.length} 片 / 索引 ${index.shards.length} 片`);
   log(args.silent, `[collector] 清单：${artifactFile}  元信息：${metaFile}  榜单：${topFile}`);
-  log(args.silent, `[collector] 分类：${categoryFiles.join(" / ")}  反查表：${idMapFile}`);
+  log(args.silent, `[collector] 分类：${categoryFiles.join(" / ")}  反查表：${idMap.file} + ${idMap.value!.count} 片`);
   log(args.silent, `[collector] store 路径：${catalogPath()}`);
 
   if (args.sync) {

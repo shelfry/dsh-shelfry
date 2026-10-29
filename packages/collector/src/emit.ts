@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
-import { INDEX_SHARD_COUNT, SCHEMA_VERSION, indexShardId, toLiteEntry } from "@dsh-shelfry/schema";
+import { INDEX_SHARD_COUNT, SCHEMA_VERSION, idmapShardId, indexShardId, toLiteEntry } from "@dsh-shelfry/schema";
 import { DATA_DIR, WEB_PUBLIC_DATA_DIR } from "./config.ts";
 import { pickTop } from "./top.ts";
 import { RELATED_SHARD_SIZE, buildRelated } from "./related.ts";
@@ -15,12 +15,15 @@ import { RELATED_SHARD_SIZE, buildRelated } from "./related.ts";
  *   top.json                      榜单三个页签各 50 条 —— 榜单页专用
  *   meta.json                     站点元信息 + 三档计数
  *   catalog/<NNN>.json            明细分片（详情页按需拉）
+ *   idmap.json / idmap/<NN>.json  id → 序号反查表（整份兼容 / 64 分片）
  *   index/<NNN>.json              倒排索引分片（token 哈希落片，搜索时只载命中片）
  *   artifacts.json                产物清单（web 先读它，再按需拉具体片）
  */
 
-const DETAIL_SHARD_SIZE = 500;
+const DETAIL_SHARD_SIZE = 100;
 const PAGE_SIZE = 60;
+/** id 反查表分片数：26k 条切成 64 片，单片约 14 KB raw，详情页只取命中片。 */
+const IDMAP_SHARD_COUNT = 64;
 
 
 function writeJson(path: string, value: unknown): void {
@@ -242,14 +245,27 @@ export function writeCategories(entries: PluginEntry[]): string[] {
 /**
  * id → 全局序号 的反查表。
  * 详情页是可分享的独立 URL（#/p/owner/repo），直接打开时手上只有 id；
- * 明细分片是按序号切的，所以需要这张表把 id 翻成序号。仅在直达详情页时加载，约几十 KB。
+ * 明细分片是按序号切的，所以需要这张表把 id 翻成序号。
+ *
+ * 现在同时输出：
+ *   idmap.json          整份（约 900 KB raw），只留给旧版本 bundle 兼容
+ *   idmap/<NN>.json     64 片（单片约 14 KB raw），新前端只拉命中片
  */
-export function writeIdMap(entries: PluginEntry[]): string {
+export function writeIdMap(entries: PluginEntry[]): { file: string; value: ArtifactIndex["idmap"] } {
   const map: Record<string, number> = {};
   entries.forEach((e, i) => { map[e.id] = i; });
   const file = resolve(DATA_DIR, "idmap.json");
   writeJson(file, map);
-  return file;
+
+  const buckets: Array<Record<string, number>> = Array.from({ length: IDMAP_SHARD_COUNT }, () => ({}));
+  entries.forEach((e, i) => {
+    buckets[idmapShardId(e.id, IDMAP_SHARD_COUNT)]![e.id] = i;
+  });
+  buckets.forEach((bucket, shard) => {
+    writeJson(resolve(DATA_DIR, `idmap/${String(shard).padStart(4, "0")}.json`), bucket);
+  });
+
+  return { file, value: { count: IDMAP_SHARD_COUNT, filePattern: "idmap/{shard}.json" } };
 }
 
 /** 把产物同步到 web 的 public/data（构建期用；运行时只读静态文件，无需后端）。

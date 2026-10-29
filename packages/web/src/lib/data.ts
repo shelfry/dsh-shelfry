@@ -1,5 +1,7 @@
 import type { ArtifactIndex, CatalogMeta, LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
+import { idmapShardId } from "@dsh-shelfry/schema";
 import { pagePlan } from "./page-plan";
+import { dataUrl } from "./data-url";
 import { pickCategories, type CatalogBootstrap } from "./bootstrap";
 import { resolveEntryId } from "./idmap";
 
@@ -13,10 +15,20 @@ import { resolveEntryId } from "./idmap";
  */
 
 const BASE = import.meta.env.BASE_URL;
-const url = (p: string) => `${BASE}data/${p}`;
 
-async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(url(path), { headers: { accept: "application/json" } });
+/** 本次会话的数据版本（artifacts.generatedAt）：拼到所有数据请求上，避免新旧产物混用。 */
+let dataVersion = "";
+
+/**
+ * 拉取 data 下的 JSON。
+ *
+ * 序号类产物（idmap / 各分片）必须来自同一版本，所以统一带 ?v=<版本>；
+ * 版本取自本次会话最先拿到的 artifacts.json。传 cache 可覆盖浏览器缓存策略，
+ * 兜底重查时用 "reload" 彻底绕过缓存。
+ */
+async function getJson<T>(path: string, cache?: RequestCache): Promise<T> {
+  if (!dataVersion) await loadArtifacts();
+  const res = await fetch(dataUrl(BASE, path, dataVersion), { cache, headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`拉取 ${path} 失败: HTTP ${res.status}`);
   return (await res.json()) as T;
 }
@@ -56,10 +68,23 @@ export const bootstrapMeta = (): CatalogMeta | null => BOOTSTRAP?.meta ?? null;
 export const bootstrapCategories = (scope: CatalogScope): Category[] | null => pickCategories(BOOTSTRAP, scope);
 
 const artifactsCache = { v: null as ArtifactIndex | null };
-export const loadArtifacts = async (): Promise<ArtifactIndex> => {
-  if (!artifactsCache.v) artifactsCache.v = await getJson<ArtifactIndex>("artifacts.json");
-  return artifactsCache.v;
-};
+
+/**
+ * 拉产物清单。默认 no-cache（每次回源校验），兜底重查传 reload 彻底绕过缓存。
+ *
+ * 清单决定本次会话所有分片的版本号：缓存到旧清单会让新数据的序号落到
+ * 分片之外，详情页就会误报「仓库已下架」。
+ */
+async function fetchArtifacts(cache: RequestCache): Promise<ArtifactIndex> {
+  const res = await fetch(dataUrl(BASE, "artifacts.json", ""), { cache, headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`拉取 artifacts.json 失败: HTTP ${res.status}`);
+  const value = (await res.json()) as ArtifactIndex;
+  dataVersion = value.generatedAt;
+  artifactsCache.v = value;
+  return value;
+}
+
+export const loadArtifacts = async (): Promise<ArtifactIndex> => artifactsCache.v ?? (await fetchArtifacts("no-cache"));
 
 const metaCache: { v: CatalogMeta | null } = { v: BOOTSTRAP?.meta ?? null };
 export const loadMeta = async (): Promise<CatalogMeta> => {
@@ -116,8 +141,8 @@ interface RelatedLists {
  */
 export async function loadRelated(id: string): Promise<{ byAuthor: LiteEntry[]; similar: LiteEntry[] }> {
   const empty = { byAuthor: [] as LiteEntry[], similar: [] as LiteEntry[] };
-  const [idmap, artifacts] = await Promise.all([loadIdMap(), loadArtifacts()]);
-  const index = idmap[id];
+  const artifacts = await loadArtifacts();
+  const index = await lookupIndex(artifacts, id);
   if (index === undefined || !artifacts.related) return empty;
   const { size } = artifacts.related;
   const shard = Math.floor(index / size);
@@ -141,8 +166,12 @@ const FAVORITES_CONCURRENCY = 6;
 export async function loadEntriesByIds(ids: string[]): Promise<Map<string, LiteEntry>> {
   const out = new Map<string, LiteEntry>();
   if (!ids.length) return out;
-  const [idmap, artifacts] = await Promise.all([loadIdMap(), loadArtifacts()]);
-  const { pages } = pagePlan(idmap, ids, artifacts.pages.size);
+  const artifacts = await loadArtifacts();
+  const map = await lookupIndexes(artifacts, ids);
+  const { pages } = pagePlan(map, ids, artifacts.pages.size);
+  // 同一序号可能被大小写不同的 id 指到，回填时把请求用的 id 也登记上
+  const idByIndex = new Map<number, string>();
+  for (const [id, index] of Object.entries(map)) idByIndex.set(index, id);
   const jobs = [...pages.entries()];
   for (let i = 0; i < jobs.length; i += FAVORITES_CONCURRENCY) {
     const batch = jobs.slice(i, i + FAVORITES_CONCURRENCY);
@@ -151,7 +180,10 @@ export async function loadEntriesByIds(ids: string[]): Promise<Map<string, LiteE
         const rows = await loadPage(page);
         for (const gi of indexes) {
           const row = rows[gi - page * artifacts.pages.size];
-          if (row) out.set(row.i, row);
+          if (!row) continue;
+          out.set(row.i, row);
+          const requested = idByIndex.get(gi);
+          if (requested) out.set(requested, row);
         }
       }),
     );
@@ -186,20 +218,82 @@ export async function loadEntryAt(artifacts: ArtifactIndex, globalIndex: number)
   return chunk[globalIndex - shard.from] ?? null;
 }
 
-let idMapCache: Record<string, number> | null = null;
-const loadIdMap = async (): Promise<Record<string, number>> => {
-  if (!idMapCache) idMapCache = await getJson<Record<string, number>>("idmap.json");
-  return idMapCache;
-};
+/** 单个 idmap 分片的并发去重缓存：同一片被多处同时请求时只发一次。 */
+const idShardCache = new Map<number, Promise<Record<string, number>>>();
+/** 老产物的整份反查表（没有 artifacts.idmap 时才用）。 */
+let legacyIdMapCache: Record<string, number> | null = null;
 
-/** 直达详情页时用：把 owner/repo 翻成全局序号（大小写不一致也能命中）。 */
-export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
-  const map = await loadIdMap();
+/**
+ * id → 全局序号。
+ *
+ * 新产物把反查表切成 64 片，只拉命中片（约 14 KB raw / 6 KB br）；
+ * 老产物没有 artifacts.idmap，回退整份 idmap.json（约 900 KB raw）。
+ * 大小写不一致时由 resolveEntryId 在同一片内兜底匹配。
+ */
+async function lookupIndex(artifacts: ArtifactIndex, id: string, reload = false): Promise<number | undefined> {
+  if (!artifacts.idmap) {
+    if (!legacyIdMapCache || reload) {
+      legacyIdMapCache = await getJson<Record<string, number>>("idmap.json", reload ? "reload" : undefined);
+    }
+    const key = resolveEntryId(legacyIdMapCache, id);
+    return key ? legacyIdMapCache[key] : undefined;
+  }
+  const shard = idmapShardId(id, artifacts.idmap.count);
+  if (reload) idShardCache.delete(shard);
+  let pending = idShardCache.get(shard);
+  if (!pending) {
+    pending = getJson<Record<string, number>>(`idmap/${String(shard).padStart(4, "0")}.json`, reload ? "reload" : undefined);
+    idShardCache.set(shard, pending);
+  }
+  const map = await pending;
   const key = resolveEntryId(map, id);
-  if (!key) return null;
-  const index = map[key];
+  return key ? map[key] : undefined;
+}
+
+/** 批量反查：不同 id 可能落在同一片，靠 idShardCache 合并成一次请求。 */
+async function lookupIndexes(artifacts: ArtifactIndex, ids: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  await Promise.all([...new Set(ids)].map(async (id) => {
+    const index = await lookupIndex(artifacts, id);
+    if (index !== undefined) out[id] = index;
+  }));
+  return out;
+}
+
+/** 单纯按 id 查明细：不处理版本错配。 */
+async function lookupEntry(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
+  const index = await lookupIndex(artifacts, id);
   if (index === undefined) return null;
   return loadEntryAt(artifacts, index);
+}
+
+/**
+ * 版本错配兜底：清空全部数据缓存，强制回源重取清单与反查表分片。
+ *
+ * 只在「反查表能查到序号、清单里却没有对应分片」时调用 —— 部署瞬间的旧缓存
+ * 会造成这种组合；正常的无效链接不该触发，否则每访问一个 404 都要重拉数据。
+ */
+async function refreshDataCaches(): Promise<void> {
+  artifactsCache.v = null;
+  idShardCache.clear();
+  legacyIdMapCache = null;
+  shardCache.clear();
+  liteCache = null;
+  topCache.v = null;
+  await fetchArtifacts("reload");
+}
+
+/**
+ * 直达详情页时用：把 owner/repo 翻成全局序号（大小写不一致也能命中）。
+ *
+ * 首查落空时判断是「真的没有」还是「清单与反查表版本不一致」：后者强制回源后再查一次。
+ */
+export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promise<PluginEntry | null> {
+  const found = await lookupEntry(artifacts, id);
+  if (found) return found;
+  if ((await lookupIndex(artifacts, id)) === undefined) return null;
+  await refreshDataCaches();
+  return lookupEntry(artifactsCache.v!, id);
 }
 
 /**
@@ -210,7 +304,9 @@ export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promi
  * 否则已上线的条目会被误判成「待收录」，「清理已收录」也筛不到它。
  */
 export async function loadCollectedIds(): Promise<Set<string>> {
-  return new Set(Object.keys(await loadIdMap()).map((id) => id.toLowerCase()));
+  // 这里需要全量键集合，分片反而要拉满 64 片，直接用整份反查表
+  const map = await getJson<Record<string, number>>("idmap.json");
+  return new Set(Object.keys(map).map((id) => id.toLowerCase()));
 }
 
 /**
