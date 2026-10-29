@@ -52,7 +52,9 @@ export default function DetailPage() {
   const [copied, setCopied] = useState(false);
   const [copiedAssistant, setCopiedAssistant] = useState(false);
   const [copiedPkg, setCopiedPkg] = useState(false);
-  const [readme, setReadme] = useState<ReadmeResult | null | "loading">("loading");
+  const [readme, setReadme] = useState<ReadmeResult | null | "loading" | "error">("loading");
+  /** 点「重试」时自增，用来重跑 README 拉取 */
+  const [readmeTick, setReadmeTick] = useState(0);
   const [similar, setSimilar] = useState<LiteEntry[]>([]);
   const [byAuthor, setByAuthor] = useState<LiteEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -163,9 +165,10 @@ export default function DetailPage() {
     setReadmeOpen(false);
     loadReadme(entry.fullName)
       .then((r) => { if (!cancelled) setReadme(r); })
-      .catch(() => { if (!cancelled) setReadme(null); });
+      // 抛出的是网络不可达：与「仓库没有 README」分开提示，并允许重试
+      .catch(() => { if (!cancelled) setReadme("error"); });
     return () => { cancelled = true; };
-  }, [entry]);
+  }, [entry, readmeTick]);
 
   // 弹窗打开时锁住背景滚动、支持 ESC 关闭
   useEffect(() => {
@@ -513,7 +516,16 @@ export default function DetailPage() {
             {t("detail.readme.missing.pre")}<a href={`https://github.com/${entry.fullName}`} target="_blank" rel="noreferrer">{t("detail.readme.missing.link")}</a>。
           </p>
         )}
-        {readme && readme !== "loading" && (
+        {readme === "error" && (
+          <p className="hint" style={{ marginTop: 0 }}>
+            {t("detail.readme.netError")}
+            <button type="button" className="link-btn" onClick={() => setReadmeTick((n) => n + 1)}>
+              {t("detail.readme.retry")}
+            </button>
+            <a href={`https://github.com/${entry.fullName}`} target="_blank" rel="noreferrer">{t("detail.readme.missing.link")}</a>
+          </p>
+        )}
+        {readme && readme !== "loading" && readme !== "error" && (
           <>
             {/* 详情页只放摘要，完整内容进弹窗 —— 有的 README 比整页还长，平铺会把安装/评分全挤下去 */}
             <div className="readme-clamp">
@@ -553,7 +565,7 @@ export default function DetailPage() {
         {siteConfig.siteName} · {t("detail.foot")}
       </footer>
 
-      {readmeOpen && readme && readme !== "loading" && (
+      {readmeOpen && readme && readme !== "loading" && readme !== "error" && (
         <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setReadmeOpen(false); }}>
           <div
             className="modal"

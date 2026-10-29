@@ -12,7 +12,8 @@ import { marked } from "marked";
 const CANDIDATES = ["README.md", "readme.md", "Readme.md", "README.MD", "README.markdown"];
 const RAW = "https://raw.githubusercontent.com";
 const BLOB = "https://github.com";
-const TIMEOUT_MS = 9000;
+// 3s：国内直连 raw.githubusercontent 常被墙，等满 9s 才报错对用户来说等于卡死
+const TIMEOUT_MS = 3000;
 
 /** 仓库名里的 # 之类会影响 URL，逐段编码。 */
 const encodeRepo = (fullName: string) => fullName.split("/").map(encodeURIComponent).join("/");
@@ -20,16 +21,20 @@ const encodeRepo = (fullName: string) => fullName.split("/").map(encodeURICompon
 /**
  * 依次探测常见 README 文件名。
  *
- * 五个候选名并行发请求：串行最坏要 5 × 9s 才判定「没有 README」，
- * 并行后最坏只有 9s；结果按 CANDIDATES 顺序取第一个非空，优先级不变。
+ * 五个候选名并行发请求：串行最坏要 5 × 超时才判定「没有 README」，
+ * 并行后最坏只有一次超时；结果按 CANDIDATES 顺序取第一个非空，优先级不变。
+ * 全部请求都抛错（超时/断网）时抛出网络错误，与「仓库确实没有 README」区分开。
  */
 async function fetchReadme(fullName: string): Promise<string | null> {
+  let replied = 0;
   const texts = await Promise.all(
     CANDIDATES.map(async (name) => {
       try {
         const res = await fetch(`${RAW}/${encodeRepo(fullName)}/HEAD/${name}`, {
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
+        // 有响应就说明网络是通的，哪怕 404 也只表示这个文件名不存在
+        replied++;
         if (!res.ok) return null;
         const text = await res.text();
         return text.trim() ? text : null;
@@ -38,6 +43,7 @@ async function fetchReadme(fullName: string): Promise<string | null> {
       }
     }),
   );
+  if (replied === 0) throw new Error("readme: network unreachable");
   return texts.find((t) => t) ?? null;
 }
 

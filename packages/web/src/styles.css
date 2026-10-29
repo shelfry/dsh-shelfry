@@ -919,15 +919,28 @@ a { color: inherit; text-decoration: none; }
 .curation-pending-btns { display: flex; flex: none; gap: 6px; }
 .curation-item-btn.primary { color: var(--accent); border-color: var(--accent); }
 .curation-item-btn.primary:hover { color: var(--accent-fg); background: var(--accent); }
-/* 删除类操作的二次确认：原地替换按钮，不弹窗；危险按钮用警示色，避免与普通操作混淆 */
+/* 删除类操作的二次确认：居中弹窗，不在列表行内挤压排版 */
 .curation-item-btn.danger { color: var(--danger); border-color: var(--danger); }
 .curation-item-btn.danger:hover { color: var(--accent-fg); background: var(--danger); border-color: var(--danger); }
-.curation-confirm {
-  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  min-width: 0; padding: 4px 6px; border-radius: 7px;
-  background: var(--warn-bg); color: var(--warn-text); font-size: 11.5px;
+.curation-confirm-overlay {
+  position: fixed; inset: 0; z-index: 61;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: var(--overlay);
 }
-.curation-confirm-text { min-width: 0; line-height: 1.45; overflow-wrap: anywhere; }
+.curation-confirm-card {
+  width: 100%; max-width: 320px;
+  padding: 16px 18px; border-radius: var(--radius-lg);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.curation-confirm-title { margin: 0 0 6px; font-size: 13px; font-weight: 650; color: var(--text); }
+.curation-confirm-text { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-dim); overflow-wrap: anywhere; }
+.curation-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+/* 文字链按钮：README 重试这类行内操作，和链接同色不做成方块按钮 */
+.link-btn {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--accent); font-family: inherit; font-size: inherit; text-decoration: underline;
+}
 .curation-pending-meta {
   display: flex; flex-direction: column; gap: 3px; margin-top: 5px;
   font-size: 11.5px; line-height: 1.5; color: var(--text-faint); overflow-wrap: anywhere;

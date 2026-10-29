@@ -52,11 +52,45 @@ export function formatStars(n: number): string {
 export function Avatar({ id }: { id: string }) {
   const owner = ownerOf(id);
   const [failed, setFailed] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  /**
+   * 被墙时图片会一直 pending 且不触发 onError，兜底 2s 后降级成首字母色块。
+   * 计时从「进入视口」开始：头像带 loading="lazy"，屏幕外的不该被误判为失败。
+   */
+  useEffect(() => {
+    if (failed) return;
+    const el = imgRef.current;
+    if (!el) return;
+    let timer = 0;
+    const start = () => {
+      timer = window.setTimeout(() => {
+        // 已加载完成的不要误降级
+        if (imgRef.current && !imgRef.current.complete) setFailed(true);
+      }, 2000);
+    };
+    if (typeof IntersectionObserver === "undefined") {
+      start();
+      return () => window.clearTimeout(timer);
+    }
+    const io = new IntersectionObserver((rows) => {
+      if (rows.some((row) => row.isIntersecting)) {
+        start();
+        io.disconnect();
+      }
+    });
+    io.observe(el);
+    return () => {
+      window.clearTimeout(timer);
+      io.disconnect();
+    };
+  }, [failed]);
 
   if (failed) return <span className="avatar avatar-fallback" aria-hidden="true">{owner.slice(0, 1).toUpperCase()}</span>;
 
   return (
     <img
+      ref={imgRef}
       className="avatar"
       src={`https://github.com/${owner}.png?size=64`}
       alt=""

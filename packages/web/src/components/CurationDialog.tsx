@@ -14,8 +14,8 @@ import { useT } from "../lib/i18n";
 
 type Tab = "pending" | "queue" | "block";
 type Action = "queue" | "block" | "unqueue" | "approve" | "dismiss" | "prune";
-/** 需要二次确认的删除类操作：prune 是批量，其余用 target 定位单条 */
-type ConfirmAction = "dismiss" | "unqueue" | "block" | "prune";
+/** 需要二次确认的操作：prune 是批量，其余用 target 定位单条 */
+type ConfirmAction = "dismiss" | "unqueue" | "block" | "prune" | "restore";
 type OkKey =
   | "curation.queued"
   | "curation.blocked"
@@ -96,7 +96,7 @@ export function CurationDialog({
   /** 名单默认收起：只露标题与数量，点「展开记录」才列出条目 */
   const [listOpen, setListOpen] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  /** 删除类操作的二次确认：非空时对应按钮原地换成「确认 / 取消」 */
+  /** 破坏性/不可逆操作的二次确认：非空时弹出居中确认框 */
   const [confirm, setConfirm] = useState<{ action: ConfirmAction; target?: string } | null>(null);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -151,7 +151,11 @@ export function CurationDialog({
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // 确认框开着时 ESC 只关确认框，不连整个面板一起收掉
+      if (e.key === "Escape") {
+        if (confirm) setConfirm(null);
+        else onClose();
+      }
     };
     window.addEventListener("pointerdown", onDown);
     window.addEventListener("keydown", onKey);
@@ -159,7 +163,7 @@ export function CurationDialog({
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose, anchorRef]);
+  }, [open, onClose, anchorRef, confirm]);
 
   const parse = (data: unknown, status: number): Lists => {
     const body = (data ?? {}) as Partial<Lists> & ApiError;
@@ -241,7 +245,9 @@ export function CurationDialog({
       // 剔除成功后直接展开，让用户马上看到新记录和它的下线状态
       if (action === "block") setListOpen(true);
     } catch (err) {
+      // 失败也收起确认框，错误信息交给下方状态行展示
       fail(err);
+      setConfirm(null);
     } finally {
       setBusy(false);
     }
@@ -272,6 +278,41 @@ export function CurationDialog({
   const pending = lists?.pending ?? [];
   const current = lists ? (isQueue ? lists.queue : lists.blocklist) : [];
   const indexed = isQueue && collected ? current.filter((id) => isCollected(id)) : [];
+
+  /** 确认框提示文案：按操作类型取对应句子 */
+  const confirmMessage = () => {
+    if (!confirm) return "";
+    switch (confirm.action) {
+      case "block": return t("curation.confirmBlock", { repo: confirm.target ?? "" });
+      case "dismiss": return t("curation.confirmDismiss");
+      case "unqueue": return t("curation.confirmUnqueue");
+      case "prune": return t("curation.confirmPrune", { n: indexed.length });
+      case "restore": return t("curation.confirmRestore", { repo: confirm.target ?? "" });
+    }
+  };
+
+  /** 点「确认」才真正提交；恢复收录复用 queue 接口 */
+  const execConfirm = () => {
+    if (!confirm) return;
+    const target = confirm.target ?? repo;
+    switch (confirm.action) {
+      case "prune":
+        void prune();
+        break;
+      case "restore":
+        void run("queue", target, "curation.restored");
+        break;
+      case "block":
+        void run("block", target, "curation.blocked");
+        break;
+      case "dismiss":
+        void run("dismiss", target, "curation.dismissed");
+        break;
+      case "unqueue":
+        void run("unqueue", target, "curation.unqueued");
+        break;
+    }
+  };
 
   /**
    * 提交输入框里的仓库。
@@ -378,31 +419,14 @@ export function CurationDialog({
                 </div>
 
                 <div className="curation-actions">
-                  {confirm?.action === "block" ? (
-                    <span className="curation-confirm">
-                      <span className="curation-confirm-text">{t("curation.confirmBlock", { repo: confirm.target ?? "" })}</span>
-                      <button
-                        type="button"
-                        className="curation-item-btn danger"
-                        disabled={busy}
-                        onClick={() => void run("block", confirm.target ?? repo, "curation.blocked")}
-                      >
-                        {t("common.confirm")}
-                      </button>
-                      <button type="button" className="curation-item-btn" onClick={() => setConfirm(null)}>
-                        {t("common.cancel")}
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-primary curation-submit"
-                      disabled={busy || !repo.trim()}
-                      onClick={submitRepo}
-                    >
-                      {busy ? t("curation.working") : t(isQueue ? "curation.submit" : "curation.block")}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn-primary curation-submit"
+                    disabled={busy || !repo.trim()}
+                    onClick={submitRepo}
+                  >
+                    {busy ? t("curation.working") : t(isQueue ? "curation.submit" : "curation.block")}
+                  </button>
                 </div>
               </>
             )}
@@ -427,22 +451,6 @@ export function CurationDialog({
                           >
                             {item.repo}
                           </a>
-                          {confirm?.action === "dismiss" && confirm.target === item.repo ? (
-                            <span className="curation-confirm">
-                              <span className="curation-confirm-text">{t("curation.confirmDismiss")}</span>
-                              <button
-                                type="button"
-                                className="curation-item-btn danger"
-                                disabled={busy}
-                                onClick={() => void run("dismiss", item.repo, "curation.dismissed")}
-                              >
-                                {t("common.confirm")}
-                              </button>
-                              <button type="button" className="curation-item-btn" onClick={() => setConfirm(null)}>
-                                {t("common.cancel")}
-                              </button>
-                            </span>
-                          ) : (
                           <div className="curation-pending-btns">
                             <button
                               type="button"
@@ -461,7 +469,6 @@ export function CurationDialog({
                               {t("curation.dismiss")}
                             </button>
                           </div>
-                          )}
                         </div>
                         {(item.install || item.category || item.summary) && (
                           <div className="curation-pending-meta">
@@ -487,26 +494,14 @@ export function CurationDialog({
                   <span className="curation-list-tools">
                     {/* 批量清理只在展开时可用：收起状态看不到记录，避免一次清空全部 */}
                     {isQueue && listOpen && indexed.length > 0 && (
-                      confirm?.action === "prune" ? (
-                        <span className="curation-confirm">
-                          <span className="curation-confirm-text">{t("curation.confirmPrune", { n: indexed.length })}</span>
-                          <button type="button" className="curation-item-btn danger" disabled={busy} onClick={() => void prune()}>
-                            {t("common.confirm")}
-                          </button>
-                          <button type="button" className="curation-item-btn" onClick={() => setConfirm(null)}>
-                            {t("common.cancel")}
-                          </button>
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          className="curation-item-btn"
-                          disabled={busy}
-                          onClick={() => setConfirm({ action: "prune" })}
-                        >
-                          {t("curation.prune", { n: indexed.length })}
-                        </button>
-                      )
+                      <button
+                        type="button"
+                        className="curation-item-btn"
+                        disabled={busy}
+                        onClick={() => setConfirm({ action: "prune" })}
+                      >
+                        {t("curation.prune", { n: indexed.length })}
+                      </button>
                     )}
                     <button
                       type="button"
@@ -546,35 +541,14 @@ export function CurationDialog({
                           )}
                           {/* 已收录的条目不在这里下架：收纳进归档，站点继续保留 */}
                           {(!isQueue || (collected && !isCollected(id))) && (
-                            isQueue && confirm?.action === "unqueue" && confirm.target === id ? (
-                              <span className="curation-confirm">
-                                <span className="curation-confirm-text">{t("curation.confirmUnqueue")}</span>
-                                <button
-                                  type="button"
-                                  className="curation-item-btn danger"
-                                  disabled={busy}
-                                  onClick={() => void run("unqueue", id, "curation.unqueued")}
-                                >
-                                  {t("common.confirm")}
-                                </button>
-                                <button type="button" className="curation-item-btn" onClick={() => setConfirm(null)}>
-                                  {t("common.cancel")}
-                                </button>
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="curation-item-btn"
-                                disabled={busy}
-                                onClick={() =>
-                                  isQueue
-                                    ? setConfirm({ action: "unqueue", target: id })
-                                    : void run("queue", id, "curation.restored")
-                                }
-                              >
-                                {t(isQueue ? "curation.unqueue" : "curation.restore")}
-                              </button>
-                            )
+                            <button
+                              type="button"
+                              className="curation-item-btn"
+                              disabled={busy}
+                              onClick={() => setConfirm({ action: isQueue ? "unqueue" : "restore", target: id })}
+                            >
+                              {t(isQueue ? "curation.unqueue" : "curation.restore")}
+                            </button>
                           )}
                         </span>
                       </li>
@@ -587,6 +561,29 @@ export function CurationDialog({
             )}
           </div>
         </>
+      )}
+
+      {confirm && (
+        <div
+          className="curation-confirm-overlay"
+          role="presentation"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) setConfirm(null);
+          }}
+        >
+          <div className="curation-confirm-card" role="alertdialog" aria-modal="true" aria-label={t("curation.confirmTitle")}>
+            <p className="curation-confirm-title">{t("curation.confirmTitle")}</p>
+            <p className="curation-confirm-text">{confirmMessage()}</p>
+            <div className="curation-confirm-btns">
+              <button type="button" className="curation-item-btn" onClick={() => setConfirm(null)}>
+                {t("common.cancel")}
+              </button>
+              <button type="button" className="curation-item-btn danger" disabled={busy} onClick={execConfirm}>
+                {busy ? t("curation.working") : t("common.confirm")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>,
     document.body,
