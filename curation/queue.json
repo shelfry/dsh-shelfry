@@ -1,6 +1,8 @@
 {
   "repos": [
     "leonxlnx/taste-skill",
-    "obra/superpowers"
+    "obra/superpowers",
+    "jsonchao/prompt-optimizer",
+    "linshenkx/prompt-optimizer"
   ]
 }
