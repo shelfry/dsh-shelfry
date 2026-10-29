@@ -220,8 +220,25 @@ export async function loadEntryAt(artifacts: ArtifactIndex, globalIndex: number)
 
 /** 单个 idmap 分片的并发去重缓存：同一片被多处同时请求时只发一次。 */
 const idShardCache = new Map<number, Promise<Record<string, number>>>();
-/** 老产物的整份反查表（没有 artifacts.idmap 时才用）。 */
-let legacyIdMapCache: Record<string, number> | null = null;
+/**
+ * 整份反查表（只给两条路径用：老产物回退、收录弹窗要全量键集合）。
+ *
+ * 缓存 Promise 而不是结果：并发调用共用同一个请求，否则详情页的几个调用点
+ * 会同时各发一次（实测同时出现 4 条 idmap.json 请求）。
+ */
+let legacyIdMapPending: Promise<Record<string, number>> | null = null;
+
+function loadLegacyIdMap(reload = false): Promise<Record<string, number>> {
+  if (reload || !legacyIdMapPending) {
+    const pending = getJson<Record<string, number>>("idmap.json", reload ? "reload" : undefined);
+    // 失败不要把 rejected promise 留在缓存里，否则后续调用永远失败
+    pending.catch(() => {
+      if (legacyIdMapPending === pending) legacyIdMapPending = null;
+    });
+    legacyIdMapPending = pending;
+  }
+  return legacyIdMapPending;
+}
 
 /**
  * id → 全局序号。
@@ -232,11 +249,9 @@ let legacyIdMapCache: Record<string, number> | null = null;
  */
 async function lookupIndex(artifacts: ArtifactIndex, id: string, reload = false): Promise<number | undefined> {
   if (!artifacts.idmap) {
-    if (!legacyIdMapCache || reload) {
-      legacyIdMapCache = await getJson<Record<string, number>>("idmap.json", reload ? "reload" : undefined);
-    }
-    const key = resolveEntryId(legacyIdMapCache, id);
-    return key ? legacyIdMapCache[key] : undefined;
+    const map = await loadLegacyIdMap(reload);
+    const key = resolveEntryId(map, id);
+    return key ? map[key] : undefined;
   }
   const shard = idmapShardId(id, artifacts.idmap.count);
   if (reload) idShardCache.delete(shard);
@@ -276,7 +291,8 @@ async function lookupEntry(artifacts: ArtifactIndex, id: string): Promise<Plugin
 async function refreshDataCaches(): Promise<void> {
   artifactsCache.v = null;
   idShardCache.clear();
-  legacyIdMapCache = null;
+  legacyIdMapPending = null;
+  collectedIdsPending = null;
   shardCache.clear();
   liteCache = null;
   topCache.v = null;
@@ -296,6 +312,8 @@ export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promi
   return lookupEntry(artifactsCache.v!, id);
 }
 
+let collectedIdsPending: Promise<Set<string>> | null = null;
+
 /**
  * 收录弹窗用：拿到全部已收录仓库，给队列条目标「已收录」/「待下次构建」。
  *
@@ -304,9 +322,16 @@ export async function loadEntryById(artifacts: ArtifactIndex, id: string): Promi
  * 否则已上线的条目会被误判成「待收录」，「清理已收录」也筛不到它。
  */
 export async function loadCollectedIds(): Promise<Set<string>> {
-  // 这里需要全量键集合，分片反而要拉满 64 片，直接用整份反查表
-  const map = await getJson<Record<string, number>>("idmap.json");
-  return new Set(Object.keys(map).map((id) => id.toLowerCase()));
+  // 这里需要全量键集合，分片反而要拉满 64 片，直接用整份反查表；
+  // 与老产物回退共用同一个请求，避免同一次解锁重复拉
+  if (!collectedIdsPending) {
+    const pending = loadLegacyIdMap().then((map) => new Set(Object.keys(map).map((id) => id.toLowerCase())));
+    pending.catch(() => {
+      if (collectedIdsPending === pending) collectedIdsPending = null;
+    });
+    collectedIdsPending = pending;
+  }
+  return collectedIdsPending;
 }
 
 /**
