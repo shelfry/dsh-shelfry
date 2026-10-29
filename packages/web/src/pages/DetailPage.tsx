@@ -183,22 +183,39 @@ export default function DetailPage() {
     };
   }, [readmeOpen]);
 
+  // 推荐与分类不属于首屏：等浏览器空闲再发请求，避免和详情主体、README 抢带宽。
+  // 不支持 requestIdleCallback 的浏览器退化为 200ms 延迟，效果等价。
   useEffect(() => {
     if (!entry) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const tool = entry.ecosystem === "external";
-        const [cats, rec] = await Promise.all([loadCategories(tool ? "tools" : "plugins"), loadRelated(entry.id)]);
-        if (cancelled) return;
-        setCategories(cats);
-        setByAuthor(rec.byAuthor);
-        setSimilar(rec.similar);
-      } catch {
-        // 推荐只是锦上添花，失败就留空
-      }
-    })();
-    return () => { cancelled = true; };
+    const start = () => {
+      if (cancelled) return;
+      (async () => {
+        try {
+          const tool = entry.ecosystem === "external";
+          const [cats, rec] = await Promise.all([
+            loadCategories(tool ? "tools" : "plugins"),
+            loadRelated(entry.id),
+          ]);
+          if (cancelled) return;
+          setCategories(cats);
+          setByAuthor(rec.byAuthor);
+          setSimilar(rec.similar);
+        } catch {
+          // 推荐只是锦上添花，失败就留空
+        }
+      })();
+    };
+    const requestIdle = window.requestIdleCallback as
+      | ((cb: () => void, opts?: { timeout: number }) => number)
+      | undefined;
+    const cancelIdle = window.cancelIdleCallback as ((id: number) => void) | undefined;
+    const handle = requestIdle ? requestIdle(start, { timeout: 3000 }) : window.setTimeout(start, 200);
+    return () => {
+      cancelled = true;
+      if (requestIdle && cancelIdle) cancelIdle(handle);
+      else window.clearTimeout(handle);
+    };
   }, [entry]);
 
   // 命令里的 profile 统一由选择器决定；上游安装器（npx ...）没有 --profile，会原样返回
