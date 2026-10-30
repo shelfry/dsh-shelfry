@@ -65,7 +65,9 @@ let artifactsPending: Promise<ArtifactIndex> | null = null;
  */
 export function loadArtifacts(): Promise<ArtifactIndex> {
   if (!artifactsPending) {
-    const pending = getJson<ArtifactIndex>("artifacts.json", "no-cache");
+    // 每次会话唯一参数：清单必须是最新一代。固定 URL 会被边缘缓存住（最长数小时），
+    // 旧清单的序号落到分片表之外，尾部条目详情页就会误报「已下架」。
+    const pending = getJson<ArtifactIndex>(`artifacts.json?_=${Date.now()}`, "no-cache");
     // 失败不要把 rejected promise 留在缓存里，否则后续调用永远失败
     pending.catch(() => {
       if (artifactsPending === pending) artifactsPending = null;
