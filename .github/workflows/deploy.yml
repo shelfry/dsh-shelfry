@@ -85,6 +85,11 @@ jobs:
           key: data-${{ github.run_id }}
           restore-keys: data-
 
+      - name: 清理已下线产物
+        # top/related/idmap 这些分片产物已从收录管线下线，但会被缓存回填进 .data，
+        # 再整体拷进 public/data 进部署包；这里在建站前清掉，避免僵尸文件常驻线上。
+        run: rm -rf .data/related .data/idmap .data/top.json
+
       - name: 跑收录管道
         # GH_SEARCH_TOKEN 未配置时自动降级到镜像种子源（收集器内置 --source auto 兜底）。
         env:
