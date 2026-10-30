@@ -9,7 +9,8 @@ import { marked } from "marked";
  * 渲染后的 HTML 一律过 DOMPurify：README 是第三方内容，不能直接塞进 innerHTML。
  */
 
-const CANDIDATES = ["README.md", "readme.md", "Readme.md", "README.MD", "README.markdown"];
+const PRIMARY = "README.md";
+const FALLBACKS = ["readme.md", "Readme.md", "README.MD", "README.markdown"];
 const RAW = "https://raw.githubusercontent.com";
 const BLOB = "https://github.com";
 // 3s：国内直连 raw.githubusercontent 常被墙，等满 9s 才报错对用户来说等于卡死
@@ -18,33 +19,40 @@ const TIMEOUT_MS = 3000;
 /** 仓库名里的 # 之类会影响 URL，逐段编码。 */
 const encodeRepo = (fullName: string) => fullName.split("/").map(encodeURIComponent).join("/");
 
+/** 单个候选文件名的探测结果；replied 用来区分「文件不存在」和「网络不可达」。 */
+interface Probe {
+  text: string | null;
+  replied: boolean;
+}
+
+async function probe(fullName: string, name: string): Promise<Probe> {
+  try {
+    const res = await fetch(`${RAW}/${encodeRepo(fullName)}/HEAD/${name}`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    // 有响应就说明网络是通的，哪怕 404 也只表示这个文件名不存在
+    if (!res.ok) return { text: null, replied: true };
+    const text = await res.text();
+    return { text: text.trim() ? text : null, replied: true };
+  } catch {
+    return { text: null, replied: false };
+  }
+}
+
 /**
- * 依次探测常见 README 文件名。
+ * 先试最常见文件名，命中即止。
  *
- * 五个候选名并行发请求：串行最坏要 5 × 超时才判定「没有 README」，
- * 并行后最坏只有一次超时；结果按 CANDIDATES 顺序取第一个非空，优先级不变。
- * 全部请求都抛错（超时/断网）时抛出网络错误，与「仓库确实没有 README」区分开。
+ * 绝大多数仓库的 README 就叫 README.md；五个候选并行会让另外四个必然 404，
+ * 控制台刷红字、还白打四个请求。命中即止后常路径只剩 1 个请求；
+ * 少见命名（readme.md 小写等）才回退到并行探测，最坏耗时仍是两轮。
+ * 首选名网络层失败时直接抛错，不再为一轮注定失败的候选再等一次超时。
  */
 async function fetchReadme(fullName: string): Promise<string | null> {
-  let replied = 0;
-  const texts = await Promise.all(
-    CANDIDATES.map(async (name) => {
-      try {
-        const res = await fetch(`${RAW}/${encodeRepo(fullName)}/HEAD/${name}`, {
-          signal: AbortSignal.timeout(TIMEOUT_MS),
-        });
-        // 有响应就说明网络是通的，哪怕 404 也只表示这个文件名不存在
-        replied++;
-        if (!res.ok) return null;
-        const text = await res.text();
-        return text.trim() ? text : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  if (replied === 0) throw new Error("readme: network unreachable");
-  return texts.find((t) => t) ?? null;
+  const primary = await probe(fullName, PRIMARY);
+  if (primary.text) return primary.text;
+  if (!primary.replied) throw new Error("readme: network unreachable");
+  const rest = await Promise.all(FALLBACKS.map((name) => probe(fullName, name)));
+  return rest.find((r) => r.text)?.text ?? null;
 }
 
 /** 把 README 里的相对图片/链接改成绝对地址，否则在站点上全是裂图。 */
