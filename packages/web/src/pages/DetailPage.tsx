@@ -64,6 +64,10 @@ export default function DetailPage() {
   const tagsRef = useRef<HTMLDivElement>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [overflowTags, setOverflowTags] = useState(0);
+  // 推荐区（同作者 / 相似插件）要等滚到附近再加载：全量切片近 3 MB，
+  // 没往下翻的访客不该为它付流量
+  const recRef = useRef<HTMLDivElement>(null);
+  const [recVisible, setRecVisible] = useState(false);
   const { t } = useT();
   // 分类名集合提到组件级：每次渲染都新建 Set 会让 PluginCard 的 memo 全部失效
   const categorySet = useMemo(() => new Set(categories.map((c) => c.t)), [categories]);
@@ -183,10 +187,31 @@ export default function DetailPage() {
     };
   }, [readmeOpen]);
 
-  // 推荐与分类不属于首屏：等浏览器空闲再发请求，避免和详情主体、README 抢带宽。
+  // 推荐区滚到视口附近才置位：没滚到底的访客不必为 lite.json 付流量
+  useEffect(() => {
+    if (!entry || recVisible) return;
+    const el = recRef.current;
+    if (!el) return;
+    // 老浏览器没有 IntersectionObserver（Safari 12 及更早）：直接加载，不能让推荐永久空白
+    if (typeof IntersectionObserver === "undefined") {
+      setRecVisible(true);
+      return;
+    }
+    // 提前 200px 触发：等区块真正露头再拉，滚动中段会看到空白
+    const io = new IntersectionObserver((records) => {
+      if (records.some((r) => r.isIntersecting)) {
+        setRecVisible(true);
+        io.disconnect();
+      }
+    }, { rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [entry, recVisible]);
+
+  // 推荐与分类不属于首屏：区块可见后再等浏览器空闲发请求，避免和详情主体、README 抢带宽。
   // 不支持 requestIdleCallback 的浏览器退化为 200ms 延迟，效果等价。
   useEffect(() => {
-    if (!entry) return;
+    if (!entry || !recVisible) return;
     let cancelled = false;
     const start = () => {
       if (cancelled) return;
@@ -233,7 +258,7 @@ export default function DetailPage() {
       if (requestIdle && cancelIdle) cancelIdle(handle);
       else window.clearTimeout(handle);
     };
-  }, [entry]);
+  }, [entry, recVisible]);
 
   // 命令里的 profile 统一由选择器决定；上游安装器（npx ...）没有 --profile，会原样返回
   const command = entry?.install.command ? applyProfile(entry.install.command, profile) : null;
@@ -553,27 +578,30 @@ export default function DetailPage() {
         )}
       </section>
 
-      {byAuthor.length > 0 && (
-        <section className="panel">
-          <h2>{t(isTool ? "detail.byAuthor.tools" : "detail.byAuthor.plugins")}</h2>
-          <div className="grid grid-similar">
-            {byAuthor.map((v) => (
-              <PluginCard key={v.i} item={v} categories={categorySet} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* 推荐区包一层：IntersectionObserver 观察这个占位，滚到附近才开始加载 */}
+      <div ref={recRef}>
+        {byAuthor.length > 0 && (
+          <section className="panel">
+            <h2>{t(isTool ? "detail.byAuthor.tools" : "detail.byAuthor.plugins")}</h2>
+            <div className="grid grid-similar">
+              {byAuthor.map((v) => (
+                <PluginCard key={v.i} item={v} categories={categorySet} />
+              ))}
+            </div>
+          </section>
+        )}
 
-      {similar.length > 0 && (
-        <section className="panel">
-          <h2>{t(isTool ? "detail.similar.tools" : "detail.similar.plugins")}</h2>
-          <div className="grid grid-similar">
-            {similar.map((v) => (
-              <PluginCard key={v.i} item={v} categories={categorySet} />
-            ))}
-          </div>
-        </section>
-      )}
+        {similar.length > 0 && (
+          <section className="panel">
+            <h2>{t(isTool ? "detail.similar.tools" : "detail.similar.plugins")}</h2>
+            <div className="grid grid-similar">
+              {similar.map((v) => (
+                <PluginCard key={v.i} item={v} categories={categorySet} />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
 
       <footer className="detail-foot">
         {siteConfig.siteName} · {t("detail.foot")}
