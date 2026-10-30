@@ -6,3 +6,9 @@
 
 /data/*
   Cache-Control: public, max-age=300, stale-while-revalidate=3600
+
+# 产物清单决定本次会话所有分片的版本，必须与 lite/idmap 同代；
+# 一旦被边缘缓存住，旧清单的序号会落到分片表之外，详情页就会误报「已下架」。
+# 这条规则要写在 /data/* 之后：Cloudflare Pages 按顺序应用，后匹配的覆盖前者。
+/data/artifacts.json
+  Cache-Control: no-store
