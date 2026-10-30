@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { LiteEntry, PluginEntry } from "@dsh-shelfry/schema";
-import { loadArtifacts, loadCategories, loadEntryById, loadRelated, siteConfig, type Category } from "../lib/data";
+import { loadArtifacts, loadCategories, loadEntryById, loadLite, siteConfig, type Category } from "../lib/data";
 import { Avatar, formatDownloads, formatStars, PluginCard, relativeTime, versionLabel } from "../components/PluginCard";
 import { copyText } from "../lib/clipboard";
 import { assistantPrompt } from "../lib/assistant";
@@ -193,14 +193,31 @@ export default function DetailPage() {
       (async () => {
         try {
           const tool = entry.ecosystem === "external";
-          const [cats, rec] = await Promise.all([
-            loadCategories(tool ? "tools" : "plugins"),
-            loadRelated(entry.id),
-          ]);
+          const [lite, cats] = await Promise.all([loadLite(), loadCategories(tool ? "tools" : "plugins")]);
           if (cancelled) return;
           setCategories(cats);
-          setByAuthor(rec.byAuthor);
-          setSimilar(rec.similar);
+          const owner = entry.fullName.split("/")[0]!.toLowerCase();
+          // 推荐不跨范围：工具页不推 DSH 插件，插件页也不推独立工具
+          const sameScope = lite.filter((v) => (v.ec === "external") === tool);
+          setByAuthor(
+            sameScope
+              .filter((v) => v.i !== entry.id && v.i.split("/")[0]!.toLowerCase() === owner)
+              .sort((a, b) => b.s - a.s)
+              .slice(0, 4),
+          );
+          const myTags = new Set(meaningfulTags(entry.tags).map((t) => t.toLowerCase()));
+          const picked = sameScope
+            .filter((v) => v.i !== entry.id)
+            .map((v) => ({
+              v,
+              // 同一个标签算 3 分，同类型再加 1 分：标签重合比类型更能说明「是同类插件」
+              weight: v.tg.filter((t) => myTags.has(t.toLowerCase())).length * 3 + (v.t === entry.type ? 1 : 0),
+            }))
+            .filter((x) => x.weight >= 3)
+            .sort((a, b) => b.weight - a.weight || b.v.s - a.v.s)
+            .slice(0, 4)
+            .map((x) => x.v);
+          setSimilar(picked);
         } catch {
           // 推荐只是锦上添花，失败就留空
         }

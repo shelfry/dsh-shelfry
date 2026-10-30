@@ -159,6 +159,27 @@ export default function HomePage() {
     })();
   }, []);
 
+  // 首屏就绪后空闲预取全量切片：用户点搜索或任一筛选时它已在内存里，
+  // 不用再等 1 MB 的下载；预取失败静默，真正要用时下面的 effect 会再拉并报错
+  useEffect(() => {
+    if (!firstPage || fullLite) return;
+    let cancelled = false;
+    const run = () => {
+      loadLite()
+        .then((lite) => { if (!cancelled) setFullLite(lite); })
+        .catch(() => {});
+    };
+    const useIdle = typeof window.requestIdleCallback === "function";
+    const handle = useIdle
+      ? window.requestIdleCallback(run, { timeout: 5000 })
+      : window.setTimeout(run, 200);
+    return () => {
+      cancelled = true;
+      if (useIdle) window.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
+  }, [firstPage, fullLite]);
+
   // 分类清单按范围分开拉：工具的分类阈值与插件完全不同
   useEffect(() => {
     // 有内联数据时同步落定：首帧与切换范围都不经过骨架

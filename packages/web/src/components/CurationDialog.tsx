@@ -13,6 +13,8 @@ import { useT } from "../lib/i18n";
  */
 
 type Tab = "pending" | "queue" | "block";
+/** 写接口的超时上限：国内直连偶发挂起，超过它就让用户重试而不是无限转圈 */
+const POST_TIMEOUT_MS = 8000;
 type Action = "queue" | "block" | "unqueue" | "approve" | "dismiss" | "prune";
 /** 需要二次确认的操作：prune 是批量，其余用 target 定位单条 */
 type ConfirmAction = "dismiss" | "unqueue" | "block" | "prune" | "restore";
@@ -181,12 +183,23 @@ export function CurationDialog({
   };
 
   const post = async (payload: Record<string, unknown>) => {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    return parse(await res.json().catch(() => null), res.status);
+    // 接口被墙或挂起时不能无限转圈：8 秒兜底中断，并转成可读文案
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), POST_TIMEOUT_MS);
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal,
+      });
+      return parse(await res.json().catch(() => null), res.status);
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") throw new Error(t("curation.timeout"));
+      throw err;
+    } finally {
+      window.clearTimeout(timer);
+    }
   };
 
   const unlock = async () => {
@@ -201,8 +214,10 @@ export function CurationDialog({
       const next = await post({ action: "auth", password });
       setLists(next);
       setAuthed(true);
-      // 名单状态是锦上添花：拉不到也不影响解锁和写操作
-      setCollected(await loadCollectedIds().catch(() => null));
+      // 名单状态是锦上添花：后台补，别让 400 KB 的反查表把弹窗卡在加载态
+      loadCollectedIds()
+        .then((ids) => setCollected(ids))
+        .catch(() => setCollected(null));
     } catch (err) {
       const status = (err as { status?: number }).status;
       setNotice({

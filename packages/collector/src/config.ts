@@ -28,14 +28,6 @@ export function loadSiteConfig(): SiteConfig {
 export const DATA_DIR = resolve(REPO_ROOT, ".data");
 export const WEB_PUBLIC_DATA_DIR = resolve(REPO_ROOT, "packages/web/public/data");
 
-/**
- * 浏览分页每页条数。
- *
- * 放到 config 而不是 emit 里：推荐关系的「同页优先」也要按同一页大小分组，
- * 两处各写一份迟早会漂。
- */
-export const PAGE_SIZE = 60;
-
 /** 上游冷启动镜像源（按需镜像对手数据，不作为长期主源）。 */
 export const MIRROR_LITE_URL = "https://dsh.market/plugins-lite.json";
 

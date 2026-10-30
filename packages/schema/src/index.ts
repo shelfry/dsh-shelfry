@@ -126,38 +126,11 @@ export interface ArtifactIndex {
   index: { shardCount: number; shards: Array<{ id: number; file: string; tokens: number }> };
   /** 浏览分页文件：首屏只拉第 0 页。 */
   pages: { size: number; count: number; filePattern: string };
-  /** 详情页推荐关系分片（同作者 / 相似 id 列表），老产物可能没有。 */
-  related?: { size: number; count: number; filePattern: string };
-  /**
-   * id 反查表分片：把 26k 条的 id → 序号表按哈希切开，详情页只取命中片（约 6 KB br）。
-   * 老产物没有该字段，前端回退到整份 idmap.json。
-   */
-  idmap?: { count: number; filePattern: string };
   /** 中文意图词典文件（零 token 自建）。 */
   intents: string | null;
 }
 
 export const SCHEMA_VERSION = 2;
-
-/**
- * idmap 落片计算：FNV-1a 32 位散列后对分片数取模。
- *
- * 归一化用小写，保证「Aisland-SJL/x」与「aisland-sjl/x」落到同一片，
- * 这样详情页的忽略大小写兜底匹配仍然有效。
- * 采集与前端必须用同一份实现，否则查到的片里没有对应键。
- */
-export function idmapShardId(id: string, count: number): number {
-  let hash = 0x811c9dc5;
-  const text = id.toLowerCase();
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  // FNV 低位对结构相似的 id 区分度差（实测 2000 个样本只铺满一半分片），
-  // 取模前先做一次高低位混合，让分片分布均匀
-  hash ^= hash >>> 15;
-  return (hash >>> 0) % count;
-}
 
 /**
  * 倒排索引分片数：固定 128 片，token 按哈希落片。

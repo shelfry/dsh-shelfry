@@ -15,12 +15,12 @@
 /** 站内真实路由：只有这些无扩展名路径才交给单页应用处理。 */
 const APP_ROUTES = [/^\/$/, /^\/top\/?$/, /^\/favorites\/?$/, /^\/submit\/?$/, /^\/p\/[^/]+\/[^/]+\/?$/];
 
-/** 这些前缀一律放行：构建产物与收录接口（/data/ 在上面的缓存分支里单独处理）。 */
-const OPEN_PREFIXES = ["/assets/", "/api/"];
+/** 这些前缀一律放行：构建产物、数据切片、收录接口。 */
+const OPEN_PREFIXES = ["/assets/", "/data/", "/api/"];
 
 /** 只声明用到的方法，避免为 Functions 引入整套 workers-types 与 DOM 类型打架。 */
 interface AssetFetcher {
-  fetch(input: Request | URL): Promise<Response>;
+  fetch(input: URL): Promise<Response>;
 }
 
 interface Ctx {
@@ -34,17 +34,7 @@ export async function onRequest(context: Ctx): Promise<Response> {
   // 只管读请求，写方法交给后面的处理逻辑
   if (request.method !== "GET" && request.method !== "HEAD") return next();
 
-  const { pathname, searchParams } = new URL(request.url);
-  // 数据产物：带 ?v=<generatedAt> 的 URL 内容不可变，可以长缓存，
-  // 回访用户直接命中浏览器/边缘缓存、不再回源；不带版本的（artifacts.json、
-  // 以及旧 bundle 的请求）仍走 _headers 里的 300 秒，保证拿到最新布局。
-  if (pathname.startsWith("/data/")) {
-    const asset = await env.ASSETS.fetch(request);
-    if (!searchParams.has("v")) return asset;
-    const headers = new Headers(asset.headers);
-    headers.set("cache-control", "public, max-age=31536000, immutable");
-    return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
-  }
+  const { pathname } = new URL(request.url);
   // 带扩展名的（js/css/json/svg/png/txt/xml）与入口页本身一律放行
   if (pathname === "/index.html" || /\.[a-z0-9]+$/i.test(pathname)) return next();
   if (OPEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return next();
