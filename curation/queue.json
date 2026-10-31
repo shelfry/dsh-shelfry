@@ -3,6 +3,7 @@
     "leonxlnx/taste-skill",
     "obra/superpowers",
     "jsonchao/prompt-optimizer",
-    "linshenkx/prompt-optimizer"
+    "linshenkx/prompt-optimizer",
+    "tencent-hunyuan/hy-memory"
   ]
 }
