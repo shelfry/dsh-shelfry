@@ -18,6 +18,7 @@ const FILES = {
   curated: "curation/curated.json",
   blocklist: "curation/blocklist.json",
   purge: "curation/purge.json",
+  seeds: "curation/seeds.json",
 } as const;
 
 export interface CurationLists {
@@ -33,25 +34,44 @@ export interface CurationLists {
    * 混进 blocklist 会被 KV 里的手动名单冲掉，也不该在剔除弹窗里渲染上万条。
    */
   purge: string[];
+  /**
+   * 外部目录筛选出的候选种子。
+   * 与上面三份名单不同：只负责让管道「看见」这些仓库，不豁免任何门槛，
+   * 星级、生态判定与桌面客户端剥离全部照常执行。
+   */
+  seeds: string[];
+}
+
+/**
+ * 解析名单文件的内容为去重后的仓库全名数组。
+ *
+ * 入参 parsed：JSON.parse 后的任意值，兼容纯数组与 `{ repos: [...] }` 两种写法。
+ * 返回值：规范化后的 owner/repo 列表；格式不合法时返回空数组，不抛错。
+ */
+export function parseRepoList(parsed: unknown): string[] {
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object"
+      ? (parsed as { repos?: unknown }).repos
+      : undefined;
+  if (!Array.isArray(rows)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (typeof row !== "string") continue;
+    const repo = normalizeGitHubRepo(row);
+    if (!repo || seen.has(repo)) continue;
+    seen.add(repo);
+    out.push(repo);
+  }
+  return out;
 }
 
 function readList(file: string): string[] {
   const path = resolve(REPO_ROOT, file);
   if (!existsSync(path)) return [];
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
-    const rows = Array.isArray(parsed) ? parsed : (parsed as { repos?: unknown }).repos;
-    if (!Array.isArray(rows)) return [];
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const row of rows) {
-      if (typeof row !== "string") continue;
-      const repo = normalizeGitHubRepo(row);
-      if (!repo || seen.has(repo)) continue;
-      seen.add(repo);
-      out.push(repo);
-    }
-    return out;
+    return parseRepoList(JSON.parse(readFileSync(path, "utf8")) as unknown);
   } catch {
     // 名单只是增强项：格式坏了不该让整轮收录失败
     return [];
@@ -64,5 +84,6 @@ export function loadCuration(): CurationLists {
     curated: readList(FILES.curated),
     blocklist: readList(FILES.blocklist),
     purge: readList(FILES.purge),
+    seeds: readList(FILES.seeds),
   };
 }

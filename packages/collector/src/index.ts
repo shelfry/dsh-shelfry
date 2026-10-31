@@ -226,6 +226,19 @@ async function main(): Promise<void> {
     );
   }
 
+  // 外部目录筛选出的候选种子：只负责让管道看见这些仓库，不豁免任何门槛 ——
+  // 生态判定、星级门槛、桌面客户端剥离与命令补全都按自动规则走，达标才进站。
+  if (curation.seeds.length > 0) {
+    const seeded = token ? await fetchReposByNames(curation.seeds, token) : [];
+    log(args.silent, `[collector] 候选种子 ${curation.seeds.length} 个，成功取回 ${seeded.length} 条`);
+    records.push(
+      ...seeded.map((r) => {
+        const prevSources = Array.isArray(r.sources) ? r.sources.map(String) : [];
+        return { ...r, sources: [...new Set([...prevSources, "seed"])] };
+      }),
+    );
+  }
+
   // 站内「收录」弹框写入的队列 + 已收录归档：跳过检索发现层，直接按全名拉取。
   // 归档是「清理已收录」后的去向，仍然要强制收录，否则下次构建可能掉出站点。
   // 人工指定只负责「进候选」，类型判定与分类仍走后面的自动规则。

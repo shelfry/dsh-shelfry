@@ -28,3 +28,8 @@ test("isManualPick：普通检索到的条目不算点名收录", () => {
   // sources 缺失也不能误判
   assert.equal(isManualPick({ curated: false } as Pick<PluginEntry, "curated" | "sources">), false);
 });
+
+test("isManualPick：候选种子（seed）不算点名收录", () => {
+  // seeds 只负责让管道看见，星级与生态门槛必须照常生效
+  assert.equal(isManualPick(entry({ sources: ["github-search", "seed"] })), false);
+});
