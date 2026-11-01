@@ -1,8 +1,8 @@
 /** zh/en/ja dictionaries for the Market settings section and install toast. */
 
 export const zh = {
-  nav: 'Shelfry 市场',
-  setCardDesc: '查看 Shelfry 市场的版本与设置。',
+  nav: '插件箱子',
+  setCardDesc: '查看插件箱子的版本与设置。',
   setSelfUpToDate: '已是最新版本',
   setSelfUpdateReady: '有新版本',
   setSelfUpdateHint: '更新会下载新版本，重启后生效。',
@@ -810,8 +810,8 @@ export const zh = {
 export type MarketKey = keyof typeof zh
 
 export const en: Record<MarketKey, string> = {
-  nav: 'Shelfry Market',
-  setCardDesc: 'View the Shelfry Market version and settings.',
+  nav: 'Plugin Box',
+  setCardDesc: 'View the Plugin Box version and settings.',
   setSelfUpToDate: 'Up to date',
   setSelfUpdateReady: 'New version available:',
   setSelfUpdateHint: 'Updating downloads the new version; it takes effect after a restart.',
@@ -1600,8 +1600,8 @@ export const en: Record<MarketKey, string> = {
 }
 
 export const ja: Record<MarketKey, string> = {
-  nav: 'Shelfry マーケット',
-  setCardDesc: 'Shelfry マーケットのバージョンと設定を確認します。',
+  nav: 'プラグインボックス',
+  setCardDesc: 'プラグインボックスのバージョンと設定を確認します。',
   setSelfUpToDate: '最新バージョンです',
   setSelfUpdateReady: '新しいバージョンがあります',
   setSelfUpdateHint: '更新すると新しいバージョンをダウンロードし、再起動後に有効になります。',

@@ -205,36 +205,24 @@ function animationValues(selector: string): string[] {
     .filter((value): value is string => value !== undefined)
 }
 
-describe('the animated mark keeps both halves on one clock', () => {
-  const halves = ['logoCell', 'logoPlug'] as const
-
-  it('takes the wave and the block from the same cycle variable', () => {
-    for (const half of halves) {
-      const declared = animationValues(half).filter(value => value.includes('dshmMark'))
-      expect(declared.length, `.${half} has no mark animation`).toBeGreaterThan(0)
-      for (const value of declared) expect(value).toContain('var(--dshm-cycle)')
+// 箱子标记是静态图形，样式表里不应再有任何标记动画。
+describe('the logo mark is static', () => {
+  it('declares no animation on any mark class', () => {
+    for (const selector of ['logoMark', 'logoCell', 'logoPlug', 'logoPlugAmbient']) {
+      expect(animationValues(selector)).toEqual([])
     }
   })
 
-  it('never restates the cycle as a literal on either half', () => {
-    const restated = halves
-      .flatMap(half => animationValues(half))
-      .filter(value => value.includes('dshmMark') && /\d*\.?\d+m?s\b/.test(value))
-    expect(restated).toEqual([])
-  })
-
-  it('stops the ambient form but keeps the loading form moving', () => {
+  it('still keeps the loading spinner breathing under reduced motion', () => {
     const start = CSS.indexOf('@media (prefers-reduced-motion: reduce)')
     expect(start, 'there is no reduced-motion block').toBeGreaterThan(-1)
-    // to the end of that at-rule, by brace depth
+    // 按花括号深度找到该 at-rule 的结尾
     let depth = 0
     let end = start
     for (let i = CSS.indexOf('{', start); i < CSS.length; i++) {
       if (CSS[i] === '{') depth += 1
       else if (CSS[i] === '}') { depth -= 1; if (depth === 0) { end = i; break } }
     }
-    const block = CSS.slice(start, end)
-    expect(block).toContain('.logoPlugAmbient{animation:none}')
-    expect(block).toMatch(/\.logoPlug\{animation:dshmPlugFade/)
+    expect(CSS.slice(start, end)).toMatch(/\.spin\{animation:dshmPlugFade/)
   })
 })

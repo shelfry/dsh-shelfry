@@ -433,7 +433,7 @@ export async function openMarketUi(page: Page): Promise<void> {
   const dialogVisible = await dialog.waitFor({ state: 'visible', timeout: 15_000 })
     .then(() => true).catch(() => false)
   const scope = dialogVisible ? dialog : page
-  await scope.getByRole('button', { name: /Shelfry 市场|Shelfry Market/ }).first().click()
+  await scope.getByRole('button', { name: /插件箱子|Plugin Box/ }).first().click()
   // That click is the first one a leftover gate swallows: the entry never
   // opens, and the failure lands later as an empty-catalog wait that reads
   // like the market is broken. Fail at the door instead (#1033). Scoped to the

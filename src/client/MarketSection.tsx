@@ -39,7 +39,7 @@ import {
 } from './icons.ts'
 import { HostCheckbox, HostSwitch, HostTag } from './optional-primitives.ts'
 import css from './Market.module.css'
-import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
+import { MARK_BOX_PARTS, MARK_VIEW_BOX } from './market-mark.ts'
 import { CommentsModal } from './CommentsModal.tsx'
 import { SearchInput } from './SearchInput.tsx'
 import { downloadStatsText } from './download-stats.ts'
@@ -1237,57 +1237,24 @@ export function resetMarketPortalHost(): void {
 }
 
 /**
- * Official-style market glyph: the shared block-grid brand mark converted to
- * the official monochrome icon form (16×16, fill="currentColor") so it
- * follows the active theme. Mirrors the settings-nav glyph used for the
- * "market" section id — both now draw the geometry in market-mark.ts, so the
- * nav entry and the section it opens cannot drift apart.
- *
- * Two animated forms, differing in what they are for rather than in looks:
- *
- * - `animated` — the loading state. Motion is the whole signal, so under
- *   `prefers-reduced-motion` it still moves, just without displacement.
- * - `ambient` — the section's own heading mark. Decoration, so the same
- *   preference stops it dead.
- *
- * Both draw the one timeline in the stylesheet: the grid breathes along the
- * diagonal and the block rides in behind that wave. They share `--dshm-cycle`
- * so the block cannot arrive after the wave it is supposed to follow.
+ * 市场品牌标记：一只「箱子」，取自 assets/logo.svg，转成 16×16、
+ * fill="currentColor" 的单色图标，跟随当前主题。设置导航里的图标由
+ * market-mark.ts 的同一份几何绘制，两处不会走形。
  */
-export function MarketLogo({ size = 16, style, animated = false, ambient = false }: {
+export function MarketLogo({ size = 16, style }: {
   size?: number
   style?: CSSProperties
-  animated?: boolean
-  ambient?: boolean
 }) {
-  const moving = animated || ambient
   return (
     <svg width={size} height={size} viewBox={`0 0 ${MARK_VIEW_BOX} ${MARK_VIEW_BOX}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={style}>
       <g fill="currentColor">
-        {MARK_GRID_BLOCKS.map(block => (
+        {MARK_BOX_PARTS.map(part => (
           <rect
-            key={`${block.x},${block.y}`}
-            className={moving ? css.logoCell : undefined}
-            style={moving ? { '--dshm-wave': block.wave } as CSSProperties : undefined}
-            x={block.x} y={block.y} width={MARK_BLOCK_SIZE} height={MARK_BLOCK_SIZE} rx={MARK_BLOCK_RADIUS}
+            key={`${part.x},${part.y}`}
+            x={part.x} y={part.y} width={part.width} height={part.height} rx={part.radius}
           />
         ))}
       </g>
-      {/* The block being plugged in: OUTSIDE the grid's empty corner, offset
-          (+1.28, -1.27) and tilted 9deg, exactly as in assets/logo.svg. The
-          earlier icon sat it neatly in the empty slot, which reads as one
-          crooked tile rather than a block arriving — the whole idea of the
-          mark, and the reason it no longer matched the GitHub logo.
-
-          The tilt stays a presentation attribute even in the animated forms:
-          a CSS animation outranks it while running, and when the animation is
-          suppressed (reduced motion) the attribute is what leaves the block in
-          its drawn position instead of sitting square in the corner. */}
-      <rect
-        className={animated ? css.logoPlug : ambient ? css.logoPlugAmbient : undefined}
-        x={MARK_PLUG_BLOCK.x} y={MARK_PLUG_BLOCK.y} width={MARK_BLOCK_SIZE} height={MARK_BLOCK_SIZE} rx={MARK_BLOCK_RADIUS} fill="currentColor"
-        transform={`rotate(${MARK_PLUG_BLOCK.degrees} ${MARK_PLUG_BLOCK.originX} ${MARK_PLUG_BLOCK.originY})`}
-      />
     </svg>
   )
 }
@@ -2856,51 +2823,6 @@ export function MarketSection(props: MarketSectionProps) {
   const setInstalledBundles = useCallback(cacheState(value => { cachedInstalledBundles = value }, setInstalledBundlesState), [])
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
-  /**
-   * The Plugins page's tab has no height of its own.
-   *
-   * The host's page owns the scroll there and its tab panel is content-sized,
-   * so a `height: 100%` child resolves to auto: the market's own scroller
-   * would disappear and take the sticky category row, the back-to-top button
-   * and the collapse-on-scroll header with it. Measure the room left under
-   * the host's header and tabs and hand it back to the panel, so every other
-   * mount's layout rules keep working unchanged.
-   */
-  const [pluginsTabHeight, setPluginsTabHeight] = useState<number | null>(null)
-  useLayoutEffect(() => {
-    const root = rootRef.current
-    if (surface !== 'plugins' || root === null) {
-      setPluginsTabHeight(null)
-      return undefined
-    }
-    // Which ancestor scrolls is the host's business; find it rather than name it.
-    let page: HTMLElement | null = null
-    for (let node = root.parentElement; node !== null; node = node.parentElement) {
-      if (/^(auto|scroll)$/.test(getComputedStyle(node).overflowY)) { page = node; break }
-    }
-    if (page === null) return undefined
-    const host = page
-    const measure = (): void => {
-      // Hidden behind another tab the host keeps mounted: every rect is zero
-      // and the answer would be the whole page height. The observer fires
-      // again when this panel is shown.
-      if (root.getClientRects().length === 0) return
-      const bottom = Number.parseFloat(getComputedStyle(host).paddingBottom)
-      const room = host.clientHeight
-        - (root.getBoundingClientRect().top - host.getBoundingClientRect().top)
-        - (Number.isFinite(bottom) ? bottom : 0)
-      // A host that has not laid the page out yet answers with a negative
-      // room; the floor keeps the panel usable until the next measurement.
-      const next = Math.max(320, Math.round(room))
-      setPluginsTabHeight(prev => (prev === next ? prev : next))
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(measure)
-    observer.observe(host)
-    observer.observe(root)
-    return () => { observer.disconnect() }
-  }, [surface])
   /** Hidden file input behind the Import button (a Button can't host an <input>). */
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [sortField, setSortField] = useState<SortField>('downloads')
@@ -6886,7 +6808,6 @@ export function MarketSection(props: MarketSectionProps) {
     <div
       ref={rootRef}
       className={`${css.root} notranslate`}
-      style={surface === 'plugins' && pluginsTabHeight !== null ? { height: `${String(pluginsTabHeight)}px` } : undefined}
       data-dsh-shelfry-root
       data-dsh-shelfry-plugins-tab={surface === 'plugins' ? 'true' : undefined}
       /* Browser page translation is the one reported cause of the blank
@@ -6911,7 +6832,7 @@ export function MarketSection(props: MarketSectionProps) {
       <div className={css.head}>
         <div className={css.headTop}>
         <div className={css.titleRow}>
-          <MarketLogo size={18} ambient style={{ flexShrink: 0 }} />
+          <MarketLogo size={18} style={{ flexShrink: 0 }} />
           <h2 className={css.title}>{t('nav')}</h2>
           <p className={css.sub}>{t('subtitle')}</p>
           </div>
@@ -7483,7 +7404,7 @@ export function MarketSection(props: MarketSectionProps) {
                 </Button>
               </div>
             : data === null
-              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
+              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
               : (
                   <>
                     <div ref={setCatsSentinel} />
@@ -7622,7 +7543,7 @@ export function MarketSection(props: MarketSectionProps) {
                 )
           : tab === 'favorites'
             ? data === null
-              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
+              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
               : favoriteUrls.length === 0
                 ? <div className={css.empty}>{t('favoritesEmpty')}</div>
                 : (
@@ -7756,7 +7677,7 @@ export function MarketSection(props: MarketSectionProps) {
                     )
                   })()}
                   {data === null
-                    ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
+                    ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
                     : anyThemePlugins.length === 0
                       ? <div className={css.empty}>{t('themeEmpty')}</div>
                       : themePlugins.length === 0
@@ -7791,7 +7712,7 @@ export function MarketSection(props: MarketSectionProps) {
             ? <Diagnostics t={t} />
             : tab === 'blocked'
               ? data === null
-                ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
+                ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
                 : blockedNames.length === 0
                   ? <div className={css.empty}>{t('blockedEmpty')}</div>
                   : (

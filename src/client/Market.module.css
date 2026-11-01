@@ -402,9 +402,15 @@
    while the user can opt into a Wallpaper-style multi-column gallery. */
 [role="dialog"]:has([data-dsh-shelfry-fullscreen="true"]){position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;border-radius:0}
 /* Fullscreen from the Plugins page has no dialog to expand, so the
-   market covers the window itself. The inline height is the tab room measured
-   from the host's page, hence !important. */
+   market covers the window itself. */
 [data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important;background:var(--dsw-alias-bg-layer-1,#fff)}
+/* 插件页签（非全屏）：高度随内容撑开，滚动交给宿主整页（宿主页面本身是 overflow:auto）。
+   否则市场会在 960px 内容列里再开一条内层滚动条，并留下底部 48px 空白带。
+   这里只调整 height/flex/overflow，外边距保持原样。 */
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto}
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) > .body{flex:none;overflow:visible;overflow-anchor:auto;padding-bottom:24px;scroll-padding-bottom:0}
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{position:static}
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .top{display:none}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
@@ -541,56 +547,10 @@
 .actWhy{margin-top:2px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px;color:var(--dsw-alias-label-secondary,#9ca3af);font-size:13px}
 .spin{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-brand-primary,#4f6ef7);animation:sp .8s linear infinite}
-/* The mark's two motions, on one clock.
-   The grid breathes along the diagonal — `--dshm-wave` is each cell's
-   row + column — and the plug arrives behind that wave, seats in the corner
-   the wave has just left, holds, then withdraws before the next pass. One
-   duration for both is the point: the block has to read as following the
-   wave, and two independently timed loops drift apart the moment either is
-   retuned. `transform-box: fill-box` makes the offsets below user units of
-   THIS rect, so they are the same (+1.28, -1.27) the static mark is drawn
-   with. Both are opacity and transform only: no filter, no layout. */
+/* 品牌标记现在是静态的箱子图形，不再有网格波动与插块动画。 */
 .logoMark{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-brand-primary,#4f6ef7)}
-.logoCell,.logoPlug,.logoPlugAmbient{--dshm-cycle:2.8s}
-/* The loading form is the same gesture at a working pace. It is reporting that
-   something is happening, and the block rests for roughly a third of a cycle —
-   at the ambient 2.8s that rest reads as stuck. Only the pace differs; phases,
-   geometry and curve are shared, so the two forms cannot drift apart in shape. */
-.logoMark .logoCell,.logoMark .logoPlug{--dshm-cycle:2s}
-/* The cell's place on the diagonal, set per cell from market-mark.ts. Declared
-   here as well, because the stylesheet is where it is read: a variable that
-   exists only as an inline style is indistinguishable from a host variable that
-   does not exist, which is what tests/client/host-theme-vars.spec.ts guards. */
-.logoCell{--dshm-wave:0;animation:dshmMarkWave var(--dshm-cycle) cubic-bezier(.4,0,.2,1) infinite;animation-delay:calc(var(--dshm-wave) * 110ms)}
-.logoPlug,.logoPlugAmbient{transform-box:fill-box;transform-origin:50% 50%;animation:dshmMarkPlug var(--dshm-cycle) cubic-bezier(.4,0,.2,1) infinite}
-/* The dip is short on purpose. A long one (a quarter of the cycle, which is
-   what a plain "breathing" loop wants) leaves five of the eight cells below
-   full at any instant, and at 18px the whole grid greys out together — it
-   reads as a loading skeleton, not as a wave. Ten percent of the cycle per
-   cell, stepped 110ms, keeps the band to about two cells wide, so the eye
-   follows a passing shadow and most of the grid stays ink. */
-@keyframes dshmMarkWave{
-  0%,100%{opacity:1}
-  6%{opacity:.5}
-  16%{opacity:1}
-}
-/* The block arrives behind the wave: the empty slot is `wave` 2, which dips at
-   ~15% and is lit again by ~25%, and the block settles at 30%. It overshoots by
-   a tenth of a block at 22% so it lands in the corner rather than stopping on
-   it, then holds until 62% and withdraws before the next pass. */
-@keyframes dshmMarkPlug{
-  0%,8%{transform:rotate(9deg)}
-  22%{transform:translate(-1.35px,1.34px) rotate(0)}
-  30%,62%{transform:translate(-1.28px,1.27px) rotate(0)}
-  76%,100%{transform:rotate(9deg)}
-}
-/* A reader who asked for less motion gets a still mark — except in the loading
-   state, where motion is the signal and suppressing it would leave nothing to
-   say "working". There the block keeps its drawn position (the rect's own
-   transform attribute, which a running animation outranks) and breathes. */
+/* 加载指示器在减弱动效时改用呼吸式闪烁。 */
 @media (prefers-reduced-motion: reduce){
-  .logoCell,.logoPlugAmbient{animation:none}
-  .logoPlug{animation:dshmPlugFade 1.5s ease-in-out infinite}
   .spin{animation:dshmPlugFade 1.5s ease-in-out infinite}
 }
 @keyframes dshmPlugFade{0%,100%{opacity:1}50%{opacity:.35}}

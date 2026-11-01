@@ -9,10 +9,9 @@
  * list exactly those three options. Every third-party section therefore wears
  * the gear, the market included.
  *
- * So the market claims its own row once the dialog is mounted and swaps the
- * fallback gear for the block mark — the same mark `MarketLogo` draws inside
- * the section (see market-mark.ts), which is what makes the nav entry read as
- * the same thing as the page it opens. `dsh-better-sidebar` and
+ * 于是本模块在设置弹窗挂载后认领自己那一行，把兜底的齿轮换成
+ * 箱子标记——与分区内部 `MarketLogo` 画的标记同源（见 market-mark.ts），
+ * 导航项与它打开的页面因此读起来是同一个东西。 `dsh-better-sidebar` and
  * `dsh-skill-mcp-panel` solve it the same way.
  *
  * Scope, deliberately narrow:
@@ -27,13 +26,7 @@
  * Delete this module (and its call in index.ts) the day `settings.section`
  * grows an `icon` field.
  */
-import {
-  MARK_BLOCK_RADIUS,
-  MARK_BLOCK_SIZE,
-  MARK_GRID_BLOCKS,
-  MARK_PLUG_BLOCK,
-  MARK_VIEW_BOX,
-} from './market-mark.ts'
+import { MARK_BOX_PARTS, MARK_VIEW_BOX } from './market-mark.ts'
 
 /** Marks the one nav row this plugin owns. */
 export const NAV_ICON_MARKER = 'data-dsh-shelfry-nav-icon'
@@ -54,23 +47,18 @@ export const NAV_ROW_SELECTOR = '[role="dialog"] nav button'
 export const NAV_ICON_SIZE = 16
 
 /**
- * The mark as standalone SVG for a CSS `mask-image`.
+ * 标记的独立 SVG，供 CSS `mask-image` 使用。
  *
- * Painted pure black on purpose: a mask reads alpha only, and the visible
- * colour comes from the element's `background-color: currentColor`. The
- * plug block carries its tilt without the animated variant's transform
- * classes — a mask cannot animate through CSS-module classes.
+ * 故意涂成纯黑：mask 只读取 alpha，可见颜色来自元素的
+ * `background-color: currentColor`。
  */
 export function marketMaskSvg(): string {
-  const blocks = MARK_GRID_BLOCKS
-    .map(block => `<rect x="${block.x}" y="${block.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}" rx="${MARK_BLOCK_RADIUS}"/>`)
+  const parts = MARK_BOX_PARTS
+    .map(part => `<rect x="${part.x}" y="${part.y}" width="${part.width}" height="${part.height}" rx="${part.radius}"/>`)
     .join('')
-  const plug = MARK_PLUG_BLOCK
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '
     + `${MARK_VIEW_BOX} ${MARK_VIEW_BOX}" fill="#000">`
-    + `<g>${blocks}</g>`
-    + `<rect x="${plug.x}" y="${plug.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}"`
-    + ` rx="${MARK_BLOCK_RADIUS}" transform="rotate(${plug.degrees} ${plug.originX} ${plug.originY})"/>`
+    + `<g>${parts}</g>`
     + '</svg>'
 }
 

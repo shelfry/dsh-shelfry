@@ -39,7 +39,7 @@ describe.skipIf(!dshAvailable()).sequential('web e2e: the market header in a nar
     await openMarketUi(page)
     await waitMarketCatalog(page)
     await page.setViewportSize({ width: 640, height: 800 })
-    await page.getByRole('button', { name: /Shelfry 市场|Shelfry Market/ }).waitFor()
+    await page.getByRole('button', { name: /插件箱子|Plugin Box/ }).waitFor()
   }, 300_000)
   afterAll(async () => { await browser?.close(); await s?.close() })
 

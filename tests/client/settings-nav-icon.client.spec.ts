@@ -24,7 +24,7 @@ import {
   marketMaskUrl,
   navIconCss,
 } from '../../src/client/settings-nav-icon.ts'
-import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK } from '../../src/client/market-mark.ts'
+import { MARK_BOX_PARTS } from '../../src/client/market-mark.ts'
 
 /** The shell's own fallback glyph, as the row receives it. */
 const GEAR = '<svg class="VOzbGW_navIcon" viewBox="0 0 16 16"></svg>'
@@ -34,7 +34,7 @@ const STYLESHEET_SELECTOR = 'style[data-plugin-css="dsh-shelfry/settings-nav-ico
 /** Let the MutationObserver's queued sync run. */
 const flush = () => new Promise<void>(resolve => { setTimeout(resolve, 0) })
 
-let label = 'Shelfry 市场'
+let label = '插件箱子'
 let disposers: (() => void)[] = []
 
 /** The shell's panel: role="dialog" > nav > one <button> per section. */
@@ -60,7 +60,7 @@ const marked = (): string[] =>
 const stylesheet = (): HTMLStyleElement | null => document.head.querySelector(STYLESHEET_SELECTOR)
 
 beforeEach(() => {
-  label = 'Shelfry 市场'
+  label = '插件箱子'
   disposers = []
   // The market boots with the client, before any settings dialog exists.
   installSettingsNavIcon({ effect: (callback) => { disposers.push(callback() as () => void) } }, () => label)
@@ -75,38 +75,38 @@ afterEach(() => {
 
 describe('settings nav glyph', () => {
   it('claims its own row and nobody else\'s', async () => {
-    mountDialog('通用设置', '手机访问', 'Shelfry 市场', '模型')
+    mountDialog('通用设置', '手机访问', '插件箱子', '模型')
     await flush()
 
     // "手机访问" belongs to dsh-pocket, "模型"/"通用设置" to the shell: a
     // marker on any of them would replace an icon this plugin does not own.
-    expect(marked()).toEqual(['Shelfry 市场'])
+    expect(marked()).toEqual(['插件箱子'])
   })
 
   it('claims nothing while the section label has not resolved', async () => {
     label = ''
-    mountDialog('通用设置', 'Shelfry 市场')
+    mountDialog('通用设置', '插件箱子')
     await flush()
 
     expect(marked()).toEqual([])
   })
 
   it('moves the claim when the locale switches', async () => {
-    mountDialog('General', '手机访问', 'Shelfry Market')
+    mountDialog('General', '手机访问', 'Plugin Box')
     await flush()
     expect(marked()).toEqual([])
 
     // The shell re-renders its nav on a locale change, which is what the
     // observer sees; the module must not need a second registration for it.
-    label = 'Shelfry Market'
-    mountDialog('General', '手机访问', 'Shelfry Market')
+    label = 'Plugin Box'
+    mountDialog('General', '手机访问', 'Plugin Box')
     await flush()
 
-    expect(marked()).toEqual(['Shelfry Market'])
+    expect(marked()).toEqual(['Plugin Box'])
   })
 
   it('hides the shell gear and paints the mark through a mask', async () => {
-    mountDialog('Shelfry 市场')
+    mountDialog('插件箱子')
     await flush()
 
     const row = document.querySelector('[role="dialog"] nav button')
@@ -124,29 +124,26 @@ describe('settings nav glyph', () => {
   })
 
   it('masks the mark the section draws, from the one source of geometry', async () => {
-    mountDialog('Shelfry 市场')
+    mountDialog('插件箱子')
     await flush()
 
     const svg = decodeURIComponent(marketMaskUrl().replace('data:image/svg+xml,', ''))
-    expect(svg.match(/<rect/g)).toHaveLength(MARK_GRID_BLOCKS.length + 1)
-    for (const block of MARK_GRID_BLOCKS) {
-      expect(svg).toContain(`<rect x="${block.x}" y="${block.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}" rx="${MARK_BLOCK_RADIUS}"/>`)
+    expect(svg.match(/<rect/g)).toHaveLength(MARK_BOX_PARTS.length)
+    for (const part of MARK_BOX_PARTS) {
+      expect(svg).toContain(`<rect x="${part.x}" y="${part.y}" width="${part.width}" height="${part.height}" rx="${part.radius}"/>`)
     }
-    expect(svg).toContain(`x="${MARK_PLUG_BLOCK.x}" y="${MARK_PLUG_BLOCK.y}"`)
-    expect(svg).toContain(`transform="rotate(${MARK_PLUG_BLOCK.degrees} ${MARK_PLUG_BLOCK.originX} ${MARK_PLUG_BLOCK.originY})"`)
 
     // And the section must not have gone back to carrying its own copy of the
     // numbers: a second copy is how the nav entry and the page it opens drift.
     const section = readFileSync(resolve('src/client/MarketSection.tsx'), 'utf8')
-    expect(section).toContain('MARK_GRID_BLOCKS')
-    expect(section).not.toContain('x="1.96"')
-    expect(section).not.toContain('x="10.74"')
+    expect(section).toContain('MARK_BOX_PARTS')
+    expect(section).not.toContain('x="6.3"')
   })
 
   it('leaves no marker and no stylesheet behind when the fiber goes away', async () => {
-    mountDialog('通用设置', 'Shelfry 市场')
+    mountDialog('通用设置', '插件箱子')
     await flush()
-    expect(marked()).toEqual(['Shelfry 市场'])
+    expect(marked()).toEqual(['插件箱子'])
     expect(stylesheet()).not.toBeNull()
 
     for (const dispose of disposers) dispose()
