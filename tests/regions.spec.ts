@@ -1,0 +1,432 @@
+/**
+ * The download-region routing table and the target rewriting built on it.
+ *
+ * Pure string logic, so it is asserted directly rather than through a route.
+ * Two of these tests exist because the property they check was measured
+ * against the real services and would be invisible in a mock: a proxied
+ * codeload URL still has to satisfy the lockfile reader's SHA pattern, and
+ * build-script approval still has to produce the key it produced before.
+ */
+
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  activeRegion, asRegion, catalogSourcesFor, DEFAULT_NPM_REGISTRY, githubRoutesFor, REGIONS, rememberGithubRoute,
+  resetGithubRoutePreferences, routesFor, setActiveRegion, setCustomGithubProxy, throughProxy,
+} from '../src/regions.ts'
+import { codeloadAllowBuildsKey, codeloadTarball, githubCommitOfTarget, gitAllowBuildsKey, githubRepoOfRemote, pinnedAllowBuildsKeys, pinnedGitAllowBuildsKey, repoOfTarget } from '../src/sources.ts'
+import { githubProxyInUse, githubUrl, setGithubProxy } from '../src/client/market-data.ts'
+
+const SHA = 'b0e6c57ebeeb4796017864f5cd5c66e6ba0899ec'
+
+afterEach(() => {
+  setActiveRegion('global')
+  setCustomGithubProxy(null)
+  resetGithubRoutePreferences()
+})
+
+describe('asRegion', () => {
+  it('accepts the two regions and nothing else', () => {
+    expect(asRegion('global')).toBe('global')
+    expect(asRegion('china')).toBe('china')
+    expect(asRegion('CN')).toBeNull()
+    expect(asRegion(undefined)).toBeNull()
+    expect(asRegion({ region: 'china' })).toBeNull()
+  })
+})
+
+describe('routesFor', () => {
+  it('leaves the global route on the official sources', () => {
+    const routes = routesFor('global', {})
+    expect(routes.npmRegistry).toBe(DEFAULT_NPM_REGISTRY)
+    expect(routes.githubProxy).toBeNull()
+    // One source and no fallbacks: this IS what everything else falls back to.
+    expect(routes.catalog).toEqual([{ kind: 'url', url: expect.stringContaining('shelfry.app') }])
+  })
+
+  it('sends every china route through a mirror, ending at the address that always works', () => {
+    const routes = routesFor('china', {})
+    expect(routes.npmRegistry).not.toBe(DEFAULT_NPM_REGISTRY)
+    expect(routes.githubProxy).not.toBeNull()
+    // shelfry 只有一份公开 JSON，没有可以退到的 npm 镜像包：两个地区的目录
+    // 候选都只有这一个地址。
+    expect(routes.catalog).toEqual([{ kind: 'url', url: expect.stringContaining('shelfry.app') }])
+    expect(routes.githubRoutes.raw).toEqual([
+      'https://gh-proxy.com', 'https://ghfast.top', null,
+    ])
+    // Git ref advertisements and avatars are known to work directly on
+    // networks where raw content does not, so each service gets its own order.
+    expect(routes.githubRoutes.git).toEqual([
+      null, 'https://gh-proxy.com', 'https://ghfast.top',
+    ])
+    expect(routes.githubRoutes.avatar).toEqual(routes.githubRoutes.git)
+  })
+
+  it('asks the same single catalog address in every region', () => {
+    for (const region of ['global', 'china'] as const) {
+      const sources = catalogSourcesFor(region)
+      expect(sources).toHaveLength(1)
+      expect(sources[0]).toEqual({ kind: 'url', url: 'https://shelfry.app/data/market-top.json' })
+    }
+  })
+
+  it('does not invent an npm fallback for the catalog', () => {
+    // The old list ended at `dsh-plugin-catalog` on the region's own registry.
+    // shelfry has no such package, and a fallback that answers 404 costs two
+    // attempts and still fails — worse than the honest single source.
+    for (const region of ['global', 'china'] as const) {
+      expect(catalogSourcesFor(region).some(source => source.kind === 'npm')).toBe(false)
+    }
+  })
+
+  it('lets the environment override each route', () => {
+    const routes = routesFor('china', {
+      DSHM_NPM_MIRROR: 'https://npm.internal/',
+      DSHM_GITHUB_PROXY: 'https://gh.internal/',
+    })
+    // Trailing slashes are stripped so callers can join without doubling.
+    expect(routes.npmRegistry).toBe('https://npm.internal')
+    expect(routes.githubProxy).toBe('https://gh.internal')
+    // The override leads; the region's own chain still follows it (#850).
+    expect(routes.githubRoutes.raw).toEqual([
+      'https://gh.internal', 'https://gh-proxy.com', 'https://ghfast.top', null,
+    ])
+    expect(routes.githubRoutes.git).toEqual([
+      'https://gh.internal', null, 'https://gh-proxy.com', 'https://ghfast.top',
+    ])
+    expect(routes.githubRoutes.avatar).toEqual(routes.githubRoutes.git)
+  })
+
+  it('heads the built-in fallbacks with a persisted custom prefix instead of replacing them (#850)', () => {
+    setCustomGithubProxy('https://saved.example/proxy')
+    // The saved prefix leads; the chain that was measured to work survives it,
+    // because a public mirror dying is the whole reason the setting exists.
+    expect(routesFor('china', {}).githubRoutes.raw).toEqual([
+      'https://saved.example/proxy', 'https://gh-proxy.com', 'https://ghfast.top', null,
+    ])
+    // `null` stays in the list: `githubRoutes` promises a direct escape, and
+    // dropping it would turn a dead mirror into an outage instead of a slow
+    // request — the outage the reporter actually hit.
+    expect(routesFor('china', {}).githubRoutes.git).toEqual([
+      'https://saved.example/proxy', null, 'https://gh-proxy.com', 'https://ghfast.top',
+    ])
+    expect(routesFor('china', {}).githubRoutes.avatar).toEqual(routesFor('china', {}).githubRoutes.git)
+    // The environment stays authoritative, under the same rule.
+    expect(routesFor('china', { DSHM_GITHUB_PROXY: 'https://env.example' }).githubRoutes.raw)
+      .toEqual(['https://env.example', 'https://gh-proxy.com', 'https://ghfast.top', null])
+  })
+
+  it('leaves the global route with its single direct escape under a custom prefix (#850)', () => {
+    setCustomGithubProxy('https://saved.example/proxy')
+    expect(routesFor('global', {}).githubRoutes.raw).toEqual(['https://saved.example/proxy', null])
+    expect(routesFor('global', {}).githubRoutes.git).toEqual(['https://saved.example/proxy', null])
+  })
+
+  it('hands back exactly the region table when the saved prefix is the one it already uses (#850)', () => {
+    // The settings UI pre-suggests the china proxy, so accepting the suggestion
+    // must not spend an attempt on the same prefix twice.
+    setCustomGithubProxy('https://gh-proxy.com')
+    expect(routesFor('china', {}).githubRoutes.raw).toEqual([
+      'https://gh-proxy.com', 'https://ghfast.top', null,
+    ])
+    expect(routesFor('china', {}).githubRoutes.git).toEqual([
+      'https://gh-proxy.com', null, 'https://ghfast.top',
+    ])
+  })
+
+  it('replaces the whole source list when the catalog itself is overridden', () => {
+    // Someone pointing the market at their own catalog does not want it
+    // quietly reverting to ours when that one is briefly unreachable — that
+    // is how a fixture-backed test ends up asserting against the live one.
+    const routes = routesFor('china', { DSHM_REGISTRY_URL: 'http://127.0.0.1:9/fixture.json' })
+    expect(routes.catalog).toEqual([{ kind: 'url', url: 'http://127.0.0.1:9/fixture.json' }])
+  })
+
+  it('ignores blank overrides', () => {
+    const routes = routesFor('china', { DSHM_NPM_MIRROR: '   ' })
+    expect(routes.npmRegistry).toBe(routesFor('china', {}).npmRegistry)
+  })
+})
+
+describe('github service route memory', () => {
+  it('reuses the last successful route per service and forgets it on reset', () => {
+    expect(githubRoutesFor('raw', 'china', {})[0]).toBe('https://gh-proxy.com')
+    rememberGithubRoute('raw', 'https://ghfast.top')
+    expect(githubRoutesFor('raw', 'china', {})[0]).toBe('https://ghfast.top')
+    // A raw success must not reorder a different GitHub service.
+    expect(githubRoutesFor('git', 'china', {})[0]).toBeNull()
+    resetGithubRoutePreferences()
+    expect(githubRoutesFor('raw', 'china', {})[0]).toBe('https://gh-proxy.com')
+  })
+})
+
+describe('the active region', () => {
+  it('starts global and follows what it is set to', () => {
+    expect(activeRegion()).toBe('global')
+    setActiveRegion('china')
+    expect(activeRegion()).toBe('china')
+  })
+})
+
+describe('throughProxy', () => {
+  it('prefixes the whole absolute URL, so one proxy serves every github host', () => {
+    expect(throughProxy('https://p', 'https://api.github.com/x')).toBe('https://p/https://api.github.com/x')
+    expect(throughProxy(null, 'https://api.github.com/x')).toBe('https://api.github.com/x')
+  })
+})
+
+describe('codeloadTarball', () => {
+  it('pins the commit, because a HEAD url installs and then reports no version', () => {
+    // The profile reads the installed commit back out of the lockfile with
+    // this exact pattern (src/profile.ts). It is a SUBSTRING match, which is
+    // the whole reason a proxy prefix is survivable — assert both shapes
+    // against it rather than trusting that.
+    const lockPattern = /codeload\.github\.com\/([^/\s]+\/[^/\s]+)\/tar\.gz\/([0-9a-f]{40})/
+    const direct = codeloadTarball('o/r', SHA, null)
+    const proxied = codeloadTarball('o/r', SHA, 'https://gh-proxy.com')
+    expect(direct).toBe(`https://codeload.github.com/o/r/tar.gz/${SHA}`)
+    expect(proxied).toBe(`https://gh-proxy.com/https://codeload.github.com/o/r/tar.gz/${SHA}`)
+    expect(lockPattern.exec(direct)?.[2]).toBe(SHA)
+    expect(lockPattern.exec(proxied)?.[2]).toBe(SHA)
+  })
+})
+
+describe('repoOfTarget', () => {
+  it('resolves both spellings of one plugin to one identity', () => {
+    // This is what stops a region switch from making every installed plugin
+    // look like a different one to the duplicate guard.
+    expect(repoOfTarget('github:Owner/Repo')).toBe('owner/repo')
+    expect(repoOfTarget(codeloadTarball('Owner/Repo', SHA, 'https://gh-proxy.com'))).toBe('owner/repo')
+    expect(repoOfTarget(codeloadTarball('Owner/Repo', SHA, null))).toBe('owner/repo')
+  })
+
+  it('keeps a subpath, which names a different plugin in the same repo', () => {
+    expect(repoOfTarget('github:o/r#path:/packages/x')).toBe('o/r#path:/packages/x')
+    expect(repoOfTarget(`github:o/r#${SHA}&path:/packages/x`)).toBe('o/r#path:/packages/x')
+  })
+
+  it('is null for anything that is not a github source', () => {
+    expect(repoOfTarget('dsh-loop')).toBeNull()
+    expect(repoOfTarget('@scope/pkg')).toBeNull()
+    expect(repoOfTarget('/tmp/local-checkout')).toBeNull()
+    // A tarball with no full SHA is not a target we produce, and treating it
+    // as one would let an unpinned install pass the identity check.
+    expect(repoOfTarget('https://codeload.github.com/o/r/tar.gz/HEAD')).toBeNull()
+    // Non-matching GitHub URLs are not recognized as targets.
+    expect(repoOfTarget('https://github.com/owner/repo/archive/refs/heads/main.tar.gz')).toBeNull()
+  })
+})
+
+describe('githubCommitOfTarget', () => {
+  it('reads the exact pin from both target spellings without another HEAD lookup', () => {
+    expect(githubCommitOfTarget(`github:o/r#${SHA}`)).toBe(SHA)
+    expect(githubCommitOfTarget(`github:o/r#${SHA}&path:/packages/x`)).toBe(SHA)
+    expect(githubCommitOfTarget(codeloadTarball('o/r', SHA, 'https://gh-proxy.com'))).toBe(SHA)
+  })
+
+  it('refuses mutable, short, malformed, and non-github refs', () => {
+    expect(githubCommitOfTarget('github:o/r')).toBeNull()
+    expect(githubCommitOfTarget('github:o/r#main')).toBeNull()
+    expect(githubCommitOfTarget('github:o/r#b0e6c57')).toBeNull()
+    expect(githubCommitOfTarget(`github:o/r#path:/packages/x&${SHA}`)).toBeNull()
+    expect(githubCommitOfTarget(`https://example.test/o/r/tar.gz/${SHA}`)).toBeNull()
+  })
+})
+
+describe('gitAllowBuildsKey', () => {
+  it('gives a proxied install the same key as a direct one', () => {
+    // A plugin does not become a different plugin because its bytes arrived
+    // by another route — so build-script approval must not have to be given
+    // twice, once per region.
+    const direct = gitAllowBuildsKey('p', 'github:o/r')
+    const proxied = gitAllowBuildsKey('p', codeloadTarball('o/r', SHA, 'https://gh-proxy.com'))
+    expect(direct).toBe('p@git+https://github.com/o/r.git')
+    expect(proxied).toBe(direct)
+  })
+
+  it('keeps the repo in its original case', () => {
+    // pnpm matches this key as a literal string, so normalising it would
+    // stop it matching for anyone whose repo is not all lowercase.
+    expect(gitAllowBuildsKey('p', 'github:DeepSeek/Harness')).toBe('p@git+https://github.com/DeepSeek/Harness.git')
+  })
+
+  it('still accepts every fragment form it accepted before', () => {
+    expect(gitAllowBuildsKey('p', 'github:o/r#path:/packages/x')).toBe('p@git+https://github.com/o/r.git')
+    expect(gitAllowBuildsKey('p', 'github:o/r#semver:^1.0.0')).toBe('p@git+https://github.com/o/r.git')
+    expect(gitAllowBuildsKey('p', 'github:o/r.git')).toBe('p@git+https://github.com/o/r.git')
+  })
+
+  it('is null for npm packages, which authorize by name', () => {
+    expect(gitAllowBuildsKey('p', 'dsh-loop')).toBeNull()
+  })
+})
+
+describe('codeloadAllowBuildsKey', () => {
+  it('names the commit-pinned URL pnpm 11.7 prints in its own error', () => {
+    // The stable git+https key is the better one and does not go stale, but
+    // pnpm below 11.21 never matches it — so on the pnpm DSH Desktop bundles,
+    // "allow build scripts and retry" wrote a key pnpm would never read.
+    expect(codeloadAllowBuildsKey('p', 'github:o/r', SHA))
+      .toBe(`p@https://codeload.github.com/o/r/tar.gz/${SHA}`)
+  })
+
+  it('derives the same key from either spelling of the source', () => {
+    const fromShortcut = codeloadAllowBuildsKey('p', 'github:o/r', SHA)
+    const fromProxied = codeloadAllowBuildsKey('p', codeloadTarball('o/r', SHA, 'https://gh.test'), SHA)
+    expect(fromProxied).toBe(fromShortcut)
+  })
+
+  it('keeps the repo in its original case, like the stable key', () => {
+    expect(codeloadAllowBuildsKey('p', 'github:DeepSeek/Harness', SHA))
+      .toBe(`p@https://codeload.github.com/DeepSeek/Harness/tar.gz/${SHA}`)
+  })
+
+  it('refuses anything that is not a full commit sha', () => {
+    // A short or non-hex ref would produce a key that matches nothing, which
+    // is indistinguishable on disk from an approval that worked.
+    expect(codeloadAllowBuildsKey('p', 'github:o/r', 'b0e6c57')).toBeNull()
+    expect(codeloadAllowBuildsKey('p', 'github:o/r', 'HEAD')).toBeNull()
+    expect(codeloadAllowBuildsKey('p', 'dsh-loop', SHA)).toBeNull()
+  })
+})
+
+describe('REGIONS', () => {
+  it('lists every region the narrowing function accepts', () => {
+    // The status route sends this list and the card draws from it, so a
+    // region present in one and absent from the other would be a control
+    // the route refuses.
+    for (const region of REGIONS) expect(asRegion(region)).toBe(region)
+    expect(REGIONS).toHaveLength(2)
+  })
+})
+
+describe('browser-side github URLs', () => {
+  // These two were both got wrong on the first pass and caught by measuring
+  // from an unproxied mainland connection, not by reasoning. They are kept
+  // as tests because the failure mode of the first one is a hang, which is
+  // the kind of thing a screenshot of a working page will never show.
+  afterEach(() => { setGithubProxy(null) })
+
+  it('names the avatar host directly when proxied, because the redirect hangs', () => {
+    // gh-proxy does not follow github.com's redirect to the avatar host: the
+    // request sat until the client gave up at 60s, against 1.07s for the
+    // avatar host addressed through the same proxy.
+    setGithubProxy(null)
+    expect(githubProxyInUse()).toBeNull()
+    setGithubProxy('https://gh.test')
+    expect(githubUrl('https://avatars.githubusercontent.com/o?size=96'))
+      .toBe('https://gh.test/https://avatars.githubusercontent.com/o?size=96')
+  })
+
+  it('leaves a URL alone when no proxy is in force', () => {
+    setGithubProxy(null)
+    expect(githubUrl('https://raw.githubusercontent.com/o/r/HEAD/README.md'))
+      .toBe('https://raw.githubusercontent.com/o/r/HEAD/README.md')
+  })
+})
+
+describe('pinnedAllowBuildsKeys (#784)', () => {
+  const SHA = 'b0e6c57ebeeb4796017864f5cd5c66e6ba0899ec'
+
+  it('writes BOTH pinned forms for a github: shortcut', () => {
+    // Which pinned key pnpm checks depends on how it fetches, not on how the
+    // spec is spelled: a codeload download matches the codeload key, a git
+    // clone the commit-pinned git+https key. One form without the other is
+    // the structural gap #784 reported: the fetch mode that ran had no key
+    // pnpm would read, and only pnpm's own printed key could save the retry.
+    expect(pinnedAllowBuildsKeys('p', 'github:o/r', SHA)).toEqual([
+      `p@https://codeload.github.com/o/r/tar.gz/${SHA}`,
+      `p@git+https://github.com/o/r.git#${SHA}`,
+    ])
+  })
+
+  it('pins a git+https GitHub remote under the remote\'s own spelling (#803/#695)', () => {
+    // pnpm itself writes `git+https://owner/repo.git` into the manifest for a
+    // GitHub source (#803), and matches the git+https key literally as the
+    // remote spells itself — with or without `.git` (#665/#695). The codeload
+    // key is derived for this spelling too: the repo is GitHub's whichever
+    // way the spec names it.
+    expect(pinnedAllowBuildsKeys('p', 'git+https://github.com/o/r.git', SHA)).toEqual([
+      `p@https://codeload.github.com/o/r/tar.gz/${SHA}`,
+      `p@git+https://github.com/o/r.git#${SHA}`,
+    ])
+    expect(pinnedAllowBuildsKeys('p', 'git+https://github.com/o/r', SHA)).toEqual([
+      `p@https://codeload.github.com/o/r/tar.gz/${SHA}`,
+      `p@git+https://github.com/o/r#${SHA}`,
+    ])
+    expect(githubRepoOfRemote('git+https://github.com/o/r.git')).toBe('o/r')
+    expect(githubRepoOfRemote('git+https://gitea.example.com/me/plug.git')).toBeNull()
+  })
+
+  it('covers a proxied codeload spelling with the repo it proxies', () => {
+    expect(pinnedAllowBuildsKeys('p', `https://gh-proxy.com/https://codeload.github.com/o/r/tar.gz/${SHA}`, SHA))
+      .toEqual([
+        `p@https://codeload.github.com/o/r/tar.gz/${SHA}`,
+        `p@git+https://github.com/o/r.git#${SHA}`,
+      ])
+  })
+
+  it('keeps the single remote#sha form for non-GitHub hosts (#637)', () => {
+    expect(pinnedAllowBuildsKeys('p', 'git+https://gitea.example.com/me/plug.git', SHA))
+      .toEqual([`p@git+https://gitea.example.com/me/plug.git#${SHA}`])
+    expect(pinnedAllowBuildsKeys('p', 'bitbucket:o/r', SHA))
+      .toEqual([`p@https://bitbucket.org/o/r/get/${SHA}.tar.gz`])
+  })
+
+  it('refuses a non-sha and a non-git spec', () => {
+    expect(pinnedAllowBuildsKeys('p', 'github:o/r', 'main')).toEqual([])
+    expect(pinnedAllowBuildsKeys('p', 'themer', SHA)).toEqual([])
+  })
+})
+
+describe('allowBuilds keys off GitHub (#637 follow-up)', () => {
+  const SHA = 'b0e6c57ebeeb4796017864f5cd5c66e6ba0899ec'
+
+  it('gives every git host the clone-URL key pnpm 12 matches', () => {
+    // Measured on 12.4.1: this key authorizes a bitbucket install's build and
+    // a local remote's; the bare name authorizes neither (#68/#69).
+    expect(gitAllowBuildsKey('p', 'gitlab:o/r')).toBe('p@git+https://gitlab.com/o/r.git')
+    expect(gitAllowBuildsKey('p', 'gitlab:group/sub/r')).toBe('p@git+https://gitlab.com/group/sub/r.git')
+    expect(gitAllowBuildsKey('p', 'bitbucket:o/r')).toBe('p@git+https://bitbucket.org/o/r.git')
+    expect(gitAllowBuildsKey('p', 'git+https://gitea.example.com/me/plug.git'))
+      .toBe('p@git+https://gitea.example.com/me/plug.git')
+    // A bare https remote is keyed the way pnpm reads it — with `git+`.
+    expect(gitAllowBuildsKey('p', 'https://gitea.example.com/me/plug.git'))
+      .toBe('p@git+https://gitea.example.com/me/plug.git')
+    // Spelled as installed: pnpm keys a remote without `.git` exactly that way,
+    // and measured on 12.4.1 the key with `.git` appended does NOT authorize it.
+    expect(gitAllowBuildsKey('p', 'git+https://gitea.example.com/me/plug'))
+      .toBe('p@git+https://gitea.example.com/me/plug')
+    expect(pinnedGitAllowBuildsKey('p', 'git+https://gitea.example.com/me/plug', SHA))
+      .toBe(`p@git+https://gitea.example.com/me/plug#${SHA}`)
+    // The fragment selects a version of the same source, not another source.
+    expect(gitAllowBuildsKey('p', `git+https://gitea.example.com/me/plug.git#${SHA}`))
+      .toBe('p@git+https://gitea.example.com/me/plug.git')
+  })
+
+  it('refuses specs pnpm does not install as git', () => {
+    // pnpm reads `git@host:owner/repo.git` as a `link:` dependency literally
+    // named `git`, so there is no git key to write for it (#632).
+    expect(gitAllowBuildsKey('p', 'git@gitea.example.com:me/plug.git')).toBeNull()
+    expect(gitAllowBuildsKey('p', 'themer')).toBeNull()
+    expect(gitAllowBuildsKey('p', '^1.2.3')).toBeNull()
+    expect(gitAllowBuildsKey('p', 'link:../themer')).toBeNull()
+  })
+
+  it('pins the key the way each host names the download', () => {
+    // pnpm 11.8.0 — what Desktop bundles — matches only this form.
+    expect(pinnedGitAllowBuildsKey('p', 'bitbucket:o/r', SHA))
+      .toBe(`p@https://bitbucket.org/o/r/get/${SHA}.tar.gz`)
+    expect(pinnedGitAllowBuildsKey('p', 'gitlab:group/sub/r', SHA))
+      .toBe(`p@https://gitlab.com/group/sub/r/-/archive/${SHA}/r-${SHA}.tar.gz`)
+    expect(pinnedGitAllowBuildsKey('p', 'git+https://gitea.example.com/me/plug.git', SHA))
+      .toBe(`p@git+https://gitea.example.com/me/plug.git#${SHA}`)
+  })
+
+  it('leaves GitHub to codeloadAllowBuildsKey, and refuses a non-sha', () => {
+    expect(pinnedGitAllowBuildsKey('p', 'github:o/r', SHA)).toBeNull()
+    expect(codeloadAllowBuildsKey('p', 'github:o/r', SHA))
+      .toBe(`p@https://codeload.github.com/o/r/tar.gz/${SHA}`)
+    expect(pinnedGitAllowBuildsKey('p', 'bitbucket:o/r', 'main')).toBeNull()
+    expect(pinnedGitAllowBuildsKey('p', 'themer', SHA)).toBeNull()
+  })
+})

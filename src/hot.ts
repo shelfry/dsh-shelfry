@@ -1,0 +1,1050 @@
+/**
+ * Restart-free installs: mount a freshly installed plugin into the running
+ * composition through a market-owned Include subtree.
+ *
+ * Durable state stays with the profile's `dsh.profile.bundles` (reconciled by
+ * the dsh CLI at install time), so the next boot loads the plugin through the
+ * normal bundle layer. The subtree here exists only for the current process:
+ * its input files live under `<profile>/.dsh-shelfry/` and are wiped on every
+ * boot, so a crash can never leave a file that collides with the bundle layer
+ * (inserting an id the bundle layer also inserts is a hard boot failure).
+ * `state.json` in the same directory is the market's own durable state
+ * (disable list + custom groups) and deliberately survives the wipe.
+ *
+ * The Include subclass suppresses `write()` — the loader otherwise persists
+ * tree changes back to the file it read (see dsh's agent-presets PresetTree
+ * for the in-tree precedent).
+ */
+
+import { mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { asChannel, type Channel } from './channels.ts'
+import { asRegion, normalizeGithubProxy, type Region } from './regions.ts'
+import { logEvent } from './log.ts'
+import { declaredBundlePatchFiles, entryArtifactExists } from './profile.ts'
+
+interface HotRow {
+  id: string
+  name: string
+}
+
+interface PluginHandle {
+  await(): Promise<unknown>
+  dispose(): Promise<unknown> | void
+}
+
+interface HotContext {
+  plugin(plugin: unknown, config: unknown): PluginHandle
+  logger?: { info?(message: string): void; warn(message: string): void }
+}
+
+/**
+ * Profile-scoped resolution for hot-mount rows: turn a bare package name into
+ * the absolute `file://` entry URL of the package just installed into
+ * `profileDir`.
+ *
+ * Include-tree rows reach `Include.import` as BARE names (`name:
+ * '@scope/pkg'`), and the base class resolves them against the LOADER's own
+ * location — the host closure
+ * (`closures/<fp>/node_modules/…/cordis-plugin-loader`), whose parent walk
+ * can never reach `home/profiles/<profile>/node_modules/`. Under a host whose
+ * loader sits in an immutable dependency closure, EVERY market hot mount dies
+ * with `Cannot find module '<pkg>' from '…/cordis-plugin-loader/…'` and falls
+ * back to "restart required", blaming the plugin for what is a resolution
+ * anchor problem.
+ *
+ * Resolving the row name HERE, against the profile the package was actually
+ * installed into, is anchor-independent: `require.resolve` walks
+ * `profileDir/node_modules` natively, so the tree hands the loader a
+ * `file://` URL needing no further resolution. Non-bare specifiers (relative
+ * paths, `file://`, `cordis:` builtins) and names that do not resolve under
+ * the profile pass through unchanged, preserving base-class semantics for
+ * every shape this fix does not own.
+ *
+ * The fallback keeps the name bare rather than synthesising a URL: a package
+ * whose entry cannot be located via `require.resolve` (no `main`/exports —
+ * the market's own `entryArtifactExists` heuristic covers those shapes before
+ * an install is accepted) is not something this resolver should guess about.
+ * Client-only shims never reach this function (their rows are replaced by a
+ * no-op host module before the file is written).
+ */
+export function resolveProfileEntry(profileDir: string, name: string): string {
+  if (!name || name.startsWith('.') || name.startsWith('cordis:') || name.startsWith('file://')) return name
+  const packageDir = join(profileDir, 'node_modules', ...name.split('/'))
+  try {
+    return pathToFileURL(createRequire(join(profileDir, 'package.json')).resolve(name)).href
+  } catch {
+    // require.resolve needs a resolvable package entry; the market's install
+    // validation accepts a broader artifact set (exports objects, index.js).
+    // Fall back to the index.js artifact so a valid mount is not refused over
+    // resolver strictness — and keep the bare name when no checkable entry
+    // exists, letting the loader produce its own (accurate) error.
+    if (entryArtifactExists(packageDir)) {
+      return pathToFileURL(join(packageDir, 'index.js')).href
+    }
+    return name
+  }
+}
+
+// File URLs may contain apostrophes; YAML single-quoted scalars escape them by doubling.
+function yamlSingleQuoted(value: string): string {
+  return value.replace(/'/g, "''")
+}
+
+const HOT_DIR = '.dsh-shelfry'
+
+/**
+ * Ceiling for one hot-mount activation, env-overridable like the install
+ * timeout in dsh-cli.ts. An activation that exceeds it is treated as wedged
+ * (typically a plugin pending on a service nothing provides) and falls back
+ * to restart activation.
+ */
+const HOT_MOUNT_TIMEOUT_MS = Number(process.env.DSH_MARKET_HOT_MOUNT_TIMEOUT_MS) || 10000
+
+let hotTreeClass: unknown | null | undefined
+
+/**
+ * The Include subclass, built once per process; null when the loader's include
+ * plugin is not importable (older harness) — callers fall back to restart.
+ */
+/**
+ * Packages whose host import is replaced by a no-op shim. Client-only plugins
+ * (`dsh.client` without `dsh.bundle`) have no importable host half, but
+ * client-modules only serves bundles for packages with a live loader entry —
+ * the shim fiber exists purely to satisfy that registration.
+ */
+const shimNames = new Set<string>()
+
+async function loadHotTreeClass(): Promise<unknown | null> {
+  if (hotTreeClass !== undefined) return hotTreeClass
+  try {
+    // Computed specifier: the include plugin ships with the harness (vendored,
+    // unpublished), so it resolves at runtime through the profile fallback but
+    // is not typecheckable as a dependency.
+    const specifier = '@deepseek-ai/cordis-plugin-include'
+    const mod = (await import(specifier)) as {
+      Include?: new (...args: never[]) => {
+        write(): void
+        import(name: string, getOuterStack?: () => string[]): unknown
+      }
+    }
+    const Include = mod.Include
+    if (Include === undefined) throw new Error('no Include export')
+    class MarketHotTree extends Include {
+      /** Runtime-only mount list; the bundle layer owns persistence. */
+      override write(): void {}
+      override import(name: string, getOuterStack?: () => string[]): unknown {
+        if (shimNames.has(name)) return { name, apply: () => {} }
+        return super.import(name, getOuterStack)
+      }
+    }
+    hotTreeClass = MarketHotTree
+  } catch {
+    hotTreeClass = null
+  }
+  return hotTreeClass
+}
+
+/** The `dsh` declaration block of an installed package, or null when unreadable. */
+function readPkgDsh(profileDir: string, packageName: string): { client?: unknown; bundle?: unknown } | null {
+  try {
+    const manifest = JSON.parse(
+      readFileSync(join(profileDir, 'node_modules', packageName, 'package.json'), 'utf8'),
+    ) as { dsh?: { client?: unknown; bundle?: unknown } }
+    return manifest.dsh ?? {}
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Insert rows of a plugin's bundle patch, or null when the patch contains
+ * anything beyond plain `id`/`name` insert rows (config blocks, disables,
+ * expressions) — those compositions fall back to restart activation.
+ */
+export function parseSimplePatch(patchText: string): HotRow[] | null {
+  const rows: HotRow[] = []
+  let pending: string | null = null
+  // Split on CRLF too. `#.*$` cannot strip a comment that ends in \r —
+  // JS treats \r as a line terminator, so `.` will not cross it and `$`
+  // only anchors at the very end — leaving the comment text in place,
+  // matching none of the row shapes, and failing the whole patch. Any
+  // plugin whose patch was authored on Windows then reads as
+  // "contains config/expression rows" and can never hot-mount.
+  for (const raw of patchText.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, '').trimEnd()
+    if (line.trim() === '') continue
+    if (/^-\s+insert:\s*$/.test(line)) continue
+    const id = /^\s+-\s+id:\s*(\S+)\s*$/.exec(line)
+    if (id !== null) {
+      if (pending !== null) return null
+      pending = id[1]
+      continue
+    }
+    const name = /^\s+name:\s*['"]?([^'"\s]+)['"]?\s*$/.exec(line)
+    if (name !== null && pending !== null) {
+      rows.push({ id: pending, name: name[1] })
+      pending = null
+      continue
+    }
+    return null
+  }
+  if (pending !== null || rows.length === 0) return null
+  return rows
+}
+
+/**
+ * Wipe leftover hot-mount inputs; call once when the market host starts.
+ * `state.json` (disable choices + groups) deliberately survives.
+ */
+export function cleanHotDir(profileDir: string): void {
+  const dir = join(profileDir, HOT_DIR)
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return
+  }
+  for (const name of entries) {
+    if (/^hot-\d+\.yml$/.test(name)) rmSync(join(dir, name), { force: true })
+  }
+}
+
+function stateFile(profileDir: string): string {
+  return join(profileDir, HOT_DIR, 'state.json')
+}
+
+/** Persisted market state: the generic disable list plus custom groups. */
+export interface MarketState {
+  /** Plugins the user switched off; replayed at every boot. */
+  disabled: Set<string>
+  /** User-defined plugin groups: group name → member package names. */
+  groups: Record<string, string[]>
+  /** Display order of group names; "ungrouped" is implicit and never listed. */
+  groupOrder: string[]
+  /**
+   * The user's own one-line note per installed plugin (#347).
+   *
+   * A catalog description answers "what is this", written by its author for
+   * strangers and often in a language the reader did not pick. It cannot
+   * answer "why did I install this" — which is the question someone with
+   * forty plugins is actually asking. So a note REPLACES the description on
+   * that row, and the original stays one click away.
+   *
+   * Local state like the disable list and the groups beside it: never sent
+   * anywhere, and carried by a backup because it is part of how this profile
+   * is set up.
+   *
+   * Optional on the way IN: several callers build a state object from the
+   * few fields they own and hand it to writeMarketState. Requiring this one
+   * would make every such call a silent way to erase every note — the exact
+   * shape of #339, where a partial snapshot dropped a field nobody was
+   * thinking about. Omitting it means "leave them alone" instead.
+   */
+  notes?: Record<string, string>
+  /**
+   * The release channel the user PICKED, absent until they pick one.
+   *
+   * Absent is not the same as 'stable': with no choice on record the channel
+   * is derived from the running build, so installing a prerelease by hand
+   * puts you on the beta channel without a second step. Once chosen, the
+   * choice is the answer — including "stable" while a beta is running, which
+   * is how someone gets back off the channel.
+   */
+  channel?: Channel
+  /**
+   * The download region in force, absent until something has decided one.
+   *
+   * Absent means "nobody has decided yet", which is what triggers the
+   * one-time network probe. Once a value is here — whether the probe wrote
+   * it or the user picked it — no further probing happens, so the market
+   * does not silently change routes between runs.
+   */
+  region?: Region
+  /**
+   * Whether `region` was chosen by the probe rather than by the user.
+   *
+   * Only drives a one-time notice explaining why the market picked what it
+   * picked. A user who never learns a route was chosen for them has no way
+   * to know the setting exists, and no reason to look for it when something
+   * downloads oddly.
+   */
+  regionAuto?: boolean
+  /**
+   * Catalog entry URLs the user bookmarked for later install (#414).
+   * Keys are registry `url` strings, not package names — favorites are a
+   * pre-install list, unlike groups/notes which target installed packages.
+   */
+  favorites?: string[]
+  /**
+   * Package names the user hid from Discover and Themes (#657).
+   *
+   * Local, per-profile, reversible. The Hidden tab lists the same names so
+   * the choice can be undone. Independent of `disabled` (the plugin can keep
+   * running) and of the session-only update ignore (that one dies on restart).
+   * A stored name may be the installed package name or the catalog package
+   * name; the client treats both as one plugin when it can match them.
+   *
+   * Optional on the way in, like `notes` / `favorites`: several callers
+   * build a state object from the few fields they own, and requiring this
+   * one would make every such call a silent way to erase the list (#339).
+   */
+  blocked?: string[]
+  /**
+   * Installed package names the user asked not to be reminded about (#728).
+   *
+   * This is not {@link blocked}. Hiding a plugin takes it off Discover.
+   * This list leaves the plugin where it is, and leaves the update itself
+   * on the installed row. It only stops the reminder: the badge, the
+   * "update all" count, the sort-to-top, and the reminder bar. A new
+   * version is still listed, and the row's own Update button still works.
+   *
+   * Optional on the way in, for the same reason as `blocked` (#339).
+   * An empty array is how the last name is removed.
+   */
+  updateExempt?: string[]
+  /** User-supplied HTTPS prefix used when the built-in GitHub routes fail. */
+  githubProxy?: string
+  /**
+   * Whether the market also opens from its own row in the sidebar (#846).
+   *
+   * Off unless the user turned it on: the sidebar's global rows are the
+   * host's own pages, and installing plugins is occasional, so a row nobody
+   * asked for would be a permanent fixture for an occasional task. The page
+   * entries are the defaults, and the last-door rule (#1015) — enforced by
+   * the route — is what keeps turning this off from leaving the market
+   * unreachable.
+   *
+   * Omission preserves, an explicit value wins — the githubProxy contract,
+   * because turning it off has to be expressible.
+   */
+  sidebarEntry?: boolean
+  /**
+   * Whether the market still lists its own page in Settings (#1015).
+   *
+   * Absent means shown. Only an explicit `false` is stored, unlike
+   * `sidebarEntry`: this entry has always been on, and every host before
+   * 0.2.1 offers it as the only door, so an absent field is the ordinary
+   * case rather than an unanswered question. Turning it back on clears the
+   * field so a later default change still reaches users who never touched it.
+   */
+  settingsSection?: boolean
+  /**
+   * Whether the market still adds its tab to the host's Plugins page
+   * (#1015). Absent means shown, on the same contract as
+   * {@link settingsSection}.
+   *
+   * A host that never declares the slot has no tab to hide; the saved
+   * answer is kept for the hosts that do.
+   */
+  pluginsTab?: boolean
+  /**
+   * Packages the market removed from the profile's own declarations because
+   * the build on disk can no longer compose (#663).
+   *
+   * The case this exists for: an update blocked by open files leaves the
+   * target directory incomplete, `keepLockedBuild` cannot keep the previous
+   * build, and the profile goes on declaring a package whose `package.json`
+   * is missing. The next start dies in composition — on Desktop the window
+   * never opens — and the only way out was uninstalling the plugin by hand.
+   * So the declaration is dropped instead (a rename or a delete of the
+   * directory itself cannot be attempted: the same lock that stopped pnpm
+   * refuses the market's move too), and this map is what keeps that from
+   * being silent. The plugin disappears from the installed list; this is the
+   * record saying why, and what spec to reinstall.
+   *
+   * Optional on the way in, like `notes`: several callers write a state
+   * object built from the few fields they own, and requiring this one would
+   * make every such call a way to erase every entry (#339's shape).
+   */
+  brokenPlugins?: Record<string, BrokenPlugin>
+
+  /**
+   * The operator's pinned build environment (issue #336) as saved from the
+   * market's own settings card. Absent means "the composition says" — the
+   * entry's `config.buildEnv`, or nothing at all. Present (non-empty) means
+   * a saved editor state REPLACES the composition map, so clearing the
+   * field on the card inherits the composition again rather than freezing
+   * an earlier save. Read live into `config.buildEnv` by the routes; see
+   * src/dsh-cli.ts spawnEnv for the precedence once it reaches a child.
+   */
+  buildEnv?: Record<string, string>
+}
+
+/** Why a package is no longer declared, and what to put back. */
+export interface BrokenPlugin {
+  /** The dependency spec it had before removal — the reinstall target. */
+  spec: string
+  /**
+   * Machine-readable cause; the UI owns the wording. `locked`: pnpm reported
+   * the open-file refusal. `cancelled`: the user cancelled while pnpm was
+   * replacing the directory — the result is the same empty shell, but no cause
+   * was observed, so the notice must not name one (#663).
+   */
+  reason: BrokenReason
+  /** When the market removed the declaration (ISO 8601). */
+  at: string
+}
+
+export type BrokenReason = 'incomplete-build-locked' | 'incomplete-build-cancelled'
+
+const BROKEN_REASONS = new Set<string>(['incomplete-build-locked', 'incomplete-build-cancelled'])
+
+/** The on-disk shape of {@link MarketState.brokenPlugins}, sanitized. */
+function brokenPluginsFromUnknown(value: unknown): Record<string, BrokenPlugin> | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const out: Record<string, BrokenPlugin> = {}
+  for (const [name, raw] of Object.entries(value)) {
+    if (name === '' || raw === null || typeof raw !== 'object' || Array.isArray(raw)) continue
+    const record = raw as { spec?: unknown; reason?: unknown; at?: unknown }
+    if (typeof record.reason !== 'string' || !BROKEN_REASONS.has(record.reason)) continue
+    out[name] = {
+      spec: typeof record.spec === 'string' ? record.spec.slice(0, MAX_NOTE) : '',
+      reason: record.reason as BrokenReason,
+      at: typeof record.at === 'string' ? record.at : '',
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Unique non-empty strings in `value`, order preserved. */
+function uniqueStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string' || item === '' || seen.has(item)) continue
+    seen.add(item)
+    out.push(item)
+  }
+  return out
+}
+
+/** Upper bound on bookmarked catalog URLs kept in state.json (#414). */
+export const MAX_FAVORITES = 500
+
+/** Upper bound on blocked package names kept in state.json (#657). */
+export const MAX_BLOCKED = 500
+
+/** Upper bound on the persistent do-not-remind list (#728). */
+export const MAX_UPDATE_EXEMPT = 500
+
+/** npm package names are at most 214 characters. Longer values are not names. */
+export const MAX_BLOCKED_NAME = 214
+
+/** Catalog URLs the user may favorite; http(s) only, order preserved. */
+function favoriteUrls(value: unknown): string[] {
+  return uniqueStrings(value).filter(url => url.startsWith('http://') || url.startsWith('https://'))
+}
+
+/** Package names, non-empty, order preserved, capped. */
+function cappedPackageNames(value: unknown, cap: number): string[] {
+  const trimmed = Array.isArray(value)
+    ? value.map(item => typeof item === 'string' ? item.slice(0, MAX_BLOCKED_NAME) : item)
+    : value
+  return uniqueStrings(trimmed).slice(0, cap)
+}
+
+/** Package names the user may block. */
+function blockedNames(value: unknown): string[] {
+  return cappedPackageNames(value, MAX_BLOCKED)
+}
+
+/** Package names the user may stop being reminded about. */
+function updateExemptNames(value: unknown): string[] {
+  return cappedPackageNames(value, MAX_UPDATE_EXEMPT)
+}
+
+/** A POSIX-looking environment variable name: the name part of `KEY=value`. */
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/** Upper bound on one pinned env value, so state.json cannot balloon. */
+const MAX_ENV_VALUE = 4096
+
+/**
+ * Sanitize an untrusted build-env map (state.json, or the card route's body)
+ * into the shape spawnEnv can merge.
+ *
+ * An empty map and a non-object both read as undefined: clearing the card
+ * must inherit the composition, and a blank line in state.json must not
+ * disable every pinned variable. Only the merge precedence in
+ * src/dsh-cli.ts spawnEnv — never this — protects PATH and CI, but a value
+ * a user typed for them would silently do nothing there, so it is rejected
+ * here with a reason instead.
+ *
+ * `GIT_ASKPASS` and `SSH_ASKPASS` are deliberately NOT rejected, though they
+ * are the two names that can re-open a credential prompt: pointing them at a
+ * program is the supported non-interactive way to answer one, and #587/#596
+ * close the *terminal* fallback (GIT_TERMINAL_PROMPT, BatchMode) rather than
+ * the program one. A user who pins these has already said where the answer
+ * comes from; a user who does not still gets the closed prompt.
+ */
+export function buildEnvFromUnknown(value: unknown): Record<string, string> | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const out: Record<string, string> = {}
+  for (const [key, raw] of Object.entries(value)) {
+    if (!ENV_KEY_RE.test(key)) continue
+    if (key === 'PATH' || key === 'CI') continue
+    if (typeof raw !== 'string') continue
+    const entry = raw.trim()
+    if (entry === '') continue
+    out[key] = entry.slice(0, MAX_ENV_VALUE)
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
+ * Read the whole market state. Legacy `disabledSkins` (the pre-#60
+ * theme-only key) still loads; every new write uses the generic `disabled`
+ * key (#60).
+ */
+/** A note is a label, not a document: one line, bounded so state.json cannot
+ * grow without limit from a paste. */
+export const MAX_NOTE = 200
+
+export function readMarketState(profileDir: string): MarketState {
+  try {
+    const state = JSON.parse(readFileSync(stateFile(profileDir), 'utf8')) as {
+      disabled?: unknown
+      disabledSkins?: unknown
+      groups?: unknown
+      groupOrder?: unknown
+      channel?: unknown
+      region?: unknown
+      regionAuto?: unknown
+      githubProxy?: unknown
+      buildEnv?: unknown
+      notes?: unknown
+      favorites?: unknown
+      blocked?: unknown
+      updateExempt?: unknown
+      brokenPlugins?: unknown
+      sidebarEntry?: unknown
+      settingsSection?: unknown
+      pluginsTab?: unknown
+    }
+    const disabled = uniqueStrings(state.disabled !== undefined ? state.disabled : state.disabledSkins)
+    const groups: Record<string, string[]> = {}
+    if (state.groups !== null && typeof state.groups === 'object' && !Array.isArray(state.groups)) {
+      for (const [name, members] of Object.entries(state.groups)) {
+        groups[name] = uniqueStrings(members)
+      }
+    }
+    const notes: Record<string, string> = {}
+    if (state.notes !== null && typeof state.notes === 'object' && !Array.isArray(state.notes)) {
+      for (const [name, text] of Object.entries(state.notes)) {
+        // Empty is the same as absent: clearing a note must not leave a row
+        // claiming to carry one.
+        if (typeof text === 'string' && text.trim() !== '') notes[name] = text.slice(0, MAX_NOTE)
+      }
+    }
+    const githubProxy = normalizeGithubProxy(state.githubProxy)
+    const brokenPlugins = brokenPluginsFromUnknown(state.brokenPlugins)
+    // The order and the map are two halves of one fact, and a state file can
+    // carry them out of step (#964): the UI then lists a group the routes
+    // cannot find, so "assign to" and even "delete" answer group-not-found
+    // forever. Normalize on read — a name with no group disappears from the
+    // order, and a group with no order entry gets one appended — so the two
+    // cannot disagree however the file got that way.
+    const groupOrder = uniqueStrings(state.groupOrder).filter(name => groups[name] !== undefined)
+    for (const name of Object.keys(groups)) {
+      if (!groupOrder.includes(name)) groupOrder.push(name)
+    }
+    return {
+      disabled: new Set(disabled),
+      groups,
+      notes,
+      groupOrder,
+      channel: asChannel(state.channel) ?? undefined,
+      region: asRegion(state.region) ?? undefined,
+      // Only meaningful beside a region, and only when true: a stray flag
+      // with no region would promise a notice about a choice nobody made.
+      regionAuto: state.regionAuto === true && asRegion(state.region) !== null ? true : undefined,
+      favorites: favoriteUrls(state.favorites),
+      blocked: blockedNames(state.blocked),
+      updateExempt: updateExemptNames(state.updateExempt),
+      ...(githubProxy === null ? {} : { githubProxy }),
+      ...(brokenPlugins === undefined ? {} : { brokenPlugins }),
+      // true AND false are both preserved: on a host with no settings page
+      // this switch is the market's only entry, so "the user turned it off"
+      // must be distinguishable from "nobody has chosen yet" (#846).
+      ...(typeof state.sidebarEntry === 'boolean' ? { sidebarEntry: state.sidebarEntry } : {}),
+      // Only `false` is a stored answer here: shown is the default, and a
+      // state file that says anything else reads as "never touched".
+      ...(state.settingsSection === false ? { settingsSection: false } : {}),
+      ...(state.pluginsTab === false ? { pluginsTab: false } : {}),
+      buildEnv: buildEnvFromUnknown(state.buildEnv),
+    }
+  } catch (error) {
+    // An unreadable state file is the profile's whole market state gone: every
+    // disable, group, favourite and exemption in it. Say so — silently coming
+    // back empty reads to the user as "my disabled plugins all switched
+    // themselves on", with nothing anywhere connecting the two (#582's
+    // narrowest surviving point). Writing it back afterwards replaces the
+    // damaged file, so the log is the only trace there will be.
+    if (!(error !== null && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 'ENOENT')) {
+      logEvent('warn', 'state', `market state could not be read (${error instanceof Error ? error.message : String(error)}) — starting from an empty state`)
+    }
+    return { disabled: new Set(), groups: {}, groupOrder: [], notes: {}, favorites: [], blocked: [], updateExempt: [] }
+  }
+}
+
+/**
+ * Publish a file so that a reader never sees it half-written.
+ *
+ * The state file carries every choice the user made about their plugins, and
+ * it is written on each switch: a process killed or a disk that fills up
+ * mid-write used to leave truncated JSON behind, which reads as an empty
+ * state — all of it gone, silently. A rename is atomic within one filesystem,
+ * so readers see either the old file or the new one.
+ *
+ * A symlinked state file is followed rather than replaced (#582): the write
+ * lands on the link's target, so a user who keeps their profile state
+ * somewhere else keeps it there.
+ */
+function publishFile(path: string, contents: string): void {
+  const target = (() => {
+    try { return realpathSync(path) } catch { return path }
+  })()
+  const temporary = `${target}.new`
+  writeFileSync(temporary, contents)
+  try {
+    renameSync(temporary, target)
+  } catch (error) {
+    rmSync(temporary, { force: true })
+    throw error
+  }
+}
+
+/**
+ * Persist the whole market state.
+ *
+ * Every field a caller does not carry forward is taken from disk rather than
+ * dropped. Several callers legitimately know about only one part of the
+ * state — `writeMarketState(dir, { disabled, groups, groupOrder })` appears
+ * at five call sites in routes.ts — and before #435 that shape silently
+ * erased whatever else the user had chosen:
+ *
+ * - `channel` and `region` had no fallback at all, so toggling any plugin
+ *   threw away the user's update channel and download region. Both are
+ *   deliberate choices made through the settings card, and neither has a
+ *   "clear it" path: once picked they only ever move to another value. So
+ *   an absent one always means "the caller has nothing to say", never
+ *   "the user unchose it".
+ * `notes` keeps its original rule — an explicit object wins, including an
+ * empty one, because deleting the last note has to be expressible. What made
+ * #435 lose notes was not this function but a caller: the note route wrote
+ * through a fresh read while the long-lived `marketState` in routes.ts still
+ * carried `notes: {}` from boot, and the next write from that object put the
+ * empty one back. The fix for that belongs at the call site, where the two
+ * copies are, not here — see the note route.
+ *
+ * Reading before writing costs one small JSON parse on an operation that is
+ * already doing filesystem work, and it is what makes "this function writes
+ * the whole document" safe for callers that only hold part of it.
+ */
+export function writeMarketState(profileDir: string, state: MarketState): void {
+  mkdirSync(join(profileDir, HOT_DIR), { recursive: true, mode: 0o700 })
+  const onDisk = readMarketState(profileDir)
+  // `?? {}` only for the type: MarketState declares notes optional, while
+  // readMarketState always returns an object.
+  const notes = state.notes ?? onDisk.notes ?? {}
+  const channel = state.channel ?? onDisk.channel
+  const region = state.region ?? onDisk.region
+  // Unlike channel and region, regionAuto has an explicit clear path: a
+  // manual region choice owns this field and sets it to undefined. Preserve
+  // the disk value only when the caller omitted the property entirely.
+  const regionAuto = Object.prototype.hasOwnProperty.call(state, 'regionAuto')
+    ? state.regionAuto
+    : onDisk.regionAuto
+  const favorites = state.favorites ?? onDisk.favorites ?? []
+  const blocked = state.blocked ?? onDisk.blocked ?? []
+  const updateExempt = state.updateExempt ?? onDisk.updateExempt ?? []
+  // This field does have a clear action ("restore automatic"). As with
+  // regionAuto, omission preserves while an explicit undefined removes it.
+  const githubProxy = Object.prototype.hasOwnProperty.call(state, 'githubProxy')
+    ? state.githubProxy
+    : onDisk.githubProxy
+  const broken = Object.prototype.hasOwnProperty.call(state, 'brokenPlugins')
+    ? state.brokenPlugins
+    : onDisk.brokenPlugins
+  const sidebarEntry = Object.prototype.hasOwnProperty.call(state, 'sidebarEntry')
+    ? state.sidebarEntry
+    : onDisk.sidebarEntry
+  // Shown is the default, so only `false` needs writing. An omitted field
+  // still falls back to disk: partial callers must not erase the choice.
+  const settingsSection = Object.prototype.hasOwnProperty.call(state, 'settingsSection')
+    ? state.settingsSection
+    : onDisk.settingsSection
+  const pluginsTab = Object.prototype.hasOwnProperty.call(state, 'pluginsTab')
+    ? state.pluginsTab
+    : onDisk.pluginsTab
+  publishFile(stateFile(profileDir), JSON.stringify({
+    disabled: [...state.disabled],
+    groups: state.groups,
+    groupOrder: state.groupOrder,
+    ...(favorites.length > 0 ? { favorites } : {}),
+    ...(blocked.length > 0 ? { blocked } : {}),
+    ...(updateExempt.length > 0 ? { updateExempt } : {}),
+    ...(Object.keys(notes).length > 0 ? { notes } : {}),
+    // Omitted while unchosen, so "never picked" survives a round trip and
+    // keeps deriving from the running build — but only when disk has not
+    // recorded a choice either.
+    ...(channel === undefined ? {} : { channel }),
+    // Same reasoning, different consequence: an absent region is what makes
+    // the probe run, so writing a default here would mean it never does.
+    ...(region === undefined ? {} : { region }),
+    ...(regionAuto === true ? { regionAuto: true } : {}),
+    ...(githubProxy === undefined ? {} : { githubProxy }),
+    // Omission preserves, explicit undefined clears — the same contract as
+    // githubProxy above, and the one a repaired plugin needs: the entry
+    // exists only while the declaration is still missing.
+    ...(broken === undefined ? {} : { brokenPlugins: broken }),
+    // Written for both answers: on a host with no settings page this switch
+    // is the market's only entry, so a deliberate OFF has to survive a reload
+    // instead of being read back as "never chosen" (#846).
+    ...(typeof sidebarEntry === 'boolean' ? { sidebarEntry } : {}),
+    // Only the OFF is written; `true` means "the default", so re-enabling
+    // clears the field rather than pinning today's default forever (#1015).
+    ...(settingsSection === false ? { settingsSection: false } : {}),
+    ...(pluginsTab === false ? { pluginsTab: false } : {}),
+    ...(state.region === undefined ? {} : { region: state.region }),
+    ...(state.regionAuto === true ? { regionAuto: true } : {}),
+    // Omitted while not saved, so a card that was never touched keeps
+    // inheriting the composition's buildEnv on every boot.
+    ...(state.buildEnv === undefined ? {} : { buildEnv: state.buildEnv }),
+  }))
+}
+
+/** Plugins the user switched off; skipped by the boot re-mount. */
+export function readDisabled(profileDir: string): Set<string> {
+  return readMarketState(profileDir).disabled
+}
+
+/** Persist just the disable list, preserving groups and order. */
+export function writeDisabled(profileDir: string, disabled: Set<string>): void {
+  const state = readMarketState(profileDir)
+  state.disabled = new Set(disabled)
+  writeMarketState(profileDir, state)
+}
+
+/** @deprecated theme-specific alias — kept for pre-#60 callers. */
+export function readDisabledThemes(profileDir: string): Set<string> {
+  return readDisabled(profileDir)
+}
+
+/** @deprecated theme-specific alias — kept for pre-#60 callers. */
+export function writeDisabledThemes(profileDir: string, disabled: Set<string>): void {
+  writeDisabled(profileDir, disabled)
+}
+
+/** Package names currently live through a market hot mount (patch or shim). */
+export function listHotMounts(): string[] {
+  return [...hotHandles.keys()]
+}
+
+let hotSequence = 0
+
+const hotHandles = new Map<string, PluginHandle>()
+
+/** Activation did not settle within HOT_MOUNT_TIMEOUT_MS. */
+class ActivationTimeout extends Error {}
+
+/** Disposal did not settle within HOT_MOUNT_TIMEOUT_MS (see `hotUnmount`). */
+class DisposalTimeout extends Error {}
+
+/**
+ * Race an activation awaitable against the hot-mount ceiling. The handlers
+ * stay attached to the original promise, so a late rejection after a timeout
+ * can never surface as an unhandled rejection.
+ */
+function raceActivationTimeout<T>(awaitable: T | Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new ActivationTimeout(`activation did not settle within ${HOT_MOUNT_TIMEOUT_MS / 1000}s — the plugin may be waiting on a service that never arrives`))
+    }, HOT_MOUNT_TIMEOUT_MS)
+    Promise.resolve(awaitable).then(
+      value => { clearTimeout(timer); resolve(value) },
+      error => { clearTimeout(timer); reject(error) },
+    )
+  })
+}
+
+/** Outcome of one hot-mount attempt; `reason` explains non-`ok` results. */
+export interface HotMountResult {
+  ok: boolean
+  /** Bilingual reason shown to the user instead of a bare restart banner. */
+  reason: string | null
+  /**
+   * Set when nothing was attempted because this package can only come up on a
+   * start — its patch holds more than plain inserts. That is a verdict about
+   * the package, not a mount that crashed: the durable switch can still be
+   * written, where a crash must not be persisted (#575, #1010).
+   */
+  deferred?: true
+}
+
+/**
+ * Dispose a plugin hot-mounted earlier in this session, removing it from the
+ * running composition immediately.
+ * @param packageName - package to unmount.
+ * @returns true when a live hot mount was found and disposed.
+ */
+export async function hotUnmount(packageName: string): Promise<boolean> {
+  const handle = hotHandles.get(packageName)
+  if (handle === undefined) return false
+  // Dropped from the table BEFORE the wait, so a teardown that never finishes
+  // cannot keep this package registered: a later attempt starts from clean
+  // state instead of reusing a handle already being disposed.
+  hotHandles.delete(packageName)
+  shimNames.delete(packageName)
+  const disposal = Promise.resolve().then(() => handle.dispose())
+  // Same ceiling as mounting, and the same reason (#582, measured class of
+  // report): a plugin whose teardown waits for something that never arrives
+  // used to hold the toggle route open forever, and every later operation
+  // queued behind the lock it never released — the UI simply stopped
+  // answering until the host restarted. Handlers stay attached to the
+  // original promise, so a late settlement is logged rather than surfacing
+  // as an unhandled rejection.
+  let answered = false
+  void disposal.then(
+    () => { if (answered) logEvent('info', 'hot-unmount', `${packageName}: teardown finished after the wait`) },
+    (error: unknown) => {
+      logEvent('warn', 'hot-unmount', `${packageName}: dispose failed${answered ? ' after the wait' : ''} — ${error instanceof Error ? error.message : String(error)}`)
+    },
+  )
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      disposal,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new DisposalTimeout(`${packageName}: teardown did not settle within ${HOT_MOUNT_TIMEOUT_MS / 1000}s`)), HOT_MOUNT_TIMEOUT_MS)
+      }),
+    ])
+    answered = true
+    logEvent('info', 'hot-unmount', `${packageName}: removed live`)
+    return true
+  } catch (error) {
+    answered = true
+    if (error instanceof DisposalTimeout) {
+      logEvent('warn', 'hot-unmount', `${packageName}: its teardown did not settle within ${HOT_MOUNT_TIMEOUT_MS / 1000}s, so it could not be confirmed stopped — it is off from the next start`)
+    } else {
+      logEvent('warn', 'hot-unmount', `${packageName}: dispose failed — ${error instanceof Error ? error.message : String(error)}`)
+    }
+    return false
+  } finally { clearTimeout(timer) }
+}
+
+/**
+ * Mount `packageName` (just installed into the profile) into the running
+ * composition.
+ * @param ctx - market host context; the subtree unwinds with the market's fiber.
+ * @param profileDir - profile the package was installed into.
+ * @param packageName - installed package to activate.
+ * @returns whether the plugin is live without a restart, plus the reason
+ * when it is not (P0-2: the UI must distinguish "restart will fix it" from
+ * "this package can never hot-mount").
+ */
+export async function hotMount(ctx: HotContext, profileDir: string, packageName: string): Promise<HotMountResult> {
+  try {
+    const HotTree = await loadHotTreeClass()
+    if (HotTree === null) {
+      return {
+        ok: false,
+        reason: '宿主不支持热挂载(include 插件不可导入),需重启 / the host cannot hot-mount (include plugin unavailable); restart required',
+      }
+    }
+    // Where the patch lives is the PACKAGE's decision, declared as
+    // `dsh.bundle.patch` — `aegis` keeps it in `./extensions/dsh/`. Reading
+    // only the package root made a plugin whose patch is declared elsewhere
+    // look like one with no bundle at all, and the user was told "no bundle
+    // patch … nothing to hot-mount" for a package that plainly has one
+    // (#646). The root file stays as the fallback: it is the long-standing
+    // convention, and `profile.ts` resolves the declared field for everything
+    // else, so the two now agree on where a patch is. #792: the declaration
+    // may also be a LIST of files, which the host composes in order — read
+    // every declared one and parse the concatenation, all or nothing: the
+    // host throws on one missing overlay file and skips the entire bundle.
+    const packageRoot = join(profileDir, 'node_modules', packageName)
+    const declared = declaredBundlePatchFiles(packageRoot)
+    const sources = declared.length > 0 ? declared : [join(packageRoot, 'cordis.patch.yml')]
+    let texts: string[] | null = []
+    for (const file of sources) {
+      try {
+        texts.push(readFileSync(file, 'utf8'))
+      } catch {
+        // All or nothing, same rule as readBundlePatchRows: one unreadable
+        // file voids the whole declaration — the host drops the entire
+        // bundle for one missing overlay file, so mounting the readable
+        // remainder would show live what the next boot never loads.
+        texts = null
+        break
+      }
+    }
+    let rows: HotRow[] | null
+    if (texts !== null && texts.length > 0) {
+      rows = parseSimplePatch(texts.join('\n'))
+      if (rows === null) {
+        return {
+          ok: false,
+          deferred: true,
+          reason: 'bundle patch 含配置行/表达式,热挂载仅支持纯 insert,重启后生效 / the bundle patch contains config/expression rows; hot-mount only supports plain inserts — it activates on restart',
+        }
+      }
+    } else if (declared.length > 0) {
+      // The declaration is VOID — one of its files cannot be read. The host
+      // throws on a missing overlay file and skips the ENTIRE bundle, so no
+      // part of this package can go live, now or after a restart.
+      return {
+        ok: false,
+        reason: '声明的 patch 文件缺失或不可读,宿主会跳过整个 bundle,请修复或重装该包 / a declared patch file is unreadable; the host skips the whole bundle — fix or reinstall the package',
+      }
+    } else {
+      // No host patch. Client-only packages (dsh.client, no dsh.bundle) never
+      // get a loader entry — not even after a restart — so client-modules
+      // would never serve their bundle. A shim entry under the package's name
+      // is the whole activation.
+      const dsh = readPkgDsh(profileDir, packageName)
+      if (dsh === null || dsh.client === undefined || dsh.bundle !== undefined) {
+        return {
+          ok: false,
+          reason: '该包无 bundle patch 且未声明 dsh.client,没有可热挂载的内容 / no bundle patch and no dsh.client surface — nothing to hot-mount',
+        }
+      }
+      shimNames.add(packageName)
+      rows = [{ id: `client-${packageName.replace(/[^A-Za-z0-9_.-]/g, '-')}`, name: packageName }]
+    }
+    const dir = join(profileDir, HOT_DIR)
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
+    hotSequence += 1
+    const file = join(dir, `hot-${String(hotSequence)}.yml`)
+    // Rows carry ABSOLUTE file:// entry URLs, resolved against this profile:
+    // the loader's own parent-walk (from the host closure) can never reach
+    // `profileDir/node_modules`, so bare names in the file would fail to
+    // import on closure-hosted loaders. The file remains a faithful record —
+    // `cleanHotDir` wipes it on every boot and the bundle layer owns
+    // persistence, so nothing reads these files back.
+    const yml = rows
+      .map(row => `- id: '${yamlSingleQuoted(`mkt-${row.id}`)}'\n  name: '${yamlSingleQuoted(resolveProfileEntry(profileDir, row.name))}'\n`)
+      .join('')
+    writeFileSync(file, yml)
+    const handle = ctx.plugin(HotTree, { path: pathToFileURL(file).href })
+    try {
+      await raceActivationTimeout(handle.await())
+    } catch (error) {
+      // A failed or wedged mount must leave NOTHING behind: the disposed
+      // subtree stops retrying the import, and the input file is removed so
+      // it cannot be re-imported by a later boot or replay (a leftover file
+      // re-throwing the same resolve error on every composition replay
+      // produced unbounded error-log growth on a closure-hosted loader).
+      try { Promise.resolve(handle.dispose()).catch(() => {}) } catch { /* best effort */ }
+      try { rmSync(file, { force: true }) } catch { /* best effort */ }
+      if (error instanceof ActivationTimeout) {
+        // A wedged activation would otherwise hold this request open forever:
+        // the route's `finally { installing = false }` never runs, so every
+        // later install/update/uninstall gets 409'd until a host restart.
+        // Unwind the half-mounted subtree best-effort; disposal never blocks
+        // the reply, and the caller falls back to restart activation.
+      }
+      throw error
+    }
+    hotHandles.set(packageName, handle)
+    ctx.logger?.info?.(`[dsh-shelfry] hot-mounted ${packageName}`)
+    logEvent('info', 'hot-mount', `${packageName}: live${shimNames.has(packageName) ? ' (client-only shim)' : ''}`)
+    return { ok: true, reason: null }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    ctx.logger?.warn(`[dsh-shelfry] hot mount of ${packageName} failed, restart required: ${message}`)
+    logEvent('warn', 'hot-mount', `${packageName}: fell back to restart — ${message}`)
+    return { ok: false, reason: `热挂载失败,重启后生效 — ${message} / hot-mount failed — restart required: ${message}` }
+  }
+}
+
+/**
+ * Mount every installed client-only package (`dsh.client` without
+ * `dsh.bundle`) at market startup. The bundle reconcile skips these packages
+ * entirely, so without the market's shim their client bundles are unreachable
+ * in every boot — this is what makes them behave like normal plugins.
+ * @returns names that were mounted.
+ */
+export async function mountClientOnlyDeps(ctx: HotContext, profileDir: string): Promise<string[]> {
+  let deps: string[]
+  try {
+    const manifest = JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      dsh?: { profile?: { bundles?: string[] } }
+    }
+    const bundles = new Set(manifest.dsh?.profile?.bundles ?? [])
+    deps = Object.keys(manifest.dependencies ?? {}).filter(name => !bundles.has(name))
+  } catch {
+    return []
+  }
+  const disabled = readDisabled(profileDir)
+  const userManaged = readUserPatchControls(profileDir)
+  const mounted: string[] = []
+  for (const name of deps) {
+    if (hotHandles.has(name) || disabled.has(name)) continue
+    // Packages the USER's patch layer already manages (insert or disable
+    // rows in cordis.patch.yml, e.g. via dsh-web-plugin-manager) are theirs
+    // to control — a shim here would override a user's "disabled" choice on
+    // every restart (#58 by @vikna919).
+    if (patchLayerManages(userManaged, name)) continue
+    const dsh = readPkgDsh(profileDir, name)
+    if (dsh === null || dsh.client === undefined || dsh.bundle !== undefined) continue
+    if ((await hotMount(ctx, profileDir, name)).ok) mounted.push(name)
+  }
+  return mounted
+}
+
+/**
+ * Row ids and package names the user's own patch layer (cordis.patch.yml)
+ * already contains. Line-wise scan on purpose: the file may hold structures
+ * the market's strict patch parser rejects, but any mention of a row id or
+ * package name is enough to know the user manages it (#58).
+ */
+export function readUserPatchControls(profileDir: string): { ids: Set<string>; names: Set<string> } {
+  const ids = new Set<string>()
+  const names = new Set<string>()
+  try {
+    const text = readFileSync(join(profileDir, 'cordis.patch.yml'), 'utf8')
+    for (const line of text.split(/\r?\n/)) {
+      const id = /^\s*-?\s*id:\s*['"]?([A-Za-z0-9._/@-]+)/.exec(line)
+      if (id !== null) ids.add(id[1])
+      const name = /^\s*name:\s*['"]?([^'"\s]+)/.exec(line)
+      if (name !== null) names.add(name[1])
+    }
+  } catch { /* no user patch file — nothing is user-managed */ }
+  return { ids, names }
+}
+
+/**
+ * Whether the user patch layer manages `name` — matched by exact package
+ * name or by the plugin-manager row-id convention (strip the leading @,
+ * non-alphanumerics to '-', lowercase).
+ */
+export function patchLayerManages(controls: { ids: Set<string>; names: Set<string> }, name: string): boolean {
+  const rowId = name.replace(/^@/, '').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+  return controls.ids.has(rowId) || controls.names.has(name)
+}
+
+
+/**
+ * Delete the market's own state directory.
+ *
+ * `cleanHotDir` wipes the ephemeral hot-mount inputs on every boot but
+ * deliberately preserves `state.json` — the disable list and custom groups
+ * are the user's durable choices. Uninstalling the market is the one moment
+ * where removing them is the right thing, and only when the user asked.
+ * @returns true when a directory was there to remove.
+ */
+export function purgeMarketState(profileDir: string): boolean {
+  const dir = join(profileDir, HOT_DIR)
+  try {
+    rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+}
