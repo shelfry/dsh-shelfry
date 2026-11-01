@@ -1,5 +1,7 @@
 node_modules/
-lib/
+# lib/ 是 tsc 构建产物，但这个仓库不发布 npm：从 GitHub 源安装时
+# pnpm 只会拿到仓库里的文件，没有 lib/index.js 宿主就加载不到入口，
+# 市场校验会把包当成不可安装直接移除。所以这里提交构建产物。
 research/
 *.tgz
 .DS_Store
