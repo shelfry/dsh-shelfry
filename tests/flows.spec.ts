@@ -8550,11 +8550,12 @@ describe('self-uninstall — the market removing itself from its settings card',
 })
 
 describe('sidebar entry (#846)', () => {
-  it('is on by default, and says nobody has chosen', async () => {
-    // `chosen` 让客户端区分「从未设置」与「明确关闭」；默认开启后，用户
-    // 显式关闭仍然要能持久生效。
-    expect((await bed.dispatch('GET', '/dsh-shelfry/sidebar-entry')).json).toEqual({ enabled: true, chosen: false })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.sidebarEntry).toBe(true)
+  it('is off until the user turns it on, and says nobody has chosen', async () => {
+    // `chosen` is what lets the client tell "never asked" from "said no":
+    // on a host with no settings page the row is shown by default, and a
+    // deliberate off has to survive (#846 on DSH 0.2.1+).
+    expect((await bed.dispatch('GET', '/dsh-shelfry/sidebar-entry')).json).toEqual({ enabled: false, chosen: false })
+    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.sidebarEntry).toBe(false)
   })
 
   it('round-trips the choice through state.json and /status', async () => {
@@ -8625,8 +8626,6 @@ describe('entry visibility (#1015)', () => {
   })
 
   it('refuses to close the last door, and says why', async () => {
-    // 侧栏入口现在默认开启，要先显式关掉它，才能构造「没有入口」的局面。
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: false })
     await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false })
     const refused = await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { pluginsTab: false })
     expect(refused.status).toBe(409)
