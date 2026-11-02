@@ -92,17 +92,17 @@ describe('settings nav glyph', () => {
   })
 
   it('moves the claim when the locale switches', async () => {
-    mountDialog('General', '手机访问', 'Plugin Box')
+    mountDialog('General', '手机访问', 'Plugin Shelfry')
     await flush()
     expect(marked()).toEqual([])
 
     // The shell re-renders its nav on a locale change, which is what the
     // observer sees; the module must not need a second registration for it.
-    label = 'Plugin Box'
-    mountDialog('General', '手机访问', 'Plugin Box')
+    label = 'Plugin Shelfry'
+    mountDialog('General', '手机访问', 'Plugin Shelfry')
     await flush()
 
-    expect(marked()).toEqual(['Plugin Box'])
+    expect(marked()).toEqual(['Plugin Shelfry'])
   })
 
   it('hides the shell gear and paints the mark through a mask', async () => {

@@ -35,10 +35,8 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
       // and swallows every click behind it.
       await dismissStartGate(page)
       await page.getByText(/^(Plugins|插件)$/).first().click()
-      const installedEntry = page.getByLabel(/^(View|查看) (Plugin Box|插件箱子)$/).first()
-      await installedEntry.waitFor({ timeout: 15_000 })
-      await installedEntry.click()
-      const entry = page.getByText(/^(View the Plugin Box version and settings\.|查看插件箱子的版本与设置。)$/).first()
+      await page.getByText(/dsh-shelfry/i).first().click()
+      const entry = page.getByText(/^(View the Plugin Shelfry version and settings\.|查看插件箱子的版本与设置。)$/).first()
       await entry.waitFor({ timeout: 20_000 })
       await entry.click()
       await page.getByText(/^(Update channel|更新通道)$/).waitFor({ timeout: 15_000 })
@@ -70,7 +68,7 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
     expect(status.settingsNamespace, 'the market has booted and must have an answer').not.toBe('pending')
     const dispatchesCards = status.settingsNamespace !== 'unsupported-by-host'
 
-    const card = page.locator('button[aria-expanded]').filter({ hasText: /插件箱子|Plugin Box/ })
+    const card = page.locator('button[aria-expanded]').filter({ hasText: /插件箱子|Plugin Shelfry/ })
     if (dispatchesCards) {
       await page.getByText(/^(插件|Plugins)$/).last().click()
       await page.getByText(/^(插件配置|Plugin configuration)$/).last().click()
@@ -95,10 +93,8 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
       await page.getByRole('button', { name: /^(Close|关闭)$/ }).first().click()
       await page.waitForTimeout(500)
       await page.getByText(/^(Plugins|插件)$/).first().click()
-      const installedEntry = page.getByLabel(/^(View|查看) (Plugin Box|插件箱子)$/).first()
-      await installedEntry.waitFor({ timeout: 15_000 })
-      await installedEntry.click()
-      const entry = page.getByText(/^(View the Plugin Box version and settings\.|查看插件箱子的版本与设置。)$/).first()
+      await page.getByText(/dsh-shelfry/i).first().click()
+      const entry = page.getByText(/^(View the Plugin Shelfry version and settings\.|查看插件箱子的版本与设置。)$/).first()
       await entry.waitFor({ timeout: 20_000 })
       await entry.click()
       await page.getByText(/^(Update channel|更新通道)$/).waitFor({ timeout: 15_000 })
@@ -112,7 +108,7 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
     // The market's own section is registered through `settings.section`,
     // which 0.1.7 still declares — asserted on BOTH generations, and on the
     // newer one it is the only market surface a user reaches from Settings.
-    await page.getByText(/^(插件箱子|Plugin Box)$/).first().click()
+    await page.getByText(/^(插件箱子|Plugin Shelfry)$/).first().click()
     await waitMarketCatalog(page, { cards: false })
     const artifacts = process.env.DSHM_SETTINGS_ARTIFACTS
     if (artifacts) await page.screenshot({ path: join(artifacts, `${mode}-market.png`) })

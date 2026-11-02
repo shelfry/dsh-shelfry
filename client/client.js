@@ -979,8 +979,8 @@ window.__ModuleLoader__.load({ id: "dsh-shelfry", factory: (require) => {
 			hostRecoveryNote: "恢复前会自动存快照，随时能退回。"
 		};
 		const en = {
-			nav: "Plugin Box",
-			setCardDesc: "View the Plugin Box version and settings.",
+			nav: "Plugin Shelfry",
+			setCardDesc: "View the Plugin Shelfry version and settings.",
 			setSelfUpToDate: "Up to date",
 			setSelfUpdateReady: "New version available:",
 			setSelfUpdateHint: "Updating downloads the new version; it takes effect after a restart.",
