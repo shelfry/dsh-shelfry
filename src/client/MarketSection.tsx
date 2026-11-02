@@ -2823,6 +2823,47 @@ export function MarketSection(props: MarketSectionProps) {
   const setInstalledBundles = useCallback(cacheState(value => { cachedInstalledBundles = value }, setInstalledBundlesState), [])
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  /**
+   * 插件页签自身没有高度。
+   *
+   * 宿主页面负责滚动，它的页签面板高度由内容决定，因此 `height: 100%`
+   * 的子节点会解析成 auto：市场自己的滚动容器随之消失，吸顶分类行、
+   * 返回顶部按钮和滚动收起头部都会一起失效。这里量出宿主头部和页签
+   * 下方剩余的空间，回填给面板，其余挂载点的布局规则保持不变。
+   */
+  const [pluginsTabHeight, setPluginsTabHeight] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (surface !== 'plugins' || root === null) {
+      setPluginsTabHeight(null)
+      return undefined
+    }
+    // 哪个祖先负责滚动由宿主决定，这里向上查找而不是写死。
+    let page: HTMLElement | null = null
+    for (let node = root.parentElement; node !== null; node = node.parentElement) {
+      if (/^(auto|scroll)$/.test(getComputedStyle(node).overflowY)) { page = node; break }
+    }
+    if (page === null) return undefined
+    const host = page
+    const measure = (): void => {
+      // 面板被宿主切到其他页签时仍然挂载，此时所有 rect 为 0，量出来会是整页高度；
+      // 重新显示时 observer 会再次触发。
+      if (root.getClientRects().length === 0) return
+      const bottom = Number.parseFloat(getComputedStyle(host).paddingBottom)
+      const room = host.clientHeight
+        - (root.getBoundingClientRect().top - host.getBoundingClientRect().top)
+        - (Number.isFinite(bottom) ? bottom : 0)
+      // 宿主尚未完成布局时 room 可能为负，兜底保持面板可用，等下一次测量。
+      const next = Math.max(320, Math.round(room))
+      setPluginsTabHeight(prev => (prev === next ? prev : next))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(host)
+    observer.observe(root)
+    return () => { observer.disconnect() }
+  }, [surface])
   /** Hidden file input behind the Import button (a Button can't host an <input>). */
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [sortField, setSortField] = useState<SortField>('downloads')
@@ -6808,6 +6849,7 @@ export function MarketSection(props: MarketSectionProps) {
     <div
       ref={rootRef}
       className={`${css.root} notranslate`}
+      style={surface === 'plugins' && pluginsTabHeight !== null ? { height: `${String(pluginsTabHeight)}px` } : undefined}
       data-dsh-shelfry-root
       data-dsh-shelfry-plugins-tab={surface === 'plugins' ? 'true' : undefined}
       /* Browser page translation is the one reported cause of the blank
