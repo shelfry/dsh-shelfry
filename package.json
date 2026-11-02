@@ -1,7 +1,7 @@
 {
   "name": "dsh-shelfry",
   "description": "插件箱子：在 DeepSeek Harness 里浏览、搜索并一键安装社区插件。",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "icon": "assets/logo.svg",
   "type": "module",
   "main": "lib/index.js",
