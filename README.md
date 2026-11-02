@@ -39,7 +39,7 @@ app's **Settings → Plugins** instead.
 The plugin list comes from shelfry, fetched live:
 
 ```
-https://shelfry.app/data/market-top.json
+https://shelfry.app/data/dsh-shelfry.json
 ```
 
 That file has its own shape (`entries[]` with `i`, `n`, `d`, `s`, `sc`, `t`,

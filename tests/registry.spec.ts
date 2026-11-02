@@ -249,14 +249,14 @@ describe('loadRegistry download regions', () => {
   it('reads the catalog from shelfry in the global region', async () => {
     const stub = byUrl([[/shelfry\.app/, ok(CATALOG)]])
     await loadRegistry('global')
-    expect(String(stub.mock.calls[0]?.[0])).toContain('shelfry.app/data/market-top.json')
+    expect(String(stub.mock.calls[0]?.[0])).toContain('shelfry.app/data/dsh-shelfry.json')
   })
 
   it('reads the same shelfry address in the china region', async () => {
     // 目录没有 npm 镜像包可退：地区只影响插件本身的下载线路，不影响目录地址。
     const stub = byUrl([[/shelfry\.app/, ok(CATALOG)]])
     await loadRegistry('china')
-    expect(String(stub.mock.calls[0]?.[0])).toContain('shelfry.app/data/market-top.json')
+    expect(String(stub.mock.calls[0]?.[0])).toContain('shelfry.app/data/dsh-shelfry.json')
   })
 
   it('reports every attempt it made when the whole list fails', async () => {

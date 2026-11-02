@@ -38,7 +38,7 @@ dsh plugin --profile <profile> add github:shelfry/dsh-shelfry
 插件列表实时取自 shelfry：
 
 ```
-https://shelfry.app/data/market-top.json
+https://shelfry.app/data/dsh-shelfry.json
 ```
 
 这份文件有自己的结构（`entries[]`，字段 `i`、`n`、`d`、`s`、`sc`、`t`、

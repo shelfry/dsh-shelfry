@@ -65,7 +65,7 @@ describe('routesFor', () => {
     for (const region of ['global', 'china'] as const) {
       const sources = catalogSourcesFor(region)
       expect(sources).toHaveLength(1)
-      expect(sources[0]).toEqual({ kind: 'url', url: 'https://shelfry.app/data/market-top.json' })
+      expect(sources[0]).toEqual({ kind: 'url', url: 'https://shelfry.app/data/dsh-shelfry.json' })
     }
   })
 

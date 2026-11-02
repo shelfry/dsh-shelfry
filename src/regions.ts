@@ -92,13 +92,14 @@ export type GithubRoute = string | null
 export type GithubRoutes = Record<GithubService, GithubRoute[]>
 
 /**
- * 目录的唯一公开地址：shelfry 的 market-top.json。
+ * 目录的唯一公开地址：shelfry 的 dsh-shelfry.json（插件专用全量数据包）。
  *
- * 这份 JSON 由 shelfry 每天重新生成，条目字段与内部 Registry 不同，映射放在
- * src/shelfry-catalog.ts；这里只负责把它放在哪个地区的哪个地址上。
+ * 这份 JSON 由 shelfry 每次构建时随站点一起生成（与网页端同源数据），条目字段
+ * 与内部 Registry 不同，映射放在 src/shelfry-catalog.ts；这里只负责把它放在
+ * 哪个地区的哪个地址上。
  * 它带 ETag 与 cache-control，所以 registry.ts 的 304 复用照常生效。
  */
-const CATALOG_OFFICIAL = 'https://shelfry.app/data/market-top.json'
+const CATALOG_OFFICIAL = 'https://shelfry.app/data/dsh-shelfry.json'
 
 /**
  * One place the catalog can be read from.
