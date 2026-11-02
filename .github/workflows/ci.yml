@@ -1,0 +1,57 @@
+name: ci
+
+# 只保留本仓库还能真正跑通的检查项。
+# 原上游的 wrong-repo-guard、pnpm-compat、7 版本 × 2 平台矩阵都依赖本仓库
+# 已删除的快照脚本或外部服务，照搬过来只会常红。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 用锁文件安装：依赖变更只能通过可评审的 lockfile 差异进入 CI。
+      - run: npm ci
+
+      # typecheck + 构建客户端与服务端 + restart 冒烟。
+      - run: npm run check
+
+      # 提交进仓库的 client/ 必须能由 src/client 复现，防止源码与产物脱节。
+      - name: 校验 client/ 与 src/client 一致
+        shell: bash
+        run: |
+          if ! git diff --exit-code client/ lib/; then
+            echo "::error file=client/client.js::client/ 与 lib/ 是提交进仓库的构建产物，已与源码不同步。请运行 npm run build 并提交结果，不要手改产物。"
+            exit 1
+          fi
+
+      - run: npm test
+      - run: node scripts/preflight.mjs
+      - run: node scripts/smoke-spawn.mjs
+
+  # 真实 dsh + 打包后的市场 + 真 Chromium 的端到端线。
+  # 依赖浏览器与已安装的宿主，耗时且对网络敏感，因此默认不随每次推送运行，
+  # 只在手动触发时执行；守卫脚本要求本文件包含 npm run test:web。
+  web-e2e:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:web
