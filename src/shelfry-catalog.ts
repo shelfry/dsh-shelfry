@@ -22,17 +22,19 @@ import type { Registry, RegistryPlugin } from './registry.ts'
 const TYPE_TO_CATEGORY: Record<string, string> = {
   'cordis-plugin': 'plugin',
   skill: 'skill',
+  theme: 'theme',
 }
 
-/** 分类的本地化标签，只声明 shelfry 真正会产出的三个分类。 */
+/** 分类的本地化标签；主题分类让插件端的主题页有内容可筛。 */
 const CATEGORY_LABELS: Record<string, Record<string, string>> = {
   plugin: { zh: '插件', en: 'Plugins' },
   skill: { zh: '技能', en: 'Skills' },
+  theme: { zh: '主题', en: 'Themes' },
   other: { zh: '其他', en: 'Other' },
 }
 
-/** 分类字典的输出顺序：插件、技能、其他。 */
-const CATEGORY_ORDER = ['plugin', 'skill', 'other'] as const
+/** 分类字典的输出顺序：插件、技能、主题、其他。 */
+const CATEGORY_ORDER = ['plugin', 'skill', 'theme', 'other'] as const
 
 /** `i` 字段的唯一合法形态：owner/repo。 */
 const REPO_PATH_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u

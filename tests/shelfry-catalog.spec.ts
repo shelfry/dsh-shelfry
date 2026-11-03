@@ -87,10 +87,12 @@ describe('asShelfryRegistry', () => {
         { ...FULL_ENTRY, n: 'a', i: 'o/a', t: 'skill' },
         { ...FULL_ENTRY, n: 'b', i: 'o/b', t: 'unknown' },
         { ...FULL_ENTRY, n: 'c', i: 'o/c', t: 'cordis-plugin' },
+        { ...FULL_ENTRY, n: 'd', i: 'o/d', t: 'theme' },
       ],
     })
-    expect(Object.keys(registry.categories)).toEqual(['plugin', 'skill', 'other'])
+    expect(Object.keys(registry.categories)).toEqual(['plugin', 'skill', 'theme', 'other'])
     expect(registry.categories.plugin).toEqual({ zh: '插件', en: 'Plugins' })
+    expect(registry.categories.theme).toEqual({ zh: '主题', en: 'Themes' })
   })
 
   it('跳过脏条目但保留可用条目', () => {
@@ -149,11 +151,12 @@ describe('categoryOf', () => {
   it('把三种已知类型映射成分类 id', () => {
     expect(categoryOf('cordis-plugin')).toBe('plugin')
     expect(categoryOf('skill')).toBe('skill')
+    expect(categoryOf('theme')).toBe('theme')
     expect(categoryOf('unknown')).toBe('other')
   })
 
   it('未知或非字符串类型归入 other', () => {
-    expect(categoryOf('theme')).toBe('other')
+    expect(categoryOf('skin')).toBe('other')
     expect(categoryOf(undefined)).toBe('other')
     expect(categoryOf(42)).toBe('other')
   })
