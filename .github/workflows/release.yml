@@ -1,0 +1,115 @@
+name: release
+#
+# 发布流水线：npm trusted publishing（OIDC），信任关系绑定的是这个文件名。
+# 两种入口：
+#   push v* tag       → 发布 latest（预发布 tag 发 beta），并创建 GitHub Release
+#   workflow_dispatch → 发布 dev，不留任何痕迹：不改 package.json、不打 tag、不建 Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 这次要验证什么（会写进 run summary）
+        required: false
+        default: ''
+
+permissions:
+  contents: write # 创建 GitHub Release
+  id-token: write # npm trusted publishing（OIDC）
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      DEV: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      # trusted publishing 需要 npm >= 11.5
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm run check
+      # dev 版本也必须跑全量测试，否则「dev 坏了」就失去意义
+      - if: env.DEV == 'true'
+        run: npm test
+      - run: node scripts/preflight.mjs
+
+      - name: tag 必须与 package.json 版本一致
+        if: env.DEV != 'true'
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAG=${GITHUB_REF_NAME#v}
+          if [ "$PKG" != "$TAG" ]; then
+            echo "tag v$TAG != package.json $PKG" >&2
+            exit 1
+          fi
+
+      - name: 选择版本号与 dist-tag
+        id: channel
+        run: |
+          if [ "$DEV" = "true" ]; then
+            # dev 版本取下一个 minor + 时间戳 + short sha：永远高于当前 0.x 线，
+            # 唯一且可追溯到具体 commit，npm 拒绝重复版本号
+            BASE=$(node -p "require('./package.json').version.replace(/-.*/, '')")
+            NEXT=$(node -p "const [a,b]=process.argv[1].split('.'); \`\${a}.\${Number(b)+1}.0\`" "$BASE")
+            VERSION="$NEXT-dev.$(date -u +%Y%m%d%H%M)-$(git rev-parse --short HEAD)"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "dist=dev" >> "$GITHUB_OUTPUT"
+            echo "pre=true" >> "$GITHUB_OUTPUT"
+          else
+            # 预发布 tag（如 v0.5.0-beta.1）发 beta，绝不移动 latest
+            TAG=${GITHUB_REF_NAME#v}
+            echo "version=$TAG" >> "$GITHUB_OUTPUT"
+            case "$TAG" in
+              *-*) echo "dist=beta"   >> "$GITHUB_OUTPUT"; echo "pre=true"  >> "$GITHUB_OUTPUT" ;;
+              *)   echo "dist=latest" >> "$GITHUB_OUTPUT"; echo "pre=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+      # --no-git-tag-version 是 dev 路径的关键：只在 runner 内改写 package.json
+      - if: env.DEV == 'true'
+        run: npm version "${{ steps.channel.outputs.version }}" --no-git-tag-version
+
+      - run: npm publish --tag ${{ steps.channel.outputs.dist }}
+
+      # 发布出去的 tarball 同时是无构建安装路径，Release 里附上已构建的副本
+      - name: 把已构建的 tarball 附到 Release
+        if: env.DEV != 'true'
+        run: |
+          mkdir -p dist
+          npm pack --ignore-scripts --pack-destination dist
+          ls -l dist
+
+      - name: 创建 GitHub Release
+        if: env.DEV != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/*.tgz \
+            --title "dsh-shelfry v${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            ${{ steps.channel.outputs.pre == 'true' && '--prerelease' || '' }} \
+            --notes "npm: https://www.npmjs.com/package/dsh-shelfry/v/${GITHUB_REF_NAME#v} · dist-tag: ${{ steps.channel.outputs.dist }}"
+
+      - name: dev 版本安装说明
+        if: env.DEV == 'true'
+        run: |
+          V='${{ steps.channel.outputs.version }}'
+          {
+            echo "### dsh-shelfry@$V"
+            echo ''
+            echo '```sh'
+            echo "dsh plugin --profile web add dsh-shelfry@$V"
+            echo '```'
+            echo ''
+            echo "branch: \`${GITHUB_REF_NAME}\` · commit: \`$(git rev-parse --short HEAD)\`"
+            [ -n '${{ inputs.reason }}' ] && echo "reason: ${{ inputs.reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
