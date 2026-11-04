@@ -6,23 +6,107 @@
 
 English | [中文](README.zh.md)
 
-A plugin market for DeepSeek Harness, built by modifying
-[dsh-market](https://github.com/dsh-market/dsh-market) and pointing its catalog
-at **shelfry**. On dsh 0.2.1+ it is a tab on the **Plugins** page next to
-**Installed**; older hosts reach it from Settings → **Shelfry Market**.
-Browse, search, one-click install.
+**Plugin Shelfry**: a plugin market that lives inside DeepSeek Harness. No more
+digging through GitHub topics, guessing which repos actually install, and
+copy-pasting commands into a terminal — open the Plugins page, browse, read, and
+install in one click.
 
-This package is **not published to npm**. Install it from the repository.
+On dsh 0.2.1+ it is a tab on the **Plugins** page next to **Installed**; older
+hosts reach it from Settings → **Shelfry Market**.
+
+![Plugin Shelfry](assets/demo-en.png)
+
+## Why install it
+
+The DSH plugin ecosystem grows fast, but finding plugins still means "search a
+repo, read the README, copy the command". Plugin Shelfry folds that into one
+screen:
+
+- **One place to browse**: 30k+ entries covering plugins, skills, themes and
+  standalone tools;
+- **Understand before installing**: every entry has a description, stars,
+  last-updated date and install method, with screenshots and comments on the card;
+- **Manage it where you install it**: install, update, uninstall, enable/disable
+  and group plugins on the same page, without bouncing back to a terminal.
+
+## Features
+
+**Browse and search**
+
+- Full-catalog search with category filters and star sorting
+- Descriptions follow your UI language (Chinese or English)
+- Cards carry screenshots and comments; theme entries show what they look like
+
+**Install and manage**
+
+- One-click install with live download and build progress
+- Per-plugin update checks with a "What changed" link
+- Favorites, groups, and a one-line note per plugin; groups switch as a unit
+- Uninstall, hot enable/disable, and a one-click restart when a change cannot
+  hot-load
+
+**Stability and recovery**
+
+- Selectable GitHub download routes for the China region
+- An "Adjust plugins" recovery page when a bad config keeps the UI from booting
+- A diagnostics page for load order and conflicts, plus sanitized log export
+- Backup and restore: local JSON, WebDAV, or a private GitHub Gist
+
+**Settings**
+
+- Download region, GitHub acceleration, release channel, entry point and build
+  environment are all editable in the UI
+- A dedicated settings card manages the market itself; `allowRestart` and
+  `buildEnv` can also live in the profile config
+
+## Themes
+
+Installed themes apply without a restart — colors switch instantly:
+
+![Theme gallery](assets/themes-en.png)
+
+## Upstream and attribution
+
+This project is **not original work**. It is a modified derivative of
+[dsh-market](https://github.com/dsh-market/dsh-market) by fkysly and its
+contributors. The catalog is maintained independently by **shelfry**; its size
+and coverage are not the same data as upstream.
+
+What we changed on top of upstream:
+
+- The catalog now comes from shelfry: more entries (30k+, refreshed daily), plus
+  categories, themes, scores, and bilingual descriptions;
+- Catalog parsing and mapping were rewritten for shelfry's own data shape, with
+  matching UI and interaction adjustments;
+- Theme entries and score/category fields were added;
+- Everything else largely follows upstream.
+
+Upstream is released under the MIT license, and its original copyright notice is
+retained in [LICENSE](LICENSE) as the license requires. Thanks to the upstream
+author and contributors — without their work this plugin would not exist. If the
+upstream author objects to this derivative use, please open an issue and we will
+sort it out.
 
 ## Install
+
+Install from npm:
+
+```sh
+dsh plugin --profile web add dsh-shelfry
+```
+
+Or install straight from the repository, which can carry changes not yet
+released:
 
 ```sh
 dsh plugin --profile web add github:shelfry/dsh-shelfry
 ```
 
-Then restart `dsh web`. For a profile other than `web`, replace the name:
+Then restart `dsh web`. For a profile other than `web`, swap the name — the same
+applies to both commands:
 
 ```sh
+dsh plugin --profile <profile> add dsh-shelfry
 dsh plugin --profile <profile> add github:shelfry/dsh-shelfry
 ```
 
@@ -34,22 +118,9 @@ On a machine with DSH Desktop, `dsh plugin --profile web` installs into
 `profiles/web`, **not** the profile the desktop app uses. Install through the
 app's **Settings → Plugins** instead.
 
-## Catalog
-
-The plugin list comes from shelfry, fetched live:
-
-```
-https://shelfry.app/data/dsh-shelfry.json
-```
-
-That file has its own shape (`entries[]` with `i`, `n`, `d`, `s`, `sc`, `t`,
-`vr`, `g`, `cmd`), which is mapped onto the market's internal `Registry` in
-[`src/shelfry-catalog.ts`](src/shelfry-catalog.ts). Both download regions read
-the same URL — shelfry publishes one JSON, so there is no mirror to fall back to
-and the market does not pretend there is.
-
-To point it somewhere else, set `DSHM_REGISTRY_URL` in the environment dsh runs
-in. Overrides replace the source list rather than heading it.
+Install order: a repo-verified npm package first, then a prebuilt GitHub Release
+tarball, then the full repository source. Build scripts stay blocked by default
+(pnpm ≥10); allowing one is an explicit per-package choice.
 
 ## Configuration
 
@@ -78,23 +149,6 @@ ignored:
 Most of the rest is edited in the UI: download region, GitHub acceleration,
 release channel, entries (sidebar / Settings / Plugins tab), build environment,
 favorites, groups and per-plugin notes.
-
-## What you get
-
-Browse and search the whole shelfry catalog with category filters, star counts
-and bilingual descriptions that follow your UI language; screenshots and
-comments per card; favorites; groups that switch as a unit; themes that apply
-without a restart; one-click install with live progress; backup and restore
-(local JSON, WebDAV, or a private GitHub Gist); per-plugin update checks with a
-"What changed" link; resilient GitHub routes for the China download region;
-uninstall; hot enable/disable through `cordis.patch.yml`; a one-click restart
-when a change cannot hot-load; an "Adjust plugins" recovery page for a boot that
-did not come back; a sanitized log export; a settings card that manages the
-market itself; and a diagnostics page for load order and conflicts.
-
-Install order: a repo-verified npm package first, then a prebuilt GitHub Release
-tarball, then the full repository source. Build scripts stay blocked by default
-(pnpm ≥10); allowing one is an explicit per-package choice.
 
 ## Development
 
