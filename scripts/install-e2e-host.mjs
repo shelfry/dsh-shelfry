@@ -17,8 +17,14 @@
  *     registered, which is the error above;
  *   - `@deepseek-ai/cordis-plugin-hmr` >= 1.0.18 → fails later, on
  *     `hmr.registerConfig`, against these CLIs' dsh-app-boot;
- *   - loader 1.0.2 + hmr 1.0.16, everything else at its newest → boots, on
- *     both matrix versions (0.1.0-rc.8 and 0.1.2-alpha.2).
+ *   - `@deepseek-ai/cordis` >= 4.1.0 → the `internal/config` waterfall stops
+ *     passing the fiber as the handler's `this`, so loader 1.0.2's
+ *     `if (!this.entry …)` guard dies on `this === null` with
+ *     `Cannot read properties of null (reading 'entry')` before the market is
+ *     reached (measured 2026-11-04, the day 4.1.0 shipped); loader 1.0.5
+ *     already declares `cordis: ~4.0.4`, so 4.1.0 was never a supported pair;
+ *   - loader 1.0.2 + hmr 1.0.16 + cordis 4.0.5 → boots, on both matrix
+ *     versions (0.1.0-rc.8 and 0.1.2-alpha.2).
  *
  * A global install cannot be told about this — `overrides` is honoured only
  * for the root project — so the host is installed as the dependency of a
@@ -50,6 +56,7 @@ if (!version) {
 }
 
 const OVERRIDES = {
+  '@deepseek-ai/cordis': '4.0.5',
   '@deepseek-ai/cordis-plugin-loader': '1.0.2',
   '@deepseek-ai/cordis-plugin-hmr': '1.0.16',
 }
