@@ -113,7 +113,7 @@ describe('settings nav glyph', () => {
     expect(row?.querySelector('svg'), 'the row must carry a gear for the stylesheet to hide').not.toBeNull()
 
     const css = stylesheet()?.textContent ?? ''
-    expect(css).toContain(`[${NAV_ICON_MARKER}] > svg { display: none; }`)
+    expect(css).toContain(`[${NAV_ICON_MARKER}] svg { display: none; }`)
     // currentColor, so the glyph follows the row's colour in either theme and
     // in the active state.
     expect(css).toContain('background-color: currentColor')

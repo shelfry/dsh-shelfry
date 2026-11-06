@@ -6858,6 +6858,7 @@ export function MarketSection(props: MarketSectionProps) {
       className={`${css.root} notranslate`}
       style={surface === 'plugins' && pluginsTabHeight !== null ? { height: `${String(pluginsTabHeight)}px` } : undefined}
       data-dsh-shelfry-root
+      data-dsh-shelfry-surface={surface}
       data-dsh-shelfry-plugins-tab={surface === 'plugins' ? 'true' : undefined}
       /* Browser page translation is the one reported cause of the blank
          market (#293 by @apdc111, and the same shape in #286 / #241, none of
@@ -6881,7 +6882,7 @@ export function MarketSection(props: MarketSectionProps) {
       <div className={css.head}>
         <div className={css.headTop}>
         <div className={css.titleRow}>
-          <MarketLogo size={18} style={{ flexShrink: 0 }} />
+          <MarketLogo size={20} style={{ flexShrink: 0 }} />
           <h2 className={css.title}>{t('nav')}</h2>
           <p className={css.sub}>{t('subtitle')}</p>
           </div>

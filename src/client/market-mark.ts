@@ -14,9 +14,9 @@
 /** 标记使用的正方形坐标空间。 */
 export const MARK_VIEW_BOX = 16
 
-/** 单个方块的边长与圆角，`assets/logo.svg` 是同一组数字放大 8 倍。 */
-export const MARK_CELL_SIZE = 4.75
-export const MARK_CELL_RADIUS = 0.75
+/** 单个方块在 16 坐标系里的边长与圆角，`assets/logo.svg` 是同一组数字放大 8 倍。 */
+export const MARK_CELL_SIZE = 6
+export const MARK_CELL_RADIUS = 1
 
 /**
  * 网格里固定的三个方块，顺序按对角线的 `wave` 排。
@@ -29,9 +29,9 @@ export const MARK_GRID_BLOCKS: readonly {
   readonly y: number
   readonly wave: number
 }[] = [
-  { x: 3, y: 3, wave: 0 },
-  { x: 3, y: 8.375, wave: 1 },
-  { x: 8.375, y: 8.375, wave: 2 },
+  { x: 1.5, y: 1.5, wave: 0 },
+  { x: 1.5, y: 8.5, wave: 1 },
+  { x: 8.5, y: 8.5, wave: 2 },
 ]
 
 /**
@@ -41,10 +41,10 @@ export const MARK_GRID_BLOCKS: readonly {
  * 动画期间会先偏到 `offset` 之外并倾斜 `degrees`，再飞回来。
  */
 export const MARK_PLUG_BLOCK = {
-  x: 8.375,
-  y: 3,
+  x: 8.5,
+  y: 1.5,
   wave: 1,
-  offsetX: 1.75,
-  offsetY: -1.75,
+  offsetX: 2,
+  offsetY: -2,
   degrees: 9,
 } as const

@@ -85,7 +85,8 @@ export function isOwnNavRow(rowText: string | null | undefined, wantedLabel: str
 /** Stylesheet for the marked row: hide the shell's gear, draw the mark. */
 export function navIconCss(maskUrl: string): string {
   return [
-    `[${NAV_ICON_MARKER}] > svg { display: none; }`,
+    // 齿轮可能包在额外的容器里，不能只匹配直接子级 svg。
+    `[${NAV_ICON_MARKER}] svg { display: none; }`,
     `[${NAV_ICON_MARKER}]::before {`,
     `  content: '';`,
     `  flex: none;`,

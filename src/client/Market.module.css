@@ -404,9 +404,11 @@
 /* Fullscreen from the Plugins page has no dialog to expand, so the
    market covers the window itself. */
 [data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important;background:var(--dsw-alias-bg-layer-1,#fff)}
-/* 插件页签：只取消 .body 的内层滚动（两轴 visible），滚动交给宿主页容器；
-   全局 .body 不动，设置页与左侧栏仍由 .body 自己滚动。 */
+/* 插件页签 / 设置页里的插件市场：只取消 .body 的内层滚动（两轴 visible），
+   滚动交给宿主页容器；全局 .body 不动，左侧栏仍由 .body 自己滚动。
+   全屏时必须排除，滚动要留在 .body 里，否则内容溢出后没有滚动容器。 */
 [data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
@@ -1184,10 +1186,10 @@
 }
 @keyframes dshmMarkWave{0%,100%{opacity:1}6%{opacity:.5}16%{opacity:1}}
 @keyframes dshmMarkPlug{
-  0%,8%{transform:translate(1.75px,-1.75px) rotate(9deg)}
-  22%{transform:translate(-0.125px,0.125px) rotate(0deg)}
+  0%,8%{transform:translate(2px,-2px) rotate(9deg)}
+  22%{transform:translate(-0.14px,0.14px) rotate(0deg)}
   30%,62%{transform:translate(0,0) rotate(0deg)}
-  76%,100%{transform:translate(1.75px,-1.75px) rotate(9deg)}
+  76%,100%{transform:translate(2px,-2px) rotate(9deg)}
 }
 @media (prefers-reduced-motion:reduce){
   .markWave,.markPlug{animation:none}

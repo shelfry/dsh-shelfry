@@ -294,7 +294,7 @@ function mountMarket(ctx: MarketClientContext): void {
       order: SIDEBAR_PANEL_ORDER,
       label: () => t('nav'),
       locale: NS,
-    }, ((owner: { size?: number } = {}) => h(MarketLogo, { size: owner.size ?? 16 })) as () => unknown)
+    }, ((owner: { size?: number } = {}) => h(MarketLogo, { size: owner.size ?? 18 })) as () => unknown)
     return () => {
       // Leave the page before its panel goes: a selection pointing at a key
       // that no longer exists would strand the main column on nothing.
