@@ -17,10 +17,10 @@
       16%{ opacity: 1; }
     }
     @keyframes dshmPlug{
-      0%,8%{ transform: translate(16px,-16px) rotate(9deg); }
+      0%,8%{ transform: translate(12px,-12px) rotate(9deg); }
       22%{ transform: translate(-1px,1px) rotate(0deg); }
       30%,62%{ transform: translate(0,0) rotate(0deg); }
-      76%,100%{ transform: translate(16px,-16px) rotate(9deg); }
+      76%,100%{ transform: translate(12px,-12px) rotate(9deg); }
     }
     @media (prefers-reduced-motion: reduce){
       .cell,.plug{ animation: none; }
@@ -28,9 +28,9 @@
   </style>
   <rect width="128" height="128" rx="28" fill="#f6f2ea"/>
   <g fill="#2b2620">
-    <rect class="cell" style="--w:0" x="12" y="12" width="48" height="48" rx="8"/>
-    <rect class="cell" style="--w:1" x="12" y="68" width="48" height="48" rx="8"/>
-    <rect class="cell" style="--w:2" x="68" y="68" width="48" height="48" rx="8"/>
-    <rect class="plug" x="68" y="12" width="48" height="48" rx="8"/>
+    <rect class="cell" style="--w:0" x="16" y="16" width="44" height="44" rx="7"/>
+    <rect class="cell" style="--w:1" x="16" y="68" width="44" height="44" rx="7"/>
+    <rect class="cell" style="--w:2" x="68" y="68" width="44" height="44" rx="7"/>
+    <rect class="plug" x="68" y="16" width="44" height="44" rx="7"/>
   </g>
 </svg>

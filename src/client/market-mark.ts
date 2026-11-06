@@ -15,8 +15,8 @@
 export const MARK_VIEW_BOX = 16
 
 /** 单个方块在 16 坐标系里的边长与圆角，`assets/logo.svg` 是同一组数字放大 8 倍。 */
-export const MARK_CELL_SIZE = 6
-export const MARK_CELL_RADIUS = 1
+export const MARK_CELL_SIZE = 5.5
+export const MARK_CELL_RADIUS = 0.9
 
 /**
  * 网格里固定的三个方块，顺序按对角线的 `wave` 排。
@@ -29,8 +29,8 @@ export const MARK_GRID_BLOCKS: readonly {
   readonly y: number
   readonly wave: number
 }[] = [
-  { x: 1.5, y: 1.5, wave: 0 },
-  { x: 1.5, y: 8.5, wave: 1 },
+  { x: 2, y: 2, wave: 0 },
+  { x: 2, y: 8.5, wave: 1 },
   { x: 8.5, y: 8.5, wave: 2 },
 ]
 
@@ -42,9 +42,9 @@ export const MARK_GRID_BLOCKS: readonly {
  */
 export const MARK_PLUG_BLOCK = {
   x: 8.5,
-  y: 1.5,
+  y: 2,
   wave: 1,
-  offsetX: 2,
-  offsetY: -2,
+  offsetX: 1.5,
+  offsetY: -1.5,
   degrees: 9,
 } as const
