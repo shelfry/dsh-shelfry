@@ -1,10 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t">
-  <title id="t">插件箱子</title>
-  <!-- 品牌标记：一只箱子，提手 + 朱红箱盖 + 深色箱体。 -->
+  <title id="t">shelfry</title>
+  <!-- 品牌标记：四个方块，右上那一块会从外侧飞进来落位。
+       波浪按对角线依次变暗，飞块同时参与波浪，节奏与上游 dsh-market 一致。 -->
+  <style>
+    .cell{ animation: dshmWave 2.8s cubic-bezier(.4,0,.2,1) infinite; animation-delay: calc(var(--w) * 200ms); }
+    .plug{
+      transform-box: fill-box;
+      transform-origin: 50% 50%;
+      animation:
+        dshmWave 2.8s cubic-bezier(.4,0,.2,1) 200ms infinite,
+        dshmPlug 2.8s cubic-bezier(.4,0,.2,1) infinite;
+    }
+    @keyframes dshmWave{
+      0%,100%{ opacity: 1; }
+      6%{ opacity: .5; }
+      16%{ opacity: 1; }
+    }
+    @keyframes dshmPlug{
+      0%,8%{ transform: translate(14px,-14px) rotate(9deg); }
+      22%{ transform: translate(-1px,1px) rotate(0deg); }
+      30%,62%{ transform: translate(0,0) rotate(0deg); }
+      76%,100%{ transform: translate(14px,-14px) rotate(9deg); }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .cell,.plug{ animation: none; }
+    }
+  </style>
   <rect width="128" height="128" rx="28" fill="#f6f2ea"/>
-  <g>
-    <rect x="50.4" y="9.6" width="27.2" height="20.8" rx="10.4" fill="#2b2620"/>
-    <rect x="8.8" y="30.4" width="110.4" height="19.2" rx="8" fill="#c0392b"/>
-    <rect x="16" y="51.2" width="96" height="59.2" rx="9.6" fill="#2b2620"/>
+  <g fill="#2b2620">
+    <rect class="cell" style="--w:0" x="24" y="24" width="38" height="38" rx="6"/>
+    <rect class="cell" style="--w:1" x="24" y="67" width="38" height="38" rx="6"/>
+    <rect class="cell" style="--w:2" x="67" y="67" width="38" height="38" rx="6"/>
+    <rect class="plug" x="67" y="24" width="38" height="38" rx="6"/>
   </g>
 </svg>

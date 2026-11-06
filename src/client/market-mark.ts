@@ -1,5 +1,5 @@
 /**
- * 市场品牌标记的几何定义：一只「箱子」。
+ * 市场品牌标记的几何定义：四个方块，右上那块会飞进落位。
  *
  * 两个使用方都从这里取值，不允许各自复制坐标：
  *
@@ -14,18 +14,37 @@
 /** 标记使用的正方形坐标空间。 */
 export const MARK_VIEW_BOX = 16
 
+/** 单个方块的边长与圆角，`assets/logo.svg` 是同一组数字放大 8 倍。 */
+export const MARK_CELL_SIZE = 4.75
+export const MARK_CELL_RADIUS = 0.75
+
 /**
- * 箱子的三个部件，自上而下：提手、箱盖、箱体。
- * 宽高与圆角都用 viewBox 单位，`assets/logo.svg` 是同一组数字放大 8 倍。
+ * 网格里固定的三个方块，顺序按对角线的 `wave` 排。
+ *
+ * `wave` 是方块在对角线上的序数，波浪动画按它错开延迟，
+ * 让变暗的那一下沿着对角线走，而不是从左往右扫。
  */
-export const MARK_BOX_PARTS: readonly {
+export const MARK_GRID_BLOCKS: readonly {
   readonly x: number
   readonly y: number
-  readonly width: number
-  readonly height: number
-  readonly radius: number
+  readonly wave: number
 }[] = [
-  { x: 6.3, y: 1.2, width: 3.4, height: 2.6, radius: 1.3 },
-  { x: 1.1, y: 3.8, width: 13.8, height: 2.4, radius: 1 },
-  { x: 2, y: 6.4, width: 12, height: 7.4, radius: 1.2 },
+  { x: 3, y: 3, wave: 0 },
+  { x: 3, y: 8.375, wave: 1 },
+  { x: 8.375, y: 8.375, wave: 2 },
 ]
+
+/**
+ * 从外侧飞进来的那一块：落位在网格右上角。
+ *
+ * 静态（含 `prefers-reduced-motion`、CSS mask）时它就在落位坐标上；
+ * 动画期间会先偏到 `offset` 之外并倾斜 `degrees`，再飞回来。
+ */
+export const MARK_PLUG_BLOCK = {
+  x: 8.375,
+  y: 3,
+  wave: 1,
+  offsetX: 1.75,
+  offsetY: -1.75,
+  degrees: 9,
+} as const

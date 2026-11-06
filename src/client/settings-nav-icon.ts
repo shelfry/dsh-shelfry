@@ -10,7 +10,7 @@
  * the gear, the market included.
  *
  * 于是本模块在设置弹窗挂载后认领自己那一行，把兜底的齿轮换成
- * 箱子标记——与分区内部 `MarketLogo` 画的标记同源（见 market-mark.ts），
+ * 方块标记——与分区内部 `MarketLogo` 画的标记同源（见 market-mark.ts），
  * 导航项与它打开的页面因此读起来是同一个东西。 `dsh-better-sidebar` and
  * `dsh-skill-mcp-panel` solve it the same way.
  *
@@ -26,7 +26,7 @@
  * Delete this module (and its call in index.ts) the day `settings.section`
  * grows an `icon` field.
  */
-import { MARK_BOX_PARTS, MARK_VIEW_BOX } from './market-mark.ts'
+import { MARK_CELL_RADIUS, MARK_CELL_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
 
 /** Marks the one nav row this plugin owns. */
 export const NAV_ICON_MARKER = 'data-dsh-shelfry-nav-icon'
@@ -53,12 +53,13 @@ export const NAV_ICON_SIZE = 16
  * `background-color: currentColor`。
  */
 export function marketMaskSvg(): string {
-  const parts = MARK_BOX_PARTS
-    .map(part => `<rect x="${part.x}" y="${part.y}" width="${part.width}" height="${part.height}" rx="${part.radius}"/>`)
+  // mask 是静态图片，动画不可见，所以飞块直接取落位坐标。
+  const cells = [...MARK_GRID_BLOCKS, MARK_PLUG_BLOCK]
+    .map(cell => `<rect x="${cell.x}" y="${cell.y}" width="${MARK_CELL_SIZE}" height="${MARK_CELL_SIZE}" rx="${MARK_CELL_RADIUS}"/>`)
     .join('')
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '
     + `${MARK_VIEW_BOX} ${MARK_VIEW_BOX}" fill="#000">`
-    + `<g>${parts}</g>`
+    + `<g>${cells}</g>`
     + '</svg>'
 }
 

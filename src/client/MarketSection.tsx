@@ -39,7 +39,7 @@ import {
 } from './icons.ts'
 import { HostCheckbox, HostSwitch, HostTag } from './optional-primitives.ts'
 import css from './Market.module.css'
-import { MARK_BOX_PARTS, MARK_VIEW_BOX } from './market-mark.ts'
+import { MARK_CELL_RADIUS, MARK_CELL_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
 import { CommentsModal } from './CommentsModal.tsx'
 import { SearchInput } from './SearchInput.tsx'
 import { downloadStatsText } from './download-stats.ts'
@@ -1237,9 +1237,9 @@ export function resetMarketPortalHost(): void {
 }
 
 /**
- * 市场品牌标记：一只「箱子」，取自 assets/logo.svg，转成 16×16、
- * fill="currentColor" 的单色图标，跟随当前主题。设置导航里的图标由
- * market-mark.ts 的同一份几何绘制，两处不会走形。
+ * 市场品牌标记：四个方块，右上那块周期性飞进来落位，取自 assets/logo.svg。
+ * 颜色跟随 currentColor；设置导航里的图标由 market-mark.ts 的同一份几何
+ * 绘制，两处不会走形。
  */
 export function MarketLogo({ size = 16, style }: {
   size?: number
@@ -1248,12 +1248,19 @@ export function MarketLogo({ size = 16, style }: {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${MARK_VIEW_BOX} ${MARK_VIEW_BOX}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={style}>
       <g fill="currentColor">
-        {MARK_BOX_PARTS.map(part => (
+        {MARK_GRID_BLOCKS.map(cell => (
           <rect
-            key={`${part.x},${part.y}`}
-            x={part.x} y={part.y} width={part.width} height={part.height} rx={part.radius}
+            key={`${cell.x},${cell.y}`}
+            className={css.markWave}
+            x={cell.x} y={cell.y} width={MARK_CELL_SIZE} height={MARK_CELL_SIZE} rx={MARK_CELL_RADIUS}
+            style={{ animationDelay: `${cell.wave * 200}ms` }}
           />
         ))}
+        <rect
+          className={css.markPlug}
+          x={MARK_PLUG_BLOCK.x} y={MARK_PLUG_BLOCK.y}
+          width={MARK_CELL_SIZE} height={MARK_CELL_SIZE} rx={MARK_CELL_RADIUS}
+        />
       </g>
     </svg>
   )

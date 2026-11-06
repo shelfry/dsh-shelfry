@@ -24,7 +24,7 @@ import {
   marketMaskUrl,
   navIconCss,
 } from '../../src/client/settings-nav-icon.ts'
-import { MARK_BOX_PARTS } from '../../src/client/market-mark.ts'
+import { MARK_CELL_RADIUS, MARK_CELL_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK } from '../../src/client/market-mark.ts'
 
 /** The shell's own fallback glyph, as the row receives it. */
 const GEAR = '<svg class="VOzbGW_navIcon" viewBox="0 0 16 16"></svg>'
@@ -128,15 +128,16 @@ describe('settings nav glyph', () => {
     await flush()
 
     const svg = decodeURIComponent(marketMaskUrl().replace('data:image/svg+xml,', ''))
-    expect(svg.match(/<rect/g)).toHaveLength(MARK_BOX_PARTS.length)
-    for (const part of MARK_BOX_PARTS) {
-      expect(svg).toContain(`<rect x="${part.x}" y="${part.y}" width="${part.width}" height="${part.height}" rx="${part.radius}"/>`)
+    const cells = [...MARK_GRID_BLOCKS, MARK_PLUG_BLOCK]
+    expect(svg.match(/<rect/g)).toHaveLength(cells.length)
+    for (const cell of cells) {
+      expect(svg).toContain(`<rect x="${cell.x}" y="${cell.y}" width="${MARK_CELL_SIZE}" height="${MARK_CELL_SIZE}" rx="${MARK_CELL_RADIUS}"/>`)
     }
 
     // And the section must not have gone back to carrying its own copy of the
     // numbers: a second copy is how the nav entry and the page it opens drift.
     const section = readFileSync(resolve('src/client/MarketSection.tsx'), 'utf8')
-    expect(section).toContain('MARK_BOX_PARTS')
+    expect(section).toContain('MARK_PLUG_BLOCK')
     expect(section).not.toContain('x="6.3"')
   })
 

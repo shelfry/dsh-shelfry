@@ -1173,3 +1173,22 @@
 .migrationWarning{display:flex;align-items:flex-start;gap:6px;margin:12px 0 0;font-size:12px;line-height:18px;color:var(--dsw-alias-state-warn-primary,#b45309)}
 /* Reassurance, not a warning: a rename cannot touch what the plugin saved itself. */
 .migrationNote{margin:12px 0 0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#6b7280)}
+
+/* 品牌标记：四格按对角线依次变暗，右上那块从外侧飞进来落位，节奏与 assets/logo.svg 一致。 */
+.markWave{animation:dshmMarkWave 2.8s cubic-bezier(.4,0,.2,1) infinite}
+.markPlug{
+  transform-box:fill-box;
+  transform-origin:50% 50%;
+  animation:dshmMarkWave 2.8s cubic-bezier(.4,0,.2,1) 200ms infinite,
+    dshmMarkPlug 2.8s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes dshmMarkWave{0%,100%{opacity:1}6%{opacity:.5}16%{opacity:1}}
+@keyframes dshmMarkPlug{
+  0%,8%{transform:translate(1.75px,-1.75px) rotate(9deg)}
+  22%{transform:translate(-0.125px,0.125px) rotate(0deg)}
+  30%,62%{transform:translate(0,0) rotate(0deg)}
+  76%,100%{transform:translate(1.75px,-1.75px) rotate(9deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .markWave,.markPlug{animation:none}
+}
