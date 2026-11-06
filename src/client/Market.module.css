@@ -421,6 +421,10 @@
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dshm-surface-bg,var(--dsw-alias-bg-base,#fff))}
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible;flex:none}
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dshm-surface-bg,var(--dsw-alias-bg-base,#fff))}
+/* 设置页头部尺寸小，品牌标记的飞块动画（位移 1.5px + 旋转 9°）在这里看起来像抖动；
+   设置页头部关掉动画，其他位置（插件页、关于页）保持原有动画。 */
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head .markWave,
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head .markPlug{animation:none}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
