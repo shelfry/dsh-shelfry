@@ -2830,6 +2830,8 @@ export function MarketSection(props: MarketSectionProps) {
   const setInstalledBundles = useCallback(cacheState(value => { cachedInstalledBundles = value }, setInstalledBundlesState), [])
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  /** 设置页头部的实测高度，供粘附的搜索块让位；插件页签与侧栏不测量。 */
+  const headRef = useRef<HTMLDivElement | null>(null)
   /**
    * 插件页签自身没有高度。
    *
@@ -2870,6 +2872,32 @@ export function MarketSection(props: MarketSectionProps) {
     observer.observe(host)
     observer.observe(root)
     return () => { observer.disconnect() }
+  }, [surface])
+  /**
+   * 设置页走整页滚动后，头部会跟着滚走，主导航随之上移消失。
+   * 这里把头部实测高度写进 CSS 变量，样式里再让头部自己粘住、
+   * 让搜索块按这个高度下移；头部高度随宽度换行变化，不能用常量。
+   */
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    const head = headRef.current
+    if (surface !== 'settings' || root === null || head === null) {
+      rootRef.current?.style.removeProperty('--dshm-head-h')
+      return undefined
+    }
+    const measure = (): void => {
+      // 面板被切走时 rect 为 0，等重新显示后 observer 会再量一次。
+      if (head.getClientRects().length === 0) return
+      root.style.setProperty('--dshm-head-h', `${Math.round(head.offsetHeight)}px`)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(head)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--dshm-head-h')
+    }
   }, [surface])
   /** Hidden file input behind the Import button (a Button can't host an <input>). */
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -6879,7 +6907,7 @@ export function MarketSection(props: MarketSectionProps) {
       data-dsh-shelfry-tab={tab}
       data-dsh-shelfry-fullscreen={tab === 'themes' && themesFullscreen ? 'true' : undefined}
     >
-      <div className={css.head}>
+      <div ref={headRef} className={css.head}>
         <div className={css.headTop}>
         <div className={css.titleRow}>
           <MarketLogo size={20} style={{ flexShrink: 0 }} />
