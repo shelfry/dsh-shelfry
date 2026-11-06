@@ -18021,7 +18021,7 @@ window.__ModuleLoader__.load({ id: "dsh-shelfry", factory: (require) => {
 		function navIconCss(maskUrl) {
 			return [
 				`[${NAV_ICON_MARKER}] svg { display: none; }`,
-				`[${NAV_ICON_MARKER}] *:has(> svg) { display: none; }`,
+				`[${NAV_ICON_MARKER}] *:has(svg) { display: none; }`,
 				`[${NAV_ICON_MARKER}]::before {`,
 				`  content: '';`,
 				`  flex: none;`,

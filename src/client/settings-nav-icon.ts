@@ -88,8 +88,9 @@ export function navIconCss(maskUrl: string): string {
     // 齿轮可能包在额外的容器里，不能只匹配直接子级 svg。
     `[${NAV_ICON_MARKER}] svg { display: none; }`,
     // 只藏 svg 会留下仍占宽的空壳，图标与文字之间出现一段空档；
-    // 把包着 svg 的那层容器一并隐藏，让伪元素直接接上文字。
-    `[${NAV_ICON_MARKER}] *:has(> svg) { display: none; }`,
+    // 齿轮外面可能套了不止一层容器，逐层匹配会漏掉外层空壳，
+    // 这里隐藏行内所有包含 svg 的后代容器，让伪元素直接接上文字。
+    `[${NAV_ICON_MARKER}] *:has(svg) { display: none; }`,
     `[${NAV_ICON_MARKER}]::before {`,
     `  content: '';`,
     `  flex: none;`,
