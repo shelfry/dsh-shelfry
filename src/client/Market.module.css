@@ -408,6 +408,9 @@
    （overflow 默认 visible），内容仍计入宿主的可滚动范围，所以内层滚动条消失、
    底部也不再被裁；头部与搜索条随页面滚走，不做吸顶。设置页与左侧栏不命中。 */
 [data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible}
+/* 整页滚动后搜索/分类条会钉在窗口最顶，把宿主的「已安装 / 插件箱子」页签行盖住；
+   插件页签下让它随页面滚走，不做吸顶。设置页与左侧栏仍保留各自的吸顶行为。 */
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{position:static}
 /* 设置页里的插件市场：整页滚动后头部会跟着滚走，主导航随之上移消失。
    这里让根节点按内容撑开、头部钉在滚动容器顶部，搜索块再按头部实测高度
    下移（--dshm-head-h 由组件量出）；插件页签与左侧栏不命中这些规则。
