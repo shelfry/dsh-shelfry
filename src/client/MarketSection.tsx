@@ -50,6 +50,7 @@ import { clearSettled, drop, enqueue, patch as patchRecord, recordForUrl, restor
 import type { OperationRecord } from './operations.ts'
 import { Diagnostics } from './Diagnostics.tsx'
 import { exportMarketLog } from './self-check.ts'
+import { findSurfaceBackground } from './surface-bg.ts'
 import type { HostNavigationStore } from './host-navigation.ts'
 import type { SidebarEntry } from './sidebar-entry.ts'
 import {
@@ -2874,29 +2875,43 @@ export function MarketSection(props: MarketSectionProps) {
     return () => { observer.disconnect() }
   }, [surface])
   /**
-   * 设置页与插件页签都走整页滚动，头部会跟着滚走，主导航随之上移消失。
+   * 设置页走整页滚动，头部会跟着滚走，主导航随之上移消失。
    * 这里把头部实测高度写进 CSS 变量，样式里再让头部自己粘住、
    * 让搜索块按这个高度下移；头部高度随宽度换行变化，不能用常量。
+   * 同时取宿主这一层的实际底色写入 --dshm-surface-bg：吸顶条必须不透明，
+   * 而 bg-base / bg-layer-1 在深色主题下未必等于对话框底色，写死会露色带。
+   * 只有设置页需要这些变量；插件页签保持原来的内部滚动，侧栏不测量。
    */
   useLayoutEffect(() => {
     const root = rootRef.current
     const head = headRef.current
-    if (surface === 'sidebar' || root === null || head === null) {
-      rootRef.current?.style.removeProperty('--dshm-head-h')
+    if (surface !== 'settings' || root === null || head === null) {
+      root?.style.removeProperty('--dshm-head-h')
+      root?.style.removeProperty('--dshm-surface-bg')
       return undefined
     }
     const measure = (): void => {
       // 面板被切走时 rect 为 0，等重新显示后 observer 会再量一次。
       if (head.getClientRects().length === 0) return
       root.style.setProperty('--dshm-head-h', `${Math.round(head.offsetHeight)}px`)
+      const bg = findSurfaceBackground(root)
+      if (bg === null) root.style.removeProperty('--dshm-surface-bg')
+      else root.style.setProperty('--dshm-surface-bg', bg)
     }
     measure()
     if (typeof ResizeObserver === 'undefined') return undefined
     const observer = new ResizeObserver(measure)
     observer.observe(head)
+    // 切主题只换 CSS 变量、不触发尺寸变化，属性变动时补一次取色。
+    const themeObserver = typeof MutationObserver === 'undefined'
+      ? null
+      : new MutationObserver(measure)
+    themeObserver?.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
     return () => {
       observer.disconnect()
+      themeObserver?.disconnect()
       root.style.removeProperty('--dshm-head-h')
+      root.style.removeProperty('--dshm-surface-bg')
     }
   }, [surface])
   /** Hidden file input behind the Import button (a Button can't host an <input>). */
