@@ -114,6 +114,8 @@ describe('settings nav glyph', () => {
 
     const css = stylesheet()?.textContent ?? ''
     expect(css).toContain(`[${NAV_ICON_MARKER}] svg { display: none; }`)
+    // 只藏 svg 会留下占位的空壳，图标后会多出一段空档。
+    expect(css).toContain(`[${NAV_ICON_MARKER}] *:has(> svg) { display: none; }`)
     // currentColor, so the glyph follows the row's colour in either theme and
     // in the active state.
     expect(css).toContain('background-color: currentColor')

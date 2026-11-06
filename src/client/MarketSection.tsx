@@ -2874,14 +2874,14 @@ export function MarketSection(props: MarketSectionProps) {
     return () => { observer.disconnect() }
   }, [surface])
   /**
-   * 设置页走整页滚动后，头部会跟着滚走，主导航随之上移消失。
+   * 设置页与插件页签都走整页滚动，头部会跟着滚走，主导航随之上移消失。
    * 这里把头部实测高度写进 CSS 变量，样式里再让头部自己粘住、
    * 让搜索块按这个高度下移；头部高度随宽度换行变化，不能用常量。
    */
   useLayoutEffect(() => {
     const root = rootRef.current
     const head = headRef.current
-    if (surface !== 'settings' || root === null || head === null) {
+    if (surface === 'sidebar' || root === null || head === null) {
       rootRef.current?.style.removeProperty('--dshm-head-h')
       return undefined
     }

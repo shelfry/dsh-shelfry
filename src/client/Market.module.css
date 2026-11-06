@@ -405,15 +405,20 @@
    market covers the window itself. */
 [data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important;background:var(--dsw-alias-bg-layer-1,#fff)}
 /* 插件页签：只取消 .body 的内层滚动（两轴 visible），滚动交给宿主页容器；
-   全局 .body 不动，设置页与左侧栏仍由 .body 自己滚动。 */
-[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible}
+   全局 .body 不动，左侧栏仍由 .body 自己滚动。整页滚动后头部会跟着滚走，
+   这里让根节点按内容撑开（内联高度是给旧填充逻辑用的，用 !important 让位）、
+   头部钉在滚动容器顶部，搜索块再按头部实测高度下移。 */
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto!important;--dshm-head-h:0px}
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff))}
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible;flex:none}
+[data-dsh-shelfry-plugins-tab="true"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff))}
 /* 设置页里的插件市场：整页滚动后头部会跟着滚走，主导航随之上移消失。
    这里让根节点按内容撑开、头部钉在滚动容器顶部，搜索块再按头部实测高度
    下移（--dshm-head-h 由组件量出）；插件页签与左侧栏不命中这些规则。 */
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto;--dshm-head-h:0px}
-[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-base,#fff)}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff))}
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible;flex:none}
-[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:var(--dshm-head-h,0px)}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff))}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
