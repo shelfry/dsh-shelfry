@@ -4165,6 +4165,35 @@ export function MarketSection(props: MarketSectionProps) {
     }
   }, [surface, themesFullscreen])
 
+  // 设置页整页滚动时，头部固定在对话框顶部；.stickyHead 的吸顶偏移依赖头部实测高度，
+  // 窄屏换行时高度会变，所以用 ResizeObserver 跟随。
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (surface !== 'settings' || root === null || themesFullscreen) {
+      root?.style.removeProperty('--dshm-head-h')
+      return undefined
+    }
+    const head = headRef.current
+    if (head === null) return undefined
+    const apply = (): void => {
+      root.style.setProperty('--dshm-head-h', `${String(Math.round(head.getBoundingClientRect().height))}px`)
+    }
+    apply()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', apply)
+      return () => {
+        window.removeEventListener('resize', apply)
+        root.style.removeProperty('--dshm-head-h')
+      }
+    }
+    const observer = new ResizeObserver(apply)
+    observer.observe(head)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--dshm-head-h')
+    }
+  }, [surface, themesFullscreen])
+
   // The list, plus how many entries the host filter took out of it (#872).
   // Both come from one pass over the same query, so the count is exactly
   // "what this filter is hiding from what you were looking at" and the chip

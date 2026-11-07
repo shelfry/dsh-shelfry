@@ -461,9 +461,11 @@
 [data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important;background:var(--dsw-alias-bg-layer-1,#fff)}
 /* 设置页：把滚动交还给宿主对话框整页，去掉 .body 的内层滚动条。
    只作用于 settings surface，插件页签与左侧栏不命中；
-   顶部、吸顶与 logo 动画保持上游现状。 */
-[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto}
+   头部与搜索/分类条吸顶，保持修改前顶部导航固定的效果。 */
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto;--dshm-head-h:0px}
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible;flex:none}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-base,#fff)}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dsw-alias-bg-base,#fff)}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
