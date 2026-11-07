@@ -1,12 +1,15 @@
 /**
  * giscus wiring for the in-market comment thread.
  *
- * A plugin has ONE discussion, whether the reader reached it from the
- * repository's own page or from inside the market itself. That is only true
- * as long as two things agree: the repository ids below and the
- * `plugin:<slug>` term built from pluginSlug. A silent disagreement does not
- * fail — it forks the conversation in half and nobody notices until someone
- * asks why their comment vanished.
+ * A plugin has ONE discussion, whether the reader reached it from
+ * shelfry.app, from the awesome-dsh-plugin catalog, or from inside the
+ * market itself. That is only true as long as three things agree across the
+ * three surfaces: the repository ids below, the `plugin:<slug>` term, and the
+ * slug those terms are built from. The ids here mirror site/comments.mjs and
+ * the slug mirrors scripts/build-site.mjs; both are asserted in
+ * tests/client/comments.client.spec.ts against the real files, because a
+ * silent disagreement does not fail — it forks the conversation in half and
+ * nobody notices until someone asks why their comment vanished.
  */
 
 export const GISCUS = Object.freeze({

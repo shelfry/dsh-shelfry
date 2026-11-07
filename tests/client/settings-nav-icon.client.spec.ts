@@ -24,7 +24,7 @@ import {
   marketMaskUrl,
   navIconCss,
 } from '../../src/client/settings-nav-icon.ts'
-import { MARK_CELL_RADIUS, MARK_CELL_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK } from '../../src/client/market-mark.ts'
+import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK } from '../../src/client/market-mark.ts'
 
 /** The shell's own fallback glyph, as the row receives it. */
 const GEAR = '<svg class="VOzbGW_navIcon" viewBox="0 0 16 16"></svg>'
@@ -113,10 +113,7 @@ describe('settings nav glyph', () => {
     expect(row?.querySelector('svg'), 'the row must carry a gear for the stylesheet to hide').not.toBeNull()
 
     const css = stylesheet()?.textContent ?? ''
-    expect(css).toContain(`[${NAV_ICON_MARKER}] svg { display: none; }`)
-    // 只藏 svg 会留下占位的空壳，图标后会多出一段空档；齿轮外面的容器
-    // 可能不止一层，规则要覆盖整棵子树。
-    expect(css).toContain(`[${NAV_ICON_MARKER}] *:has(svg) { display: none; }`)
+    expect(css).toContain(`[${NAV_ICON_MARKER}] > svg { display: none; }`)
     // currentColor, so the glyph follows the row's colour in either theme and
     // in the active state.
     expect(css).toContain('background-color: currentColor')
@@ -131,17 +128,19 @@ describe('settings nav glyph', () => {
     await flush()
 
     const svg = decodeURIComponent(marketMaskUrl().replace('data:image/svg+xml,', ''))
-    const cells = [...MARK_GRID_BLOCKS, MARK_PLUG_BLOCK]
-    expect(svg.match(/<rect/g)).toHaveLength(cells.length)
-    for (const cell of cells) {
-      expect(svg).toContain(`<rect x="${cell.x}" y="${cell.y}" width="${MARK_CELL_SIZE}" height="${MARK_CELL_SIZE}" rx="${MARK_CELL_RADIUS}"/>`)
+    expect(svg.match(/<rect/g)).toHaveLength(MARK_GRID_BLOCKS.length + 1)
+    for (const block of MARK_GRID_BLOCKS) {
+      expect(svg).toContain(`<rect x="${block.x}" y="${block.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}" rx="${MARK_BLOCK_RADIUS}"/>`)
     }
+    expect(svg).toContain(`x="${MARK_PLUG_BLOCK.x}" y="${MARK_PLUG_BLOCK.y}"`)
+    expect(svg).toContain(`transform="rotate(${MARK_PLUG_BLOCK.degrees} ${MARK_PLUG_BLOCK.originX} ${MARK_PLUG_BLOCK.originY})"`)
 
     // And the section must not have gone back to carrying its own copy of the
     // numbers: a second copy is how the nav entry and the page it opens drift.
     const section = readFileSync(resolve('src/client/MarketSection.tsx'), 'utf8')
-    expect(section).toContain('MARK_PLUG_BLOCK')
-    expect(section).not.toContain('x="6.3"')
+    expect(section).toContain('MARK_GRID_BLOCKS')
+    expect(section).not.toContain('x="1.96"')
+    expect(section).not.toContain('x="10.74"')
   })
 
   it('leaves no marker and no stylesheet behind when the fiber goes away', async () => {

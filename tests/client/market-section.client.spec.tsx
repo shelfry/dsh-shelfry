@@ -11,7 +11,7 @@ import { resolve } from 'node:path'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketSection, OwnerAvatar, resetHostCompatibilityCache, resetMarketPortalHost, resetThemePreviewCache } from '../../src/client/MarketSection.tsx'
+import { GithubRoutedImg, MarketSection, OwnerAvatar, resetHostCompatibilityCache, resetMarketPortalHost, resetThemePreviewCache } from '../../src/client/MarketSection.tsx'
 import css from '../../src/client/Market.module.css'
 import { downloadStatsText } from '../../src/client/download-stats.ts'
 import { createHostNavigation } from '../../src/client/host-navigation.ts'
@@ -1752,6 +1752,62 @@ describe('MarketSection (jsdom)', () => {
     })
   })
 
+  it('keeps a curated animated GIF moving on the card and in the strip', async () => {
+    // The resizer answers with the first frame only unless told otherwise, so
+    // a curated animated cover used to sit frozen on the card and in the
+    // dialog strip. Both must ask for every frame, re-encoded as animated
+    // webp (a still costs nothing extra: no n=-1, and webp only on request).
+    const GIF = 'https://raw.githubusercontent.com/alice/dsh-loop/main/assets/demo.gif'
+    const PNG = 'https://raw.githubusercontent.com/alice/dsh-loop/main/assets/one.png'
+    const registry = JSON.parse(JSON.stringify(REGISTRY))
+    registry.plugins[0].screenshots = [GIF, PNG]
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const path = String(url).split('?')[0]
+      if (path === '/dsh-shelfry/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry }), { status: 200 }))
+      if (path === '/dsh-shelfry/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
+      if (path === '/dsh-shelfry/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', installed: {} }), { status: 200 }))
+      if (path === '/dsh-shelfry/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
+      return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
+    }))
+    render(<MarketSection {...props()} />)
+    await screen.findByText('dsh-loop')
+
+    const encoded = (src: string) => encodeURIComponent(src.replace(/^https?:\/\//, ''))
+    const srcsOf = () => [...document.querySelectorAll('img')].map(img => img.getAttribute('src') ?? '')
+
+    // Card thumbnail: the animation is kept, and it is re-encoded small.
+    await waitFor(() => {
+      const gif = srcsOf().find(src => src.includes(encoded(GIF)))
+      expect(gif).toBeDefined()
+      expect(gif).toContain('&n=-1')
+      expect(gif).toContain('&output=webp')
+      // The resizer caps how much it will decode (`n=-1` decodes every
+      // frame): past 71 000 000 pixels or 400 frames it answers 404, which
+      // is 15 of the catalog's 71 GIF covers. The card must fall back to the
+      // plain resize — a still, which is what it showed before this change —
+      // rather than to a broken image.
+      const fallback = new URL(gif).searchParams.get('errorredirect')
+      expect(fallback).toBe(gif.split('&n=-1')[0] + '&output=webp')
+      const still = srcsOf().find(src => src.includes(encoded(PNG)))
+      expect(still).toBeDefined()
+      expect(still).not.toContain('n=-1')
+    })
+
+    // Dialog strip: same rule at its own height.
+    let card: HTMLElement | null = screen.getByText('dsh-loop')
+    while (card !== null && within(card).queryAllByRole('button', { name: en.install }).length === 0) {
+      card = card.parentElement
+    }
+    fireEvent.click(within(card!).getAllByRole('button', { name: en.install })[0]!)
+    await screen.findByRole('button', { name: en.confirmInstall })
+    await waitFor(() => {
+      const strip = srcsOf().filter(src => src.includes(encoded(GIF)) && src.includes('h=300'))
+      expect(strip.length).toBeGreaterThan(0)
+      expect(strip[0]).toContain('&n=-1')
+      expect(strip[0]).toContain('&output=webp')
+    })
+  })
+
   it('preserves README media for the same catalog generation and refreshes a newer one (#439)', async () => {
     const pluginUrl = 'https://github.com/bob/dsh-notify'
     const readmeUrl = 'https://raw.githubusercontent.com/bob/dsh-notify/HEAD/README.md'
@@ -1949,6 +2005,42 @@ describe('MarketSection (jsdom)', () => {
     const second = render(<OwnerAvatar name="dsh-notify" owner="bob" />)
     avatar = second.container.querySelector('img')!
     expect(avatar.src).toContain('https://good.example/https://avatars.githubusercontent.com/bob')
+  })
+
+  it('routes update-notes images through raw candidates instead of connecting directly (#1070)', () => {
+    setGithubRoutes({ raw: ['https://bad.example', 'https://good.example', null], avatar: [null] })
+    const src = 'https://raw.githubusercontent.com/awesome-dsh-plugin/awesome-dsh-plugin/main/shot.png'
+    const first = render(<GithubRoutedImg src={src} alt="shot" />)
+    let img = first.container.querySelector('img')!
+    expect(img.src).toContain(`https://bad.example/${src}`)
+    fireEvent.error(img)
+    img = first.container.querySelector('img')!
+    expect(img.src).toContain(`https://good.example/${src}`)
+    fireEvent.load(img)
+    first.unmount()
+
+    // The raw winner is remembered, so the next notes image starts there.
+    const second = render(<GithubRoutedImg src={src} alt="shot" />)
+    img = second.container.querySelector('img')!
+    expect(img.src).toContain(`https://good.example/${src}`)
+  })
+
+  it('routes the declared icon through raw candidates instead of connecting directly (#1078)', () => {
+    setGithubRoutes({ raw: ['https://bad.example', 'https://good.example', null], avatar: [null] })
+    const icon = 'https://raw.githubusercontent.com/alice/dsh-loop/main/icon.png'
+    const first = render(<OwnerAvatar name="dsh-loop" owner="alice" icon={icon} />)
+    let tile = first.container.querySelector('img')!
+    expect(tile.src).toContain('https://bad.example/https://raw.githubusercontent.com/alice/dsh-loop/main/icon.png')
+    fireEvent.error(tile)
+    tile = first.container.querySelector('img')!
+    expect(tile.src).toContain('https://good.example/https://raw.githubusercontent.com/alice/dsh-loop/main/icon.png')
+    fireEvent.load(tile)
+    first.unmount()
+
+    // The raw winner is remembered, so the next declared icon starts there.
+    const second = render(<OwnerAvatar name="dsh-notify" owner="bob" icon={icon} />)
+    tile = second.container.querySelector('img')!
+    expect(tile.src).toContain('https://good.example/https://raw.githubusercontent.com/alice/dsh-loop/main/icon.png')
   })
 
   it('imports a backup as a grey installed-list preview without restoring it', async () => {
@@ -3512,8 +3604,8 @@ describe('#60 enable/disable switches in the Installed tab', () => {
     // A real plugin is installed alongside the market — its row shows,
     // proving the list isn't just empty, but the market's own row does not.
     await screen.findByText('dsh-loop')
-    // 页脚始终有一条指向市场仓库的链接，所以这里不能断言「全页找不到这个名字」；
-    // 装上市场自己那一行会多出第二处，数量仍是 1 就说明列表没把它算进去。
+    // 我们品牌下包名和仓库名都是 dsh-shelfry，页头那个「回仓库」链接也会命中；
+    // 所以只允许它一个，安装列表里再多出一条就意味着自身没被过滤掉。
     expect(screen.getAllByText('dsh-shelfry')).toHaveLength(1)
     // The tab's own count badge counts the one real plugin, not the market too.
     expect(screen.getByRole('button', { name: /^Installed \(1\)/ })).toBeTruthy()
@@ -3534,7 +3626,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
     render(<MarketSection {...props()} />)
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
     expect(await screen.findByText(en.installedEmpty)).toBeTruthy()
-    // 同上：页脚那条仓库链接是唯一应该出现这个名字的地方。
+    // 同上：页头的仓库链接始终存在，这里只要求它一个。
     expect(screen.getAllByText('dsh-shelfry')).toHaveLength(1)
     expect(screen.queryByRole('button', { name: /^Installed \(\d/ })).toBeNull()
   })
@@ -3919,6 +4011,20 @@ describe('card hover does not cover footer actions (#1021)', () => {
 })
 
 describe('discover card download count stays compact', () => {
+  it('shows a GitHub-only release count with its source, collection time and pinned version', async () => {
+    const plugin = { ...REGISTRY.plugins[0]!, npm: null, downloads: null, version: '1.3.0',
+      githubReleaseDownloads: 7000, githubReleaseDownloadsCheckedAt: '2026-10-31T08:35:00.000Z',
+      stars: 45, starsCheckedAt: '2026-10-31T08:35:00.000Z' }
+    stubFetch({ '/dsh-shelfry/registry': { hostVersion: '0.2.1-rc.5', registry: { ...REGISTRY, count: 1, plugins: [plugin] } } })
+    render(<MarketSection {...props()} />)
+    const card = (await screen.findByText('dsh-loop')).closest('[class*="card"]') as HTMLElement
+    expect(within(card).getByText('· GitHub ↓ 7k')).toBeTruthy()
+    expect(within(card).getByText('· v1.3.0')).toBeTruthy()
+    expect(within(card).getByLabelText(/GitHub Release asset downloads, all time: 7000.*2026-10-31 08:35 UTC/)).toBeTruthy()
+    expect(within(card).getByLabelText(/GitHub stars: 45.*2026-10-31 08:35 UTC/)).toBeTruthy()
+    expect(within(card).queryByLabelText(/Last 30 days on npm/)).toBeNull()
+  })
+
   it('shows the count on the card; the period stays in the tooltip', async () => {
     // #996 put " / 30d" on every byline. That string is already in the
     // tooltip, and on a two-up card it wraps the author row onto three lines.
@@ -6720,7 +6826,11 @@ describe('per-tab search boxes', () => {
     expect(src).not.toBe(shotA)
   })
 
-  it('keeps a GIF theme cover on the original format so the animation is not flattened (#1060)', async () => {
+  it('keeps a GIF theme cover animated through the resizer (#1060)', async () => {
+    // Resizing alone drops every frame past the first, so "leave the original
+    // format alone" did not keep the cover moving — it froze it. Ask for all
+    // frames and re-encode as animated webp, which is what actually stays
+    // animated (and weighs less than the untouched GIF).
     const shotA = 'https://raw.githubusercontent.com/carol/whale-skin/main/assets/cover.gif'
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[2].screenshots = [shotA]
@@ -6735,8 +6845,9 @@ describe('per-tab search boxes', () => {
     fireEvent.click(screen.getAllByRole('button', { name: en.tabThemes })[0])
     const cover = await screen.findByRole('button', { name: `${en.themePreview} whale-skin` })
     const src = cover.querySelector('img')?.getAttribute('src') ?? ''
-    expect(src).toContain('h=320')
-    expect(src).not.toContain('output=webp')
+    const encoded = encodeURIComponent(shotA.replace(/^https?:\/\//, ''))
+    expect(src).toBe(`https://images.weserv.nl/?url=${encoded}&h=320&fit=inside&we=1&n=-1&output=webp&errorredirect=${encodeURIComponent(`https://images.weserv.nl/?url=${encoded}&h=320&fit=inside&we=1&output=webp`)}`)
+    expect(src).not.toContain('h=520')
   })
 
   it('does not transcode a GitHub attachment theme cover to webp (#1060)', async () => {
@@ -9374,6 +9485,493 @@ describe('empty filter recovery', () => {
   })
 })
 
+describe('Plugins page tab lays out as page content', () => {
+  it('keeps the page heading on the settings and sidebar mounts', async () => {
+    const { container } = render(<MarketSection {...props()} />)
+    expect(await screen.findByRole('heading', { name: en.nav })).toBeTruthy()
+    expect(screen.getByText(en.subtitle)).toBeTruthy()
+    expect(screen.getByRole('link', { name: en.submitPlugin })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.exportLog })).toBeTruthy()
+    expect(container.querySelector('[data-dsh-shelfry-plugins-tab]')).toBeNull()
+  })
+
+  it('drops the page heading and the inner scroller height on the Plugins tab', async () => {
+    const { container } = render(<MarketSection {...props()} surface="plugins" />)
+    await screen.findByText('dsh-loop')
+    expect(screen.queryByRole('heading', { name: en.nav })).toBeNull()
+    expect(screen.queryByText(en.subtitle)).toBeNull()
+    expect(screen.queryByRole('link', { name: en.submitPlugin })).toBeNull()
+    // Export stays on the tab row — install failures ask for a log here.
+    const exportButton = screen.getByRole('button', { name: en.exportLog })
+    expect(exportButton.closest(`.${css.tabs}`)).toBeTruthy()
+    const root = container.querySelector('[data-dsh-shelfry-root]')
+    expect(root?.getAttribute('data-dsh-shelfry-plugins-tab')).toBe('true')
+    expect(root?.getAttribute('style') ?? '').not.toMatch(/height\s*:/)
+    // Empty tabs still fill the viewport under the stuck chrome, so a
+    // switch from Discover does not clamp the host scrollTop to 0.
+    // .empty flex-centers in the visible body slice (--dshm-empty-view-height),
+    // not the full min-height (host title still in flow would push it low).
+    const sheet = readFileSync(resolve(__dirname, '../../src/client/Market.module.css'), 'utf8')
+    expect(sheet).toMatch(
+      /\[data-dsh-shelfry-plugins-tab="true"\]:not\(\[data-dsh-shelfry-fullscreen="true"\]\) \.body\{[^}]*min-height:calc\(100vh - var\(--dshm-host-sticky-top/,
+    )
+    expect(sheet).toMatch(
+      /\[data-dsh-shelfry-plugins-tab="true"\]:not\(\[data-dsh-shelfry-fullscreen="true"\]\) \.body > \.empty\{[^}]*max-height:var\(--dshm-empty-view-height/,
+    )
+  })
+
+  it('keeps Update all on the tab row when the heading is gone', async () => {
+    stubFetch({
+      '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-shelfry/updates': { updates: { 'dsh-loop': {
+        kind: 'npm', current: '1.0.0', latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true,
+      } } },
+    })
+    render(<MarketSection {...props()} surface="plugins" />)
+    expect(await screen.findByRole('button', { name: new RegExp(en.updateAll) })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: en.nav })).toBeNull()
+  })
+
+  /**
+   * The report (#1125): on the Plugins tab the market's tab row pinned ~100px
+   * too low, with a bare strip above it where cards kept scrolling. dsh
+   * 0.2.2's page bar keeps its resting height in the layout box and clips it
+   * with `clip-path`, publishing the drawn height as an inline
+   * `--plugin-header-paint-height`. Sticking under `rect.bottom` used the
+   * number the bar no longer occupies.
+   */
+  const paintedHeaderCase = async (paintHeight: string | null): Promise<string> => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    if (paintHeight !== null) header.style.setProperty('--plugin-header-paint-height', paintHeight)
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, get: () => 2000 })
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 800 })
+    const realStyle = window.getComputedStyle.bind(window)
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    // Resting box: 150px tall, of which only `paintHeight` is drawn.
+    header.getBoundingClientRect = () => box(10, 160)
+    try {
+      const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      fireEvent.scroll(scroller)
+      await act(async () => { await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) }) })
+      const root = container.querySelector('[data-dsh-shelfry-plugins-tab="true"]') as HTMLElement
+      return root.style.getPropertyValue('--dshm-host-sticky-top')
+    } finally {
+      scroller.remove()
+      vi.restoreAllMocks()
+    }
+  }
+
+  it('sticks the tab row to the height the host bar actually paints (#1125)', async () => {
+    expect(await paintedHeaderCase('56px')).toBe('56px')
+  })
+
+  it('keeps the border box when the host publishes no painted height (#1125)', async () => {
+    expect(await paintedHeaderCase(null)).toBe('150px')
+  })
+
+  it('offers back-to-top on the host scroller of the Plugins tab', async () => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, get: () => 2000 })
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 800 })
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    header.getBoundingClientRect = () => box(10, 66)
+    const settlePin = async (): Promise<void> => {
+      fireEvent.scroll(scroller)
+      await act(async () => { await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) }) })
+    }
+    try {
+      const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      const head = container.querySelector(`.${css.head}`) as HTMLElement
+      const cats = container.querySelector(`.${css.cats}`) as HTMLElement
+      // In-flow content Y of the tab row. Pin scrollTop = 120 - hostTop(56) = 64.
+      const headFlowY = 120
+      head.getBoundingClientRect = () => {
+        if (head.style.position === 'static') {
+          const top = 10 + headFlowY - scroller.scrollTop
+          return box(top, top + 44)
+        }
+        return box(66, 110)
+      }
+      cats.getBoundingClientRect = () => box(110, 142)
+
+      scroller.scrollTop = 500
+      await settlePin()
+      expect(screen.getByRole('button', { name: en.backTop })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: en.backTop }))
+      // Parks where the tab row sticks — not the host title at 0.
+      expect(scroller.scrollTop).toBe(64)
+      expect(screen.queryByRole('button', { name: en.backTop })).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Tools' }))
+      expect(scroller.scrollTop).toBe(64)
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+
+  it('appends the next chunk on the Plugins tab and keeps pages everywhere else', async () => {
+    const plugins = Array.from({ length: 30 }, (_, i) => ({
+      name: `plug-${i}`, owner: 'alice', url: `https://github.com/alice/plug-${i}`,
+      category: ['tools'], npm: `plug-${i}`, stars: 1000 - i, added: '2026-08-01',
+      description: { en: `Plugin ${i}`, zh: `插件 ${i}` }, install: '',
+    }))
+    stubFetch({
+      '/dsh-shelfry/registry': { source: 'live', registry: { ...REGISTRY, count: plugins.length, plugins }, hostVersion: '0.1.2-alpha.2' },
+    })
+    const { rerender } = render(<MarketSection {...props()} surface="plugins" />)
+    await screen.findByText('plug-0')
+    expect(screen.queryByText('plug-24')).toBeNull()
+    expect(screen.queryByRole('button', { name: en.nextPage })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.loadMore }))
+    expect(await screen.findByText('plug-24')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: en.loadMore })).toBeNull()
+
+    rerender(<MarketSection {...props()} />)
+    expect(await screen.findByRole('button', { name: en.nextPage })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: en.loadMore })).toBeNull()
+    expect(screen.queryByText('plug-24')).toBeNull()
+  })
+
+  it('parks the inner tab row below the host sticky chrome', async () => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    header.getBoundingClientRect = () => box(10, 66)
+    try {
+      const { container, rerender } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      const head = container.querySelector(`.${css.head}`) as HTMLElement
+      head.getBoundingClientRect = () => box(66, 110)
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) })
+      })
+      expect(root.style.getPropertyValue('--dshm-host-sticky-top')).toBe('56px')
+      expect(root.style.getPropertyValue('--dshm-plugins-head-height')).toBe('44px')
+      expect(container.querySelector(`.${css.cats}`)).toBeTruthy()
+
+      rerender(<MarketSection {...props()} />)
+      await screen.findByRole('heading', { name: en.nav })
+      expect(root.style.getPropertyValue('--dshm-host-sticky-top')).toBe('')
+      expect(root.style.getPropertyValue('--dshm-plugins-head-height')).toBe('')
+      expect(root.style.getPropertyValue('--dshm-empty-view-height')).toBe('')
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+
+  it('sticks under the painted host bar when its layout box stays at the resting height', async () => {
+    // dsh 0.2.2: the plugin-page header stays sticky at its resting height and
+    // paints only the compact slice (an absolute ::before). The border box
+    // still reports the resting height, which parked the market's second pin
+    // in the clipped gap and let cards scroll through it.
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt, pseudo) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header && pseudo === '::before') {
+        return new Proxy(style, { get: (target, key) => {
+          if (key === 'content') return '""'
+          if (key === 'position') return 'absolute'
+          if (key === 'height') return '48px'
+          if (key === 'top' || key === 'left' || key === 'right') return '0px'
+          if (key === 'backgroundColor') return 'rgb(255, 255, 255)'
+          return Reflect.get(target, key)
+        } })
+      }
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    // Resting box is 120px tall; the painted bar is the 48px ::before.
+    header.getBoundingClientRect = () => box(10, 130)
+    try {
+      const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) })
+      })
+      expect(root.style.getPropertyValue('--dshm-host-sticky-top')).toBe('48px')
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+
+  it('keeps the border box when the ::before is not the host cover', async () => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt, pseudo) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header && pseudo === '::before') {
+        return new Proxy(style, { get: (target, key) => {
+          if (key === 'content') return '""'
+          if (key === 'position') return 'absolute'
+          if (key === 'height') return '8px'
+          if (key === 'top') return 'auto'
+          if (key === 'left' || key === 'right') return '0px'
+          if (key === 'backgroundColor') return 'rgb(255, 255, 255)'
+          return Reflect.get(target, key)
+        } })
+      }
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    header.getBoundingClientRect = () => box(10, 130)
+    try {
+      const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) })
+      })
+      expect(root.style.getPropertyValue('--dshm-host-sticky-top')).toBe('120px')
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+
+  it('sizes empty-state centering to the visible slice on the Plugins tab', async () => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    header.getBoundingClientRect = () => box(10, 66)
+    const settle = async (): Promise<void> => {
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) })
+      })
+    }
+    try {
+      const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      const body = container.querySelector(`.${css.body}`) as HTMLElement
+
+      // Favorites empty: sole .body > .empty. Title still in flow — body starts
+      // below the host chrome; slice is host.bottom - body.top.
+      fireEvent.click(screen.getByRole('button', { name: re(en.tabFavorites) }))
+      expect(await screen.findByText(en.favoritesEmpty)).toBeTruthy()
+      const favEmpty = body.querySelector(`:scope > .${css.empty}`) as HTMLElement
+      body.getBoundingClientRect = () => box(180, 980)
+      favEmpty.getBoundingClientRect = () => box(180, 980)
+      await settle()
+      expect(root.style.getPropertyValue('--dshm-empty-view-height')).toBe('630px')
+
+      // Scrolled so the empty top is above the scroller — clamp to host.top,
+      // do not inflate past the host viewport (800px).
+      favEmpty.getBoundingClientRect = () => box(-40, 760)
+      body.getBoundingClientRect = () => box(-40, 760)
+      await settle()
+      expect(root.style.getPropertyValue('--dshm-empty-view-height')).toBe('800px')
+
+      // Discover empty keeps search/cats above .empty; measure from empty.top
+      // so max-height does not include that chrome.
+      fireEvent.click(screen.getByRole('button', { name: en.tabDiscover }))
+      await screen.findByText('dsh-loop')
+      const search = screen.getByPlaceholderText(en.searchPh)
+      fireEvent.change(search, { target: { value: 'zzz-no-match' } })
+      fireEvent.keyDown(search, { key: 'Enter' })
+      expect(await screen.findByText(en.empty)).toBeTruthy()
+      const discoverEmpty = body.querySelector(`:scope > .${css.empty}`) as HTMLElement
+      body.getBoundingClientRect = () => box(180, 980)
+      discoverEmpty.getBoundingClientRect = () => box(280, 980)
+      await settle()
+      expect(root.style.getPropertyValue('--dshm-empty-view-height')).toBe('530px')
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+
+  it('keeps the sticky level when switching tabs or categories', async () => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const header = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(header, mount)
+    document.body.append(scroller)
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, get: () => 2000 })
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 800 })
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      if (elt === header) return new Proxy(style, { get: (target, key) => key === 'position' ? 'sticky' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(10, 810)
+    header.getBoundingClientRect = () => box(10, 66)
+    const settlePin = async (): Promise<void> => {
+      fireEvent.scroll(scroller)
+      await act(async () => { await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) }) })
+    }
+    try {
+      const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
+      await screen.findByText('dsh-loop')
+      const head = container.querySelector(`.${css.head}`) as HTMLElement
+      const cats = container.querySelector(`.${css.cats}`) as HTMLElement
+      head.getBoundingClientRect = () => box(66, 110)
+      cats.getBoundingClientRect = () => box(110, 142)
+
+      scroller.scrollTop = 400
+      await settlePin()
+      // Clamp fires scroll and would wipe pluginsYRef to 0. Restore must
+      // still come from the remembered floor, not the instantaneous y.
+      scroller.scrollTop = 0
+      await settlePin()
+      fireEvent.click(screen.getByRole('button', { name: 'Tools' }))
+      expect(scroller.scrollTop).toBe(400)
+
+      scroller.scrollTop = 400
+      await settlePin()
+      scroller.scrollTop = 0
+      await settlePin()
+      fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
+      // Installed has no category row — fall back to the tab-row floor.
+      expect(scroller.scrollTop).toBe(400)
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+
+  it('scrolls .body again when Themes goes fullscreen on the Plugins tab', async () => {
+    const box = (top: number, bottom: number): DOMRect => ({
+      top, bottom, height: bottom - top, width: 800, left: 0, right: 800, x: 0, y: top, toJSON() { return {} },
+    })
+    const scroller = document.createElement('div')
+    const mount = document.createElement('div')
+    scroller.append(mount)
+    document.body.append(scroller)
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, get: () => 2000 })
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 800 })
+    const realStyle = window.getComputedStyle.bind(window)
+    const styleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((elt) => {
+      const style = realStyle(elt as Element)
+      if (elt === scroller) return new Proxy(style, { get: (target, key) => key === 'overflowY' ? 'auto' : Reflect.get(target, key) })
+      return style
+    })
+    scroller.getBoundingClientRect = () => box(0, 800)
+    const themeSnap = { preference: 'light', themes: [] as Array<{ id: string }> }
+    try {
+      const { container } = render(
+        <MarketSection
+          {...props()}
+          surface="plugins"
+          themeStore={{ subscribe: () => () => {}, getSnapshot: () => themeSnap }}
+        />,
+        { container: mount },
+      )
+      await screen.findByText('dsh-loop')
+      const body = container.querySelector('[data-dsh-shelfry-root] > [class*="body"]') as HTMLElement
+      Object.defineProperty(body, 'scrollHeight', { configurable: true, get: () => 2000 })
+      Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => 800 })
+
+      scroller.scrollTop = 320
+      fireEvent.click(screen.getAllByRole('button', { name: en.tabThemes })[0]!)
+      await screen.findByText('whale-skin')
+      // Flattened Plugins tab restores the host scroller, not .body.
+      expect(scroller.scrollTop).toBeGreaterThan(0)
+      expect(body.scrollTop).toBe(0)
+
+      fireEvent.click(screen.getByRole('button', { name: en.themeFullscreen }))
+      expect(container.querySelector('[data-dsh-shelfry-root]')?.getAttribute('data-dsh-shelfry-fullscreen')).toBe('true')
+      body.scrollTop = 260
+      scroller.scrollTop = 320
+      fireEvent.change(screen.getByPlaceholderText(en.searchPh), { target: { value: 'no-such-theme' } })
+      await screen.findByText(en.empty)
+      // Fullscreen must reset the overlay scroller, and leave the host alone.
+      expect(body.scrollTop).toBe(0)
+      expect(scroller.scrollTop).toBe(320)
+    } finally {
+      styleSpy.mockRestore()
+      scroller.remove()
+    }
+  })
+})
+
 describe('sidebar shortcut tip (#846)', () => {
   function fakeSidebar(options: { supported?: boolean; enabled?: boolean; ready?: boolean } = {}): {
     supported(): boolean
@@ -9994,5 +10592,55 @@ describe('Agent-safe drain mode (#411)', () => {
     // A cancelled task is not a failure; the generic retry action belongs to
     // failed rows only.
     expect(screen.queryByRole('button', { name: en.opRetry })).toBeNull()
+  })
+})
+
+/**
+ * #945: a release can declare this host and still be too fresh for the
+ * profile's release-age policy. The dialog used to offer it as the safe way
+ * out, and the click could only fail. Say it is waiting, and do not offer it.
+ */
+describe('a compatible release still inside the release-age wait (#945)', () => {
+  afterEach(() => { vi.restoreAllMocks(); cleanup() })
+
+  it('names the wait and disables the version it cannot install yet', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-06T20:00:00Z'))
+    stubFetch({
+      '/dsh-shelfry/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
+      '/dsh-shelfry/find-compatible': {
+        compatibleVersion: '1.2.0', upgradeOnly: false,
+        maturity: {
+          version: '1.2.0', installable: false, held: true, exempt: false,
+          publishedAt: '2026-11-06T18:00:00.000Z', nextMaturityAt: '2026-11-07T18:00:00.000Z',
+          releaseAgeMs: 86_400_000, reason: 'held',
+        },
+      },
+    })
+    render(<MarketSection {...props()} />)
+    await screen.findByText('dsh-loop')
+    fireEvent.click(screen.getAllByRole('button', { name: en.install })[0])
+    fireEvent.click(await screen.findByRole('button', { name: en.confirmInstall }))
+
+    // Two hours into a twenty-four hour window: about twenty-two to go.
+    const description = await screen.findByText(new RegExp('still inside the release-age wait'))
+    expect(description.textContent).toContain(en.hostIncompatibleHeldTarget
+      .replace('{version}', '1.2.0').replace('{window}', '24').replace('{hours}', '22'))
+    const offered = screen.getByRole('button', { name: en.hostIncompatibleHeldButton.replace('{hours}', '22') })
+    expect((offered as HTMLButtonElement).disabled).toBe(true)
+    // The refusal stays a refusal: no install request follows the dialog.
+    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/install').length).toBe(1)
+  })
+
+  it('still offers the version when the host cannot read its age', async () => {
+    stubFetch({
+      '/dsh-shelfry/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
+      '/dsh-shelfry/find-compatible': { compatibleVersion: '1.2.0', upgradeOnly: false, maturity: null },
+    })
+    render(<MarketSection {...props()} />)
+    await screen.findByText('dsh-loop')
+    fireEvent.click(screen.getAllByRole('button', { name: en.install })[0])
+    fireEvent.click(await screen.findByRole('button', { name: en.confirmInstall }))
+    const offered = await screen.findByRole('button', { name: en.hostIncompatibleInstallCompat.replace('{version}', '1.2.0') })
+    expect((offered as HTMLButtonElement).disabled).toBe(false)
   })
 })

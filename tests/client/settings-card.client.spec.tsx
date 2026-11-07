@@ -265,7 +265,7 @@ describe('SettingsCard', () => {
 
   it('retires the market\'s own menu entry once the package is gone', async () => {
     // The visible half of the removal. Without it the left menu still offers
-    // "插件市场", and clicking it opens a page whose server routes have just
+    // "插件箱子", and clicking it opens a page whose server routes have just
     // been disposed — the card would be claiming something the profile no
     // longer agrees with.
     const retired = vi.fn()

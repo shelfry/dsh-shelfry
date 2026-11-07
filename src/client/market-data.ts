@@ -43,7 +43,11 @@ export interface RegistryPlugin {
   /** One legacy category id or several category ids. */
   category: string | string[]
   description?: LocalizedText
-  stars?: number
+  stars?: number | null
+  starsCheckedAt?: string | null
+  /** Lifetime downloads of every public Release asset, not installations or users. */
+  githubReleaseDownloads?: number | null
+  githubReleaseDownloadsCheckedAt?: string | null
   /**
    * npm downloads in the last 30 days, when the entry has a published
    * package. Absent means "no npm package" — a coverage gap, not a zero.
@@ -54,8 +58,8 @@ export interface RegistryPlugin {
   downloadsEnd?: string | null
   downloadsCheckedAt?: string | null
   /**
-   * Catalog npm `latest`. Shown in the discover byline only when it is a
-   * non-empty string.
+   * Catalog npm `latest` (awesome-dsh-plugin / dsh-shelfry#348). Shown in the
+   * discover byline only when it is a non-empty string.
    */
   version?: string | null
   added?: string
@@ -400,7 +404,7 @@ export interface ActivationInfo {
  * The install command shown on a plugin's card, corrected for THIS profile
  * (#872).
  *
- * The catalog generates the string once — always
+ * awesome-dsh-plugin generates the string once, for the catalog — always
  * `dsh plugin --profile web add <spec>` — which is right on a `web` profile
  * and wrong on every other one. On a desktop profile it is more than wrong:
  * the DSH CLI refuses a profile by that name, so the command as printed

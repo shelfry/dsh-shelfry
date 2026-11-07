@@ -52,7 +52,7 @@ export interface SettingsCardProps {
   /**
    * Retire the market's own entry in the left settings menu.
    *
-   * Called once the package is gone. Leaving "插件市场" in the menu after
+   * Called once the package is gone. Leaving "插件箱子" in the menu after
    * the user removed it is the card asserting something the profile no
    * longer agrees with — and the section behind it can no longer talk to a
    * server that has disposed its routes.
@@ -322,7 +322,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
       try {
         const response = await fetch(api('/dsh-shelfry/updates'), { cache: 'no-store' })
         const body = (await response.json()) as { updates?: Record<string, RawUpdate> }
-        const own = body.updates?.['dsh-shelfry']
+        const own = body.updates?.['dsh-shelfry'] ?? body.updates?.['dsh-shelfry']
         if (live && own !== undefined) setUpdate(readUpdate(own))
       } catch { /* an update check that fails leaves the row without an offer */ }
     })()
@@ -393,7 +393,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
   const refreshUpdate = useCallback(async (): Promise<void> => {
     const response = await fetch(api('/dsh-shelfry/updates') + '?force=1', { cache: 'no-store' })
     const body = (await response.json()) as { updates?: Record<string, RawUpdate> }
-    const own = body.updates?.['dsh-shelfry']
+    const own = body.updates?.['dsh-shelfry'] ?? body.updates?.['dsh-shelfry']
     setUpdate(own === undefined ? null : readUpdate(own))
   }, [])
 
@@ -645,6 +645,10 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     ? row(t('setSelfRemoved'), t('setSelfRemovedHint'), null)
     : h(Fragment, null,
         advanced,
+        // Where the same catalog is reachable on a host that reads market
+        // indexes (dsh 0.2.1+): a statement, not an action — the address is
+        // the whole thing the user needs, and it stays selectable here.
+        row(t('setIndexSource'), t('setIndexSourceHint'), null),
         status?.selfManaged === true ? row(
           // An older offer is not an update, and calling it one would have
           // the user click "更新" to go backwards. It IS what picking an

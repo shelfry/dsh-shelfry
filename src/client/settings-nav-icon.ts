@@ -1,17 +1,16 @@
 /**
  * The market's block mark in the settings navigation.
  *
- * The settings shell picks nav glyphs from a closed list of section ids
- * (`models`, `agent-presets`, `plugins`) and falls back to its own gear for
- * every other id; `settings.section` projects only `id` / `order` / `label`,
- * so a registrant has no icon to pass — the slot contract in
- * `@deepseek-ai/dsh-client-ui-settings` and the runtime slot inventory both
- * list exactly those three options. Every third-party section therefore wears
- * the gear, the market included.
+ * Hosts before dsh 0.2.2 pick nav glyphs from a closed list of section ids
+ * (`models`, `agent-presets`, `plugins`) and fall back to the gear for every
+ * other id. `settings.section` on those hosts projects only `id` / `order` /
+ * `label`, so a registrant has no icon to pass. Every third-party section
+ * therefore wears the gear, the market included.
  *
- * 于是本模块在设置弹窗挂载后认领自己那一行，把兜底的齿轮换成
- * 方块标记——与分区内部 `MarketLogo` 画的标记同源（见 market-mark.ts），
- * 导航项与它打开的页面因此读起来是同一个东西。 `dsh-better-sidebar` and
+ * So the market claims its own row once the dialog is mounted and swaps the
+ * fallback gear for the block mark — the same mark `MarketLogo` draws inside
+ * the section (see market-mark.ts), which is what makes the nav entry read as
+ * the same thing as the page it opens. `dsh-better-sidebar` and
  * `dsh-skill-mcp-panel` solve it the same way.
  *
  * Scope, deliberately narrow:
@@ -23,10 +22,18 @@
  * - a locale switch re-claims the row through the MutationObserver, so the
  *   label and the glyph never disagree.
  *
- * Delete this module (and its call in index.ts) the day `settings.section`
- * grows an `icon` field.
+ * dsh 0.2.2 grew a real icon seat (`settings.section.icon`) and wrapped the
+ * fallback gear, so this stand-in no longer lines up with that shell — the
+ * caller keeps it only for hosts that never declare the seat. Delete this
+ * module once those hosts are gone.
  */
-import { MARK_CELL_RADIUS, MARK_CELL_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
+import {
+  MARK_BLOCK_RADIUS,
+  MARK_BLOCK_SIZE,
+  MARK_GRID_BLOCKS,
+  MARK_PLUG_BLOCK,
+  MARK_VIEW_BOX,
+} from './market-mark.ts'
 
 /** Marks the one nav row this plugin owns. */
 export const NAV_ICON_MARKER = 'data-dsh-shelfry-nav-icon'
@@ -47,19 +54,23 @@ export const NAV_ROW_SELECTOR = '[role="dialog"] nav button'
 export const NAV_ICON_SIZE = 16
 
 /**
- * 标记的独立 SVG，供 CSS `mask-image` 使用。
+ * The mark as standalone SVG for a CSS `mask-image`.
  *
- * 故意涂成纯黑：mask 只读取 alpha，可见颜色来自元素的
- * `background-color: currentColor`。
+ * Painted pure black on purpose: a mask reads alpha only, and the visible
+ * colour comes from the element's `background-color: currentColor`. The
+ * plug block carries its tilt without the animated variant's transform
+ * classes — a mask cannot animate through CSS-module classes.
  */
 export function marketMaskSvg(): string {
-  // mask 是静态图片，动画不可见，所以飞块直接取落位坐标。
-  const cells = [...MARK_GRID_BLOCKS, MARK_PLUG_BLOCK]
-    .map(cell => `<rect x="${cell.x}" y="${cell.y}" width="${MARK_CELL_SIZE}" height="${MARK_CELL_SIZE}" rx="${MARK_CELL_RADIUS}"/>`)
+  const blocks = MARK_GRID_BLOCKS
+    .map(block => `<rect x="${block.x}" y="${block.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}" rx="${MARK_BLOCK_RADIUS}"/>`)
     .join('')
+  const plug = MARK_PLUG_BLOCK
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '
     + `${MARK_VIEW_BOX} ${MARK_VIEW_BOX}" fill="#000">`
-    + `<g>${cells}</g>`
+    + `<g>${blocks}</g>`
+    + `<rect x="${plug.x}" y="${plug.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}"`
+    + ` rx="${MARK_BLOCK_RADIUS}" transform="rotate(${plug.degrees} ${plug.originX} ${plug.originY})"/>`
     + '</svg>'
 }
 
@@ -85,12 +96,7 @@ export function isOwnNavRow(rowText: string | null | undefined, wantedLabel: str
 /** Stylesheet for the marked row: hide the shell's gear, draw the mark. */
 export function navIconCss(maskUrl: string): string {
   return [
-    // 齿轮可能包在额外的容器里，不能只匹配直接子级 svg。
-    `[${NAV_ICON_MARKER}] svg { display: none; }`,
-    // 只藏 svg 会留下仍占宽的空壳，图标与文字之间出现一段空档；
-    // 齿轮外面可能套了不止一层容器，逐层匹配会漏掉外层空壳，
-    // 这里隐藏行内所有包含 svg 的后代容器，让伪元素直接接上文字。
-    `[${NAV_ICON_MARKER}] *:has(svg) { display: none; }`,
+    `[${NAV_ICON_MARKER}] > svg { display: none; }`,
     `[${NAV_ICON_MARKER}]::before {`,
     `  content: '';`,
     `  flex: none;`,
@@ -122,10 +128,15 @@ export interface NavIconContext {
  * @param resolveLabel - this plugin's current section label (the same thunk
  *   the `settings.section` registration passes), re-read on every sync so a
  *   locale switch is picked up without re-registering.
+ * @returns a stopper. Calling it removes the marker and the stylesheet; the
+ *   fiber's own disposal does the same, and either one is safe to repeat.
+ *   The caller uses it when a host that looked old turns out to paint icons
+ *   itself.
  */
-export function installSettingsNavIcon(ctx: NavIconContext, resolveLabel: () => string): void {
-  if (typeof document === 'undefined') return
+export function installSettingsNavIcon(ctx: NavIconContext, resolveLabel: () => string): () => void {
+  if (typeof document === 'undefined') return () => {}
 
+  let dispose = () => {}
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-shelfry'
@@ -158,11 +169,15 @@ export function installSettingsNavIcon(ctx: NavIconContext, resolveLabel: () => 
     const observer = new MutationObserver(schedule)
     observer.observe(document.body, { childList: true, subtree: true, characterData: true })
 
-    return () => {
+    const cleanup = () => {
+      if (disposed) return
       disposed = true
       observer.disconnect()
       for (const row of document.querySelectorAll(`[${NAV_ICON_MARKER}]`)) row.removeAttribute(NAV_ICON_MARKER)
       tag.remove()
     }
+    dispose = cleanup
+    return cleanup
   }, 'dsh-shelfry: settings nav icon')
+  return () => { dispose() }
 }

@@ -39,10 +39,10 @@ import {
 } from './icons.ts'
 import { HostCheckbox, HostSwitch, HostTag } from './optional-primitives.ts'
 import css from './Market.module.css'
-import { MARK_CELL_RADIUS, MARK_CELL_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
+import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
 import { CommentsModal } from './CommentsModal.tsx'
 import { SearchInput } from './SearchInput.tsx'
-import { downloadStatsText } from './download-stats.ts'
+import { downloadStatistic, downloadStatsText, starStatsText } from './download-stats.ts'
 import { OperationsPanel } from './OperationsPanel.tsx'
 import { applyRecovery, fetchRecovery, initialKeep, RecoveryPanel, watchRestart, type RecoveryView } from './RecoveryPanel.tsx'
 import { HostRecoveryBanner } from './HostRecoveryBanner.tsx'
@@ -50,7 +50,6 @@ import { clearSettled, drop, enqueue, patch as patchRecord, recordForUrl, restor
 import type { OperationRecord } from './operations.ts'
 import { Diagnostics } from './Diagnostics.tsx'
 import { exportMarketLog } from './self-check.ts'
-import { findSurfaceBackground } from './surface-bg.ts'
 import type { HostNavigationStore } from './host-navigation.ts'
 import type { SidebarEntry } from './sidebar-entry.ts'
 import {
@@ -213,6 +212,30 @@ function usePagination(count: number, resetDeps: readonly unknown[], scrollToTop
 }
 
 /**
+ * A growing window for the Plugins page tab.
+ *
+ * The catalog is already in memory; the page number existed to cap the DOM.
+ * On a page that scrolls with the host, turning the page jumps back to the
+ * top. Appending a chunk leaves the reader where they are. A filter change
+ * starts over, the same moment `usePagination` returns to page 1.
+ */
+function useShownCount(count: number, resetDeps: readonly unknown[], chunk: number): {
+  shown: number
+  more: number
+  loadMore: () => void
+} {
+  const [limit, setLimit] = useState(chunk)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- resetDeps IS the intended dependency list, supplied by the caller.
+  useEffect(() => { setLimit(chunk) }, resetDeps)
+  const shown = Math.min(count, limit)
+  return {
+    shown,
+    more: Math.max(0, count - shown),
+    loadMore: () => { setLimit(current => current + chunk) },
+  }
+}
+
+/**
  * The sort/time-range dropdown (primitives Menu): three independent option
  * groups, ids namespaced so one onSelect routes by prefix. Owns its own
  * open state — a caller wires only the sort VALUES, not the dropdown's UI
@@ -325,6 +348,16 @@ function EmptyResults({ blocked, onClear, t }: { blocked: boolean; onClear?: () 
  * always present, so skipping to either end stays one click away) and
  * `.pager`/`.pagerPages` are nowrap with tight paddings — a wrapping pager
  * reads as broken here. */
+/** Plugins tab: one more chunk, in place. Settings and the sidebar keep Pager. */
+function LoadMore({ more, onLoad, t }: { more: number; onLoad: () => void; t: Translate }) {
+  if (more <= 0) return null
+  return (
+    <div className={css.loadMore}>
+      <Button variant="outline" size="sm" onClick={onLoad}>{t('loadMore')}</Button>
+    </div>
+  )
+}
+
 function Pager({ currentPage, totalPages, pageSize, onGoToPage, onChangePageSize, t }: {
   currentPage: number
   totalPages: number
@@ -429,6 +462,31 @@ function mdInline(text: string): Array<string | JSX.Element> {
  * interpreted as markup); remaining text arrives as React children or
  * controlled nodes only.
  */
+
+/**
+ * An <img> whose src lives on raw.githubusercontent.com, walked through the
+ * raw GitHub route candidates on failure (#1070 follow-up): the update-notes
+ * dialog was the last place still loading those images directly, so on
+ * networks where raw is unreachable the notes rendered with holes. When every
+ * candidate fails the last one is the direct URL, exactly the old behavior.
+ */
+export function GithubRoutedImg({ src, alt, className, key }: { src: string; alt: string; className?: string; key?: string }) {
+  const [routeIndex, setRouteIndex] = useState(0)
+  const candidates = githubRouteCandidates('raw', src)
+  const candidate = candidates[Math.min(routeIndex, candidates.length - 1)]!
+  return (
+    <img
+      key={key}
+      className={className}
+      src={candidate.url}
+      alt={alt}
+      loading="lazy"
+      onLoad={() => rememberGithubRoute('raw', candidate.proxy)}
+      onError={() => { if (routeIndex + 1 < candidates.length) setRouteIndex(routeIndex + 1) }}
+    />
+  )
+}
+
 function renderMarkdown(md: string): Array<JSX.Element | string> {
   const out: Array<JSX.Element | string> = []
   let bullets: string[] | null = null
@@ -465,12 +523,11 @@ function renderMarkdown(md: string): Array<JSX.Element | string> {
     if (image !== null) {
       flushList()
       out.push(
-        <img
+        <GithubRoutedImg
           key={`i${out.length}`}
           className={css.notesImg}
           src={image.src}
           alt={image.alt}
-          loading="lazy"
         />,
       )
       continue
@@ -504,18 +561,30 @@ export function OwnerAvatar({ name, owner, icon, className }: { name: string; ow
   const [failed, setFailed] = useState(false)
   const [routeIndex, setRouteIndex] = useState(0)
   const [iconFailed, setIconFailed] = useState(false)
+  const [iconRouteIndex, setIconRouteIndex] = useState(0)
   const av = className === undefined ? css.av : `${css.av} ${className}`
   const tile = iconFailed ? null : safeIcon(icon)
   if (tile !== null) {
+    // A declared icon is almost always a raw.githubusercontent.com URL, so it
+    // goes through the raw route candidates the lightbox uses (#1070) instead
+    // of a direct connection: on networks where raw is unreachable the icon
+    // would fail on first request and silently degrade to the owner's avatar
+    // (#1078). Candidates are walked on error, like the avatar branch below.
+    const candidates = githubRouteCandidates('raw', tile)
+    const candidate = candidates[Math.min(iconRouteIndex, candidates.length - 1)]!
     return (
       <img
         className={av}
-        src={tile}
+        src={candidate.url}
         alt=""
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={() => setIconFailed(true)}
+        onLoad={() => rememberGithubRoute('raw', candidate.proxy)}
+        onError={() => {
+          if (iconRouteIndex + 1 < candidates.length) setIconRouteIndex(iconRouteIndex + 1)
+          else setIconFailed(true)
+        }}
       />
     )
   }
@@ -637,9 +706,25 @@ function thumbUrl(src: string, height: number, options: { webp?: boolean } = {})
   let url = `https://images.weserv.nl/?url=${encoded}&h=${String(height)}&fit=inside&we=1`
   // Theme covers ask for webp on still photos: a 520px PNG of a UI
   // screenshot still weighed 0.4–0.6 MB (#1060). Only png/jpeg/webp URLs
-  // opt in — GIFs and extension-less GitHub attachments stay resized-only
-  // so an animated cover is not flattened to its first frame.
+  // opt in; extension-less GitHub attachments stay resized-only.
   if (options.webp === true && /\.(?:png|jpe?g|webp)(?:$|[?#])/iu.test(src)) url += '&output=webp'
+  // An animated GIF would otherwise come back as a single still frame: the
+  // resize drops every frame past the first, so a curated animated cover sat
+  // frozen on the card and in the strip. `n=-1` asks for every frame and
+  // `output=webp` re-encodes the animation far smaller than the original
+  // (a 7s 600×420 demo: 283KB → 31KB at h=200), so it keeps moving without
+  // costing more than a still would.
+  //
+  // `n=-1` decodes every frame, which is what the resizer's input limits
+  // measure: past 71 000 000 decoded pixels or 400 frames it answers 404 and
+  // the card would show a broken image where it used to show a frozen one.
+  // That is 15 of the catalog's 71 GIF covers. `errorredirect` sends the
+  // browser to the same resize WITHOUT `n=-1` in exactly that case, so the
+  // fallback is today's behaviour — a still, the right size, and visible.
+  else if (/\.gif(?:$|[?#])/iu.test(src)) {
+    const still = `${url}&output=webp`
+    url = `${url}&n=-1&output=webp&errorredirect=${encodeURIComponent(still)}`
+  }
   return url
 }
 
@@ -1238,40 +1323,66 @@ export function resetMarketPortalHost(): void {
 }
 
 /**
- * 市场品牌标记：四个方块，右上那块周期性飞进来落位，取自 assets/logo.svg。
- * 颜色跟随 currentColor；设置导航里的图标由 market-mark.ts 的同一份几何
- * 绘制，两处不会走形。
+ * Official-style market glyph: the shared block-grid brand mark converted to
+ * the official monochrome icon form (16×16, fill="currentColor") so it
+ * follows the active theme. Mirrors the settings-nav glyph used for the
+ * "market" section id — both now draw the geometry in market-mark.ts, so the
+ * nav entry and the section it opens cannot drift apart.
+ *
+ * Two animated forms, differing in what they are for rather than in looks:
+ *
+ * - `animated` — the loading state. Motion is the whole signal, so under
+ *   `prefers-reduced-motion` it still moves, just without displacement.
+ * - `ambient` — the section's own heading mark. Decoration, so the same
+ *   preference stops it dead.
+ *
+ * Both draw the one timeline in the stylesheet: the grid breathes along the
+ * diagonal and the block rides in behind that wave. They share `--dshm-cycle`
+ * so the block cannot arrive after the wave it is supposed to follow.
  */
-export function MarketLogo({ size = 16, style }: {
+export function MarketLogo({ size = 16, style, animated = false, ambient = false }: {
   size?: number
   style?: CSSProperties
+  animated?: boolean
+  ambient?: boolean
 }) {
+  const moving = animated || ambient
   return (
     <svg width={size} height={size} viewBox={`0 0 ${MARK_VIEW_BOX} ${MARK_VIEW_BOX}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={style}>
       <g fill="currentColor">
-        {MARK_GRID_BLOCKS.map(cell => (
+        {MARK_GRID_BLOCKS.map(block => (
           <rect
-            key={`${cell.x},${cell.y}`}
-            className={css.markWave}
-            x={cell.x} y={cell.y} width={MARK_CELL_SIZE} height={MARK_CELL_SIZE} rx={MARK_CELL_RADIUS}
-            style={{ animationDelay: `${cell.wave * 200}ms` }}
+            key={`${block.x},${block.y}`}
+            className={moving ? css.logoCell : undefined}
+            style={moving ? { '--dshm-wave': block.wave } as CSSProperties : undefined}
+            x={block.x} y={block.y} width={MARK_BLOCK_SIZE} height={MARK_BLOCK_SIZE} rx={MARK_BLOCK_RADIUS}
           />
         ))}
-        <rect
-          className={css.markPlug}
-          x={MARK_PLUG_BLOCK.x} y={MARK_PLUG_BLOCK.y}
-          width={MARK_CELL_SIZE} height={MARK_CELL_SIZE} rx={MARK_CELL_RADIUS}
-        />
       </g>
+      {/* The block being plugged in: OUTSIDE the grid's empty corner, offset
+          (+1.28, -1.27) and tilted 9deg, exactly as in assets/logo.svg. The
+          earlier icon sat it neatly in the empty slot, which reads as one
+          crooked tile rather than a block arriving — the whole idea of the
+          mark, and the reason it no longer matched the GitHub logo.
+
+          The tilt stays a presentation attribute even in the animated forms:
+          a CSS animation outranks it while running, and when the animation is
+          suppressed (reduced motion) the attribute is what leaves the block in
+          its drawn position instead of sitting square in the corner. */}
+      <rect
+        className={animated ? css.logoPlug : ambient ? css.logoPlugAmbient : undefined}
+        x={MARK_PLUG_BLOCK.x} y={MARK_PLUG_BLOCK.y} width={MARK_BLOCK_SIZE} height={MARK_BLOCK_SIZE} rx={MARK_BLOCK_RADIUS} fill="currentColor"
+        transform={`rotate(${MARK_PLUG_BLOCK.degrees} ${MARK_PLUG_BLOCK.originX} ${MARK_PLUG_BLOCK.originY})`}
+      />
     </svg>
   )
 }
 
 /**
- * GitHub mark beside catalog card titles (#256, #365). Every catalog entry's
- * `url` is `https://github.com/owner/repo` — shelfry stores the repo as
- * `owner/repo` and src/shelfry-catalog.ts builds that URL — so this renders
- * unconditionally, not as a bet that today's snapshot happens to be all
+ * GitHub mark beside catalog card titles (#256, #365). Catalog intake in
+ * awesome-dsh-plugin rejects any entry whose `url` is not
+ * `https://github.com/owner/repo` (scripts/lib/entries.mjs), so this renders
+ * unconditionally — not a bet that today's snapshot happens to be all
  * GitHub. The generic outbound arrow did not say so until hover. This rides
  * the title's own line — no second link, no extra row.
  */
@@ -1404,17 +1515,26 @@ function BookmarkMark({ size = 14, filled = false, className, markRef }: {
   )
 }
 
-/** Compact abbreviated count; hover names the exact figure and the 30-day window. */
+/** Compact count; hover names the exact figure, source and reporting scope. */
 function DownloadCount({ plugin, t }: { plugin: RegistryPlugin; t: Translate }) {
   const tip = downloadStatsText(plugin, t)
-  if (tip === null) return null
+  const statistic = downloadStatistic(plugin)
+  if (tip === null || statistic === null) return null
   return (
     <CardTip label={tip}>
       <span className={css.star} tabIndex={0} aria-label={tip}>
-        {'· ↓ ' + formatCount(plugin.downloads!)}
+        {'· ' + (statistic.source === 'github' ? 'GitHub ' : '') + '↓ ' + formatCount(statistic.count)}
       </span>
     </CardTip>
   )
+}
+
+function StarCount({ plugin, t }: { plugin: RegistryPlugin; t: Translate }) {
+  const tip = starStatsText(plugin, t)
+  if (tip === null) return null
+  return <CardTip label={tip}><span className={css.star} tabIndex={0} aria-label={tip}>
+    {'· ★ ' + formatCount(plugin.stars!)}
+  </span></CardTip>
 }
 
 /** Monochrome mark for one fact in front of the capability fold. Ink, not a warning colour. */
@@ -2103,6 +2223,152 @@ function writeSidebarTipDismissed(): void {
   try { localStorage.setItem(SIDEBAR_TIP_KEY, '1') } catch { /* private mode: the tip can return */ }
 }
 
+/**
+ * The element that actually scrolls the list.
+ *
+ * Settings and the sidebar own `.body`. The Plugins page tab is content-sized
+ * inside the host's page, so the scroller is the first ancestor with overflow
+ * auto or scroll — the same walk the old height measurement used. Themes
+ * fullscreen puts the market back in an overlay with `.body` as the scroller
+ * again (the CSS already drops the flatten rules), so that path returns body.
+ * No host ancestor (jsdom, a host that has not laid out) falls back to the
+ * document's scrolling element when there is one.
+ */
+function listScroller(
+  surface: 'settings' | 'sidebar' | 'plugins',
+  root: HTMLElement | null,
+  body: HTMLElement | null,
+  fullscreen = false,
+): HTMLElement | null {
+  if (surface !== 'plugins' || fullscreen) return body
+  for (let node = root?.parentElement ?? null; node !== null; node = node.parentElement) {
+    if (/^(auto|scroll|overlay)$/.test(getComputedStyle(node).overflowY)) return node
+  }
+  const scrolling = root?.ownerDocument.scrollingElement
+  return scrolling instanceof HTMLElement ? scrolling : null
+}
+
+/**
+ * How far the host's own stuck chrome already occupies the top of the
+ * Plugins page scroller. The market's tab row sticks just below that, so it
+ * does not cover 已安装 / 插件箱子 / 发现 after the page header compactifies.
+ *
+ * Only preceding siblings on the path from this panel up to the scroller —
+ * the host chrome sits above us. Walking the whole scroller would crawl the
+ * catalog on every frame.
+ *
+ * dsh 0.2.2 keeps the plugin-page header's layout box at its resting height
+ * and paints only the compact slice: an absolutely positioned ::before of
+ * `--plugin-header-paint-height`, with the title clipped away. The border box
+ * still reports the resting height, so sticking under `rect.bottom` parks
+ * the market's own rows in that clipped gap and the catalog scrolls through
+ * them. The cover is that ::before only when it is the opaque bar: shorter
+ * than the box, flush to the top and both sides, and filled. A marker or a
+ * strip hung from the bottom keeps the border box. Hosts without one keep
+ * the border box.
+ */
+/**
+ * Bottom of a stuck bar's opaque ::before, in the same coordinate space as
+ * `rect`, or null when that pseudo-element is not the cover.
+ *
+ * The 0.2.2 page bar's cover is `inset: 0 0 auto` with the page background,
+ * so it starts at the padding edge (no border, no padding-top on that bar)
+ * and is shorter than the resting box. A marker, a hairline, or a strip
+ * anchored with `bottom` does not qualify — those keep the border box.
+ */
+function paintedCoverBottom(node: Element, rect: DOMRect): number | null {
+  const before = getComputedStyle(node, '::before')
+  // `none` / `normal` means there is no cover. `content: ''` (the host's
+  // opaque bar) computes to a quoted empty string.
+  if (before.content === 'none' || before.content === 'normal') return null
+  if (before.position !== 'absolute' && before.position !== 'fixed') return null
+  const height = Number.parseFloat(before.height)
+  if (!Number.isFinite(height) || height <= 0 || height >= rect.height - 1) return null
+  const top = Number.parseFloat(before.top)
+  const left = Number.parseFloat(before.left)
+  const right = Number.parseFloat(before.right)
+  // `top: auto` (a strip hung from the bottom) and a corner mark are not it.
+  if (!Number.isFinite(top) || Math.abs(top) > 1) return null
+  if (!Number.isFinite(left) || !Number.isFinite(right) || Math.abs(left) > 1 || Math.abs(right) > 1) return null
+  if (before.backgroundColor === 'transparent' || before.backgroundColor === 'rgba(0, 0, 0, 0)') return null
+  const borderTop = Number.parseFloat(getComputedStyle(node).borderTopWidth)
+  const border = Number.isFinite(borderTop) ? borderTop : 0
+  return rect.top + border + top + height
+}
+
+/**
+ * Painted height of a stuck bar that keeps its layout box and clips the rest.
+ *
+ * dsh 0.2.2's plugin page writes the drawn height onto the bar every frame as
+ * an inline `--plugin-header-paint-height` and clips the box with it, so the
+ * border box keeps reporting the resting height the bar no longer occupies.
+ * Sticking under that number left a bare strip above the market's tab row
+ * with cards scrolling through it (#1125). Read the drawn number when the
+ * host publishes one; null means the border box is the honest one.
+ */
+function paintedBarHeight(node: Element, rect: DOMRect): number | null {
+  const inline = (node as HTMLElement).style?.getPropertyValue('--plugin-header-paint-height')
+  if (inline === undefined || inline.trim() === '') return null
+  const value = Number.parseFloat(inline)
+  if (!Number.isFinite(value)) return null
+  return Math.max(0, Math.min(rect.height, value))
+}
+
+function hostStickyOffset(scroller: HTMLElement, market: HTMLElement): number {
+  const scrollerTop = scroller.getBoundingClientRect().top
+  let bottom = scrollerTop
+  const consider = (node: Element): void => {
+    const position = getComputedStyle(node).position
+    if (position !== 'sticky' && position !== 'fixed') return
+    const rect = node.getBoundingClientRect()
+    if (rect.height <= 0 || rect.top > scrollerTop + 4 || rect.bottom <= scrollerTop) return
+    const painted = paintedBarHeight(node, rect)
+    if (painted !== null) {
+      bottom = Math.max(bottom, rect.top + painted)
+      return
+    }
+    bottom = Math.max(bottom, paintedCoverBottom(node, rect) ?? rect.bottom)
+  }
+  const walkPreceding = (node: Element): void => {
+    consider(node)
+    for (const child of node.children) walkPreceding(child)
+  }
+  let node: HTMLElement | null = market
+  while (node !== null && node !== scroller) {
+    const parent: HTMLElement | null = node.parentElement
+    if (parent === null) break
+    for (const sibling of parent.children) {
+      if (sibling === node) break
+      walkPreceding(sibling)
+    }
+    node = parent
+  }
+  return Math.max(0, Math.round(bottom - scrollerTop))
+}
+
+/** True when `el` is sitting on its sticky line, not still in flow and not scrolled away. */
+function isPinned(scroller: HTMLElement, el: HTMLElement, inset: number): boolean {
+  if (scroller.scrollTop <= 0 || el.getBoundingClientRect().height <= 0) return false
+  const line = scroller.getBoundingClientRect().top + inset
+  const top = el.getBoundingClientRect().top
+  return top <= line + 2 && top >= line - 4
+}
+
+/**
+ * ScrollTop where the market's tab row first sticks under the host chrome.
+ * Unsticks for one measurement so a currently-pinned head still reports its
+ * in-flow offset. That is the "top" Plugins back-to-top aims for — tabs stay
+ * stuck, the host title does not reopen.
+ */
+function headPinScrollTop(scroller: HTMLElement, market: HTMLElement, head: HTMLElement): number {
+  const hostTop = hostStickyOffset(scroller, market)
+  const prev = head.style.position
+  head.style.position = 'static'
+  const y = head.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  head.style.position = prev
+  return Math.max(0, Math.round(y - hostTop))
+}
+
 export function MarketSection(props: MarketSectionProps) {
   const t = props.t
   const initialWebdav = useMemo(savedWebdav, [])
@@ -2577,8 +2843,20 @@ export function MarketSection(props: MarketSectionProps) {
    * gives (install anyway) is a decision about breaking the host, and most
    * users reaching this dialog have no way to weigh it.
    */
+  // The found version carries its maturity too: a release can declare this
+  // host and still be inside the release-age wait, and promising an update
+  // that the server will refuse turns the dialog's one way out into a dead
+  // end.
   const [findingCompat, setFindingCompat] = useState<
-    { status: 'idle' | 'loading' | 'not-found' | 'error' } | { status: 'found'; version: string }
+    | { status: 'idle' | 'loading' | 'not-found' | 'error' }
+    | {
+        status: 'found'
+        version: string
+        /** true = installable now, false = held, null = the host could not say. */
+        installable: boolean | null
+        releaseAgeMs: number | null
+        nextMaturityAt: string | null
+      }
   >({ status: 'idle' })
   const [compatRetry, setCompatRetry] = useState(0)
   // Ask the moment the dialog opens: "which version still works" is the one
@@ -2599,17 +2877,48 @@ export function MarketSection(props: MarketSectionProps) {
     })
       .then(async response => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        return await response.json() as { compatibleVersion?: string | null }
+        return await response.json() as {
+          compatibleVersion?: string | null
+          maturity?: { installable?: unknown; releaseAgeMs?: unknown; nextMaturityAt?: unknown } | null
+        }
       })
       .then(data => {
         if (controller.signal.aborted) return
-        setFindingCompat(typeof data.compatibleVersion === 'string' && data.compatibleVersion !== ''
-          ? { status: 'found', version: data.compatibleVersion }
-          : { status: 'not-found' })
+        if (!(typeof data.compatibleVersion === 'string' && data.compatibleVersion !== '')) {
+          setFindingCompat({ status: 'not-found' })
+          return
+        }
+        const maturity = data.maturity !== null && typeof data.maturity === 'object' ? data.maturity : null
+        setFindingCompat({
+          status: 'found',
+          version: data.compatibleVersion,
+          installable: typeof maturity?.installable === 'boolean' ? maturity.installable : null,
+          releaseAgeMs: typeof maturity?.releaseAgeMs === 'number' ? maturity.releaseAgeMs : null,
+          nextMaturityAt: typeof maturity?.nextMaturityAt === 'string' ? maturity.nextMaturityAt : null,
+        })
       })
       .catch(() => { if (!controller.signal.aborted) setFindingCompat({ status: 'error' }) })
     return () => controller.abort()
   }, [hostIncompatible, compatRetry])
+  // Older hosts answer find-compatible without a maturity object; the update
+  // list already knows the same fact as heldUpdate, so fall back to it rather
+  // than promising a version this host would refuse.
+  const hostCompatHeldUpdate = hostIncompatible === null ? undefined : updates[hostIncompatible.npmName ?? '']
+  const hostCompatHeld = findingCompat.status === 'found' && (
+    findingCompat.installable === false ||
+    (findingCompat.installable === null && hostCompatHeldUpdate?.heldUpdate !== undefined &&
+      hostCompatHeldUpdate.heldUpdate.latest === findingCompat.version &&
+      Date.parse(hostCompatHeldUpdate.heldUpdate.until) > Date.now())
+  )
+  const hostCompatNextMaturityAt = findingCompat.status === 'found' && findingCompat.installable === null
+    ? hostCompatHeldUpdate?.heldUpdate?.until ?? null
+    : findingCompat.status === 'found' ? findingCompat.nextMaturityAt : null
+  const hostCompatHeldHours = hostCompatHeld && hostCompatNextMaturityAt !== null
+    ? Math.max(1, Math.ceil((Date.parse(hostCompatNextMaturityAt) - Date.now()) / 3_600_000))
+    : null
+  const hostCompatWindowHours = findingCompat.status === 'found' && findingCompat.releaseAgeMs !== null
+    ? Math.max(1, Math.round(findingCompat.releaseAgeMs / 3_600_000))
+    : 24
 
   const [restoreBlocked, setRestoreBlocked] = useState<{ name: string; reason: 'no-catalog' | 'repo-mismatch' } | null>(null)
   // Snapshot the source switch the user agreed to review; later renders must not change it under the dialog.
@@ -2831,89 +3140,15 @@ export function MarketSection(props: MarketSectionProps) {
   const setInstalledBundles = useCallback(cacheState(value => { cachedInstalledBundles = value }, setInstalledBundlesState), [])
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
-  /** 设置页头部的实测高度，供粘附的搜索块让位；插件页签与侧栏不测量。 */
   const headRef = useRef<HTMLDivElement | null>(null)
-  /**
-   * 插件页签自身没有高度。
-   *
-   * 宿主页面负责滚动，它的页签面板高度由内容决定，因此 `height: 100%`
-   * 的子节点会解析成 auto：市场自己的滚动容器随之消失，吸顶分类行、
-   * 返回顶部按钮和滚动收起头部都会一起失效。这里量出宿主头部和页签
-   * 下方剩余的空间，回填给面板，其余挂载点的布局规则保持不变。
-   */
-  const [pluginsTabHeight, setPluginsTabHeight] = useState<number | null>(null)
-  useLayoutEffect(() => {
-    const root = rootRef.current
-    if (surface !== 'plugins' || root === null) {
-      setPluginsTabHeight(null)
-      return undefined
-    }
-    // 哪个祖先负责滚动由宿主决定，这里向上查找而不是写死。
-    let page: HTMLElement | null = null
-    for (let node = root.parentElement; node !== null; node = node.parentElement) {
-      if (/^(auto|scroll)$/.test(getComputedStyle(node).overflowY)) { page = node; break }
-    }
-    if (page === null) return undefined
-    const host = page
-    const measure = (): void => {
-      // 面板被宿主切到其他页签时仍然挂载，此时所有 rect 为 0，量出来会是整页高度；
-      // 重新显示时 observer 会再次触发。
-      if (root.getClientRects().length === 0) return
-      const bottom = Number.parseFloat(getComputedStyle(host).paddingBottom)
-      const room = host.clientHeight
-        - (root.getBoundingClientRect().top - host.getBoundingClientRect().top)
-        - (Number.isFinite(bottom) ? bottom : 0)
-      // 宿主尚未完成布局时 room 可能为负，兜底保持面板可用，等下一次测量。
-      const next = Math.max(320, Math.round(room))
-      setPluginsTabHeight(prev => (prev === next ? prev : next))
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(measure)
-    observer.observe(host)
-    observer.observe(root)
-    return () => { observer.disconnect() }
-  }, [surface])
-  /**
-   * 设置页走整页滚动，头部会跟着滚走，主导航随之上移消失。
-   * 这里把头部实测高度写进 CSS 变量，样式里再让头部自己粘住、
-   * 让搜索块按这个高度下移；头部高度随宽度换行变化，不能用常量。
-   * 同时取宿主这一层的实际底色写入 --dshm-surface-bg：吸顶条必须不透明，
-   * 而 bg-base / bg-layer-1 在深色主题下未必等于对话框底色，写死会露色带。
-   * 只有设置页需要这些变量；插件页签保持原来的内部滚动，侧栏不测量。
-   */
-  useLayoutEffect(() => {
-    const root = rootRef.current
-    const head = headRef.current
-    if (surface !== 'settings' || root === null || head === null) {
-      root?.style.removeProperty('--dshm-head-h')
-      root?.style.removeProperty('--dshm-surface-bg')
-      return undefined
-    }
-    const measure = (): void => {
-      // 面板被切走时 rect 为 0，等重新显示后 observer 会再量一次。
-      if (head.getClientRects().length === 0) return
-      root.style.setProperty('--dshm-head-h', `${Math.round(head.offsetHeight)}px`)
-      const bg = findSurfaceBackground(root)
-      if (bg === null) root.style.removeProperty('--dshm-surface-bg')
-      else root.style.setProperty('--dshm-surface-bg', bg)
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(measure)
-    observer.observe(head)
-    // 切主题只换 CSS 变量、不触发尺寸变化，属性变动时补一次取色。
-    const themeObserver = typeof MutationObserver === 'undefined'
-      ? null
-      : new MutationObserver(measure)
-    themeObserver?.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
-    return () => {
-      observer.disconnect()
-      themeObserver?.disconnect()
-      root.style.removeProperty('--dshm-head-h')
-      root.style.removeProperty('--dshm-surface-bg')
-    }
-  }, [surface])
+  // Captured while the host page is scrolling — NOT read from scrollTop after
+  // a tab/category swap. The new list is often shorter, the browser clamps
+  // to 0 before this layout effect, and recomputing the pin from that 0
+  // sent the page back to the host title.
+  const pluginsYRef = useRef(0)
+  const headFloorRef = useRef<number | null>(null)
+  const catsFloorRef = useRef<number | null>(null)
+  const restoringStickRef = useRef(false)
   /** Hidden file input behind the Import button (a Button can't host an <input>). */
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [sortField, setSortField] = useState<SortField>('downloads')
@@ -3752,24 +3987,183 @@ export function MarketSection(props: MarketSectionProps) {
   }, [applyDrainStatus, busyUrl, updatingName, data, installed, repoIdentities, repoHints, refreshInstalled, lang, restoreDrainMarkers, t])
 
   const scrollToTop = () => {
-    const el = bodyRef.current
-    if (el) {
-      // jsdom (tests) lacks Element.scrollTo — fall back to the assignment.
-      if (typeof el.scrollTo === 'function') el.scrollTo({ top: 0, behavior: 'smooth' })
-      else el.scrollTop = 0
+    const el = listScroller(surface, rootRef.current, bodyRef.current, themesFullscreen)
+    const root = rootRef.current
+    const head = headRef.current
+    if (el === null) {
+      setShowTop(false)
+      return
     }
+    // Plugins (not fullscreen): park where the inner tab row sticks. Absolute
+    // 0 would unpin it and open the host title again. Settings / sidebar /
+    // fullscreen still mean the real top of their own scroller.
+    if (surface === 'plugins' && !themesFullscreen && root !== null && head !== null) {
+      const target = headPinScrollTop(el, root, head)
+      if (typeof el.scrollTo === 'function') el.scrollTo({ top: target, behavior: 'smooth' })
+      else el.scrollTop = target
+      headFloorRef.current = target > 0 ? target : null
+      catsFloorRef.current = null
+      pluginsYRef.current = target
+    } else if (typeof el.scrollTo === 'function') {
+      el.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      el.scrollTop = 0
+    }
+    setShowTop(false)
   }
 
-  // The .body scroller is shared across top tabs AND in-tab list replacements
-  // (Discover/Themes category, search, sort; Installed search and list/groups).
-  // Leaving scrollTop in place opens the next list mid-page — or, when it is
-  // shorter, at its clamped bottom. Instant (not the smooth scrollToTop used
-  // for pagination) so the jump happens before paint.
+  // Settings and the sidebar share `.body` across top tabs AND in-tab list
+  // replacements — a new list should start at the top of that scroller.
+  // The Plugins page tab shares the host's page scroller (except Themes
+  // fullscreen, which is an overlay on `.body` again). Jumping the host to
+  // 0 unpins both sticky rows and opens the host title again. Instant (not
+  // the smooth scrollToTop used for pagination) so the jump happens before
+  // paint. Restore the floor remembered while scrolling, not a pin measured
+  // after the browser has already clamped.
   useLayoutEffect(() => {
-    const el = bodyRef.current
-    if (el !== null) el.scrollTop = 0
+    const el = listScroller(surface, rootRef.current, bodyRef.current, themesFullscreen)
+    const root = rootRef.current
+    if (el !== null) {
+      if (surface !== 'plugins' || root === null || themesFullscreen) {
+        el.scrollTop = 0
+      } else {
+        const cats = root.querySelector(`.${css.cats}`)
+        const max = Math.max(0, el.scrollHeight - el.clientHeight)
+        const preferred = cats !== null && catsFloorRef.current !== null
+          ? catsFloorRef.current
+          : headFloorRef.current !== null
+            ? headFloorRef.current
+            : pluginsYRef.current
+        // Short lists cannot reach a deep floor — fall back to the tab row
+        // before giving up, so a filter that empties the grid does not yank
+        // the host title open when the tabs can still pin.
+        const target = preferred <= max
+          ? preferred
+          : headFloorRef.current !== null && headFloorRef.current <= max
+            ? headFloorRef.current
+            : max
+        if (cats === null) catsFloorRef.current = null
+        restoringStickRef.current = true
+        if (target > 0) el.scrollTop = target
+        pluginsYRef.current = el.scrollTop
+        restoringStickRef.current = false
+      }
+    }
     setShowTop(false)
-  }, [tab, q, cat, sortField, sortDir, timeRange, compatibleWithHost, qThemes, themeSortField, themeSortDir, themeTimeRange, qFavorites, favSortField, favSortDir, favTimeRange, qInstalled, installedView])
+  }, [surface, themesFullscreen, tab, q, cat, sortField, sortDir, timeRange, compatibleWithHost, qThemes, themeSortField, themeSortDir, themeTimeRange, qFavorites, favSortField, favSortDir, favTimeRange, qInstalled, installedView])
+  // Menus are portaled and would stay put while the host page scrolls. `.body`
+  // does not scroll on this surface (unless Themes fullscreen), so the close
+  // and the back-to-top affordance listen to the host.
+  useEffect(() => {
+    if (surface !== 'plugins' || themesFullscreen) return undefined
+    const host = listScroller(surface, rootRef.current, null, false)
+    if (host === null) return undefined
+    const onScroll = (): void => {
+      setPluginMenuUrl(null)
+      setInstalledMenuName(null)
+      setGroupMenuFor(null)
+      setAssignFor(null)
+      const show = host.scrollTop > 400
+      setShowTop(prev => (prev === show ? prev : show))
+    }
+    onScroll()
+    host.addEventListener('scroll', onScroll, { passive: true })
+    return () => host.removeEventListener('scroll', onScroll)
+  }, [surface, themesFullscreen])
+  // Park the market's own tab row just under whatever the host is already
+  // pinning. The compact header changes height as the page title leaves, so
+  // this re-reads on scroll and resize rather than baking in a pixel value.
+  // Fullscreen drops the flatten rules and scrolls inside `.body` instead.
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (surface !== 'plugins' || root === null || themesFullscreen) {
+      root?.style.removeProperty('--dshm-host-sticky-top')
+      root?.style.removeProperty('--dshm-plugins-head-height')
+      root?.style.removeProperty('--dshm-empty-view-height')
+      return undefined
+    }
+    const host = listScroller(surface, root, null, false)
+    if (host === null) {
+      root.style.removeProperty('--dshm-host-sticky-top')
+      root.style.removeProperty('--dshm-plugins-head-height')
+      root.style.removeProperty('--dshm-empty-view-height')
+      return undefined
+    }
+    let frame = 0
+    const apply = (): void => {
+      frame = 0
+      const hostTop = hostStickyOffset(host, root)
+      const head = headRef.current
+      const headHeight = head === null ? 0 : Math.round(head.getBoundingClientRect().height)
+      root.style.setProperty('--dshm-host-sticky-top', `${String(hostTop)}px`)
+      root.style.setProperty('--dshm-plugins-head-height', `${String(headHeight)}px`)
+      // Visible height available to .body > .empty inside the host scroller.
+      // Prefer the empty node's top: on Discover, search/cats are flex siblings
+      // above it (stickyHead is display:contents), so measuring from .body
+      // would make max-height include that chrome and park the tip low.
+      // Clamp the top to the scroller so a scrolled-away body does not inflate
+      // the slice past the host viewport.
+      const body = bodyRef.current
+      if (body !== null) {
+        const hostRect = host.getBoundingClientRect()
+        const empty = body.querySelector(`:scope > .${css.empty}`)
+        const topSrc = empty instanceof HTMLElement ? empty : body
+        const top = Math.max(hostRect.top, topSrc.getBoundingClientRect().top)
+        const view = Math.max(0, Math.round(hostRect.bottom - top))
+        root.style.setProperty('--dshm-empty-view-height', `${String(view)}px`)
+      }
+      if (restoringStickRef.current) return
+      const y = host.scrollTop
+      // A clamp-to-0 from a shorter list can fire scroll before the restore
+      // layout effect. Do not trust y===0 to erase the pin floors, and do
+      // not drop them on a one-frame !isPinned — only when the reader has
+      // scrolled back above the remembered line.
+      if (y > 0) pluginsYRef.current = y
+      if (head !== null && isPinned(host, head, hostTop)) {
+        headFloorRef.current = headFloorRef.current === null ? y : Math.min(headFloorRef.current, y)
+      } else if (headFloorRef.current !== null && y > 0 && y + 4 < headFloorRef.current) {
+        // y===0 is often a short-list clamp, not a real scroll to the top —
+        // keep the floor so the restore layout effect can still use it.
+        headFloorRef.current = null
+      }
+      const cats = root.querySelector(`.${css.cats}`)
+      if (cats instanceof HTMLElement && isPinned(host, cats, hostTop + headHeight)) {
+        catsFloorRef.current = catsFloorRef.current === null ? y : Math.min(catsFloorRef.current, y)
+      } else if (cats === null) {
+        catsFloorRef.current = null
+      } else if (catsFloorRef.current !== null && y > 0 && y + 4 < catsFloorRef.current) {
+        catsFloorRef.current = null
+      }
+    }
+    const schedule = (): void => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(apply)
+    }
+    const clearPinVars = (): void => {
+      host.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (frame !== 0) cancelAnimationFrame(frame)
+      frame = 0
+      root.style.removeProperty('--dshm-host-sticky-top')
+      root.style.removeProperty('--dshm-plugins-head-height')
+      root.style.removeProperty('--dshm-empty-view-height')
+    }
+    apply()
+    host.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    if (typeof ResizeObserver === 'undefined') {
+      return clearPinVars
+    }
+    const observer = new ResizeObserver(schedule)
+    observer.observe(host)
+    observer.observe(root)
+    const head = headRef.current
+    if (head !== null) observer.observe(head)
+    return () => {
+      observer.disconnect()
+      clearPinVars()
+    }
+  }, [surface, themesFullscreen])
 
   // The list, plus how many entries the host filter took out of it (#872).
   // Both come from one pass over the same query, so the count is exactly
@@ -3850,7 +4244,10 @@ export function MarketSection(props: MarketSectionProps) {
   const recentPlugins = recentlyAdded.slice(0, RECENT_STRIP_LIMIT)
   const { currentPage, totalPages, pageSize, goToPage, changePageSize } =
     usePagination(plugins.length, [q, cat, sortField, sortDir, timeRange, compatibleWithHost], scrollToTop)
-  const pagePlugins = plugins.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const discoverMore = useShownCount(plugins.length, [q, cat, sortField, sortDir, timeRange, compatibleWithHost], DEFAULT_PAGE_SIZE)
+  const pagePlugins = surface === 'plugins'
+    ? plugins.slice(0, discoverMore.shown)
+    : plugins.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const pageHostPackages = [...new Set([...pagePlugins, ...recentPlugins].flatMap(plugin =>
     hostCompatibilityKey(plugin) === null ? [] : [hostCompatibilityKey(plugin)!]))]
   const allHostPackages = useMemo(
@@ -3898,8 +4295,12 @@ export function MarketSection(props: MarketSectionProps) {
     [blockedNames, blockedPlugins, installed, repoIdentities, data, repoHints])
   const themePagination = usePagination(
     themePlugins.length, [qThemes, themeSortField, themeSortDir, themeTimeRange], scrollToTop)
-  const themePagePlugins = themePlugins.slice(
-    (themePagination.currentPage - 1) * themePagination.pageSize, themePagination.currentPage * themePagination.pageSize)
+  const themeMore = useShownCount(
+    themePlugins.length, [qThemes, themeSortField, themeSortDir, themeTimeRange], DEFAULT_PAGE_SIZE)
+  const themePagePlugins = surface === 'plugins'
+    ? themePlugins.slice(0, themeMore.shown)
+    : themePlugins.slice(
+      (themePagination.currentPage - 1) * themePagination.pageSize, themePagination.currentPage * themePagination.pageSize)
 
   const favoriteListed = useMemo(
     () => (data === null ? [] : pluginsForFavorites(data.plugins, favoriteUrlSet, {
@@ -3919,12 +4320,18 @@ export function MarketSection(props: MarketSectionProps) {
     favoritePlugins.length, favResetDeps, scrollToTop)
   const favoriteThemePagination = usePagination(
     favoriteThemes.length, favResetDeps, scrollToTop)
-  const favoritePagePlugins = favoritePlugins.slice(
-    (favoritePluginPagination.currentPage - 1) * favoritePluginPagination.pageSize,
-    favoritePluginPagination.currentPage * favoritePluginPagination.pageSize)
-  const favoritePageThemes = favoriteThemes.slice(
-    (favoriteThemePagination.currentPage - 1) * favoriteThemePagination.pageSize,
-    favoriteThemePagination.currentPage * favoriteThemePagination.pageSize)
+  const favoritePluginMore = useShownCount(favoritePlugins.length, favResetDeps, DEFAULT_PAGE_SIZE)
+  const favoriteThemeMore = useShownCount(favoriteThemes.length, favResetDeps, DEFAULT_PAGE_SIZE)
+  const favoritePagePlugins = surface === 'plugins'
+    ? favoritePlugins.slice(0, favoritePluginMore.shown)
+    : favoritePlugins.slice(
+      (favoritePluginPagination.currentPage - 1) * favoritePluginPagination.pageSize,
+      favoritePluginPagination.currentPage * favoritePluginPagination.pageSize)
+  const favoritePageThemes = surface === 'plugins'
+    ? favoriteThemes.slice(0, favoriteThemeMore.shown)
+    : favoriteThemes.slice(
+      (favoriteThemePagination.currentPage - 1) * favoriteThemePagination.pageSize,
+      favoriteThemePagination.currentPage * favoriteThemePagination.pageSize)
   // Favorites reuse pluginCard (and its host-requirement badge). Discover
   // already loads compatibility for the current page; without the same
   // fetch here the badge stays on "Reading host requirement…" forever.
@@ -5631,7 +6038,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   // The market itself stays out of the batch: its update reloads this page
   // mid-run, which would strand the remaining items.
-  const selfName = 'dsh-shelfry'
+  const selfName = installed['dsh-shelfry'] !== undefined ? 'dsh-shelfry' : 'dsh-shelfry'
   const updatableNames = Object.keys(installed).filter(
     name => name !== selfName
       && !effectiveDisabledSet.has(name)
@@ -5717,7 +6124,7 @@ export function MarketSection(props: MarketSectionProps) {
     next()
   }, [reminderBatchUpdatableNames, doUpdate, refreshInstalled, updates])
 
-  const finishRestore = useCallback((body: { errors?: unknown; unportable?: unknown; bootErrors?: unknown }) => {
+  const finishRestore = useCallback((body: { errors?: unknown; unportable?: unknown; pinned?: unknown; bootErrors?: unknown }) => {
     const errors = Array.isArray(body.errors) ? body.errors as { name?: unknown; error?: unknown }[] : []
     // Machine-specific dependency paths (#205): a `link:/Users/…` spec from
     // the machine that wrote the backup names a directory that does not
@@ -5725,6 +6132,12 @@ export function MarketSection(props: MarketSectionProps) {
     // problems rather than in a banner of its own — from the operator's
     // side it is one question ("what went wrong with my restore?").
     const unportable = Array.isArray(body.unportable) ? body.unportable as { name?: unknown; spec?: unknown }[] : []
+    // The market is the package running the restore, so it keeps its own
+    // version instead of having its files swapped out mid-operation. Said
+    // here rather than in a banner of its own: from the operator's side it is
+    // the same question ("what did not come back?"), and the answer has a
+    // next step (update the market separately).
+    const pinned = Array.isArray(body.pinned) ? body.pinned as { name?: unknown; from?: unknown; to?: unknown }[] : []
     // Partial failures surface inline in the Backup tab (previously a
     // window.alert); the restore itself still completes.
     // What the profile analysis says about the composition that just landed
@@ -5735,6 +6148,7 @@ export function MarketSection(props: MarketSectionProps) {
     setRestoreErrors([
       ...errors.map(item => `${String(item.name)}: ${String(item.error)}`),
       ...unportable.map(item => `${String(item.name)}: ${t('restoreUnportable')} (${String(item.spec)})`),
+      ...pinned.map(item => `${String(item.name)}: ${t('restoreSelfPinned')} (${String(item.from)} → ${String(item.to)})`),
       ...bootErrors.map(line => `${t('restoreBootError')} ${line}`),
     ])
     setBackupRestored(true)
@@ -6010,9 +6424,10 @@ export function MarketSection(props: MarketSectionProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `updatesLoaded` stands in for `updates`/`updatedNames`: reorder when the check lands, then hold (#631). `effectiveDisabledSet` only re-runs this when a disable state actually changed; the toggled row is the only one that moves.
   }, [isInstalledListActive, displayedInstalled, selfName, updatesLoaded, effectiveDisabledSet, dependencyOnlyNames])
   const missingRestoreCount = Object.keys(pendingDependencies).filter(name => !installedFiles.includes(name)).length
-  // Self-update lives in the header button and the settings card, not this
-  // tab's row list (the market itself is filtered out below) — so a pending
-  // self-update alone must not light up a dot pointing at an empty-looking tab.
+  // Self-update lives in the page header (or the Plugins tab's own tab row)
+  // and the settings card, not this tab's row list (the market itself is
+  // filtered out below) — so a pending self-update alone must not light up a
+  // dot pointing at an empty-looking tab.
   const hasUpdates = reminderUpdatableNames.length > 0
 
   /** Live status line: structured phase, or the human-line fallback. */
@@ -6469,11 +6884,7 @@ export function MarketSection(props: MarketSectionProps) {
               <span className={css.owner} title={p.owner}>{p.owner}</span>
               <CatalogVersionMark version={p.version} tip={catalogVersionTip} />
               <DownloadCount plugin={p} t={t} />
-              {typeof p.stars === 'number' && (
-                <CardTip label={String(p.stars)}>
-                  <span className={css.star}>{'· ★ ' + formatCount(p.stars)}</span>
-                </CardTip>
-              )}
+              <StarCount plugin={p} t={t} />
             </div>
           </div>
           {/* Top right, at its natural size: in the footer it needed a row of
@@ -6588,11 +6999,7 @@ export function MarketSection(props: MarketSectionProps) {
                 <span className={css.owner} title={p.owner}>{p.owner}</span>
                 <CatalogVersionMark version={p.version} tip={catalogVersionTip} />
                 <DownloadCount plugin={p} t={t} />
-                {typeof p.stars === 'number' && (
-                  <CardTip label={String(p.stars)}>
-                    <span className={css.star}>{'· ★ ' + formatCount(p.stars)}</span>
-                  </CardTip>
-                )}
+                <StarCount plugin={p} t={t} />
               </div>
             </div>
             {p.deprecated === true && <span className={css.depBadge}>{t('deprecatedBadge')}</span>}
@@ -6758,7 +7165,10 @@ export function MarketSection(props: MarketSectionProps) {
   }, [visibleCats, data])
 
   useEffect(() => {
-    if (catsSentinel === null || typeof IntersectionObserver === 'undefined') return
+    // The Plugins tab scrolls with the host page. Collapse-on-scroll against
+    // `.body` (which no longer scrolls) is what #266 / #395 flapped on, so
+    // this surface never auto-collapses. The row itself can still pin.
+    if (surface === 'plugins' || catsSentinel === null || typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver(
       ([entry]) => {
         const leftView = entry !== undefined && !entry.isIntersecting
@@ -6790,7 +7200,7 @@ export function MarketSection(props: MarketSectionProps) {
     )
     observer.observe(catsSentinel)
     return () => observer.disconnect()
-  }, [catsSentinel])
+  }, [catsSentinel, surface])
   // Drop any in-pin expand once the header unpins, so the next pin starts
   // collapsed without a rising-edge setState in the observer.
   useEffect(() => {
@@ -6838,7 +7248,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   /** Installed plugins the market itself cannot group (#60). */
   const groupableNames = Object.keys(installed)
-    .filter(name => name !== 'dsh-shelfry' && !dependencyOnlyNames.has(name))
+    .filter(name => name !== 'dsh-shelfry' && name !== 'dsh-shelfry' && !dependencyOnlyNames.has(name))
   /** Names already inside some group; everything else shows under "ungrouped". */
   const groupedNames = useMemo(() => new Set(Object.values(groups).flat()), [groups])
   const ungroupedNames = groupableNames.filter(name => !groupedNames.has(name))
@@ -6895,13 +7305,62 @@ export function MarketSection(props: MarketSectionProps) {
     })
   }, [doGroupAction, groups, installedThemeNames])
 
+  // Update-the-market, update-all, and "don't remind". On the Plugins tab the
+  // host already has a page title, so these sit on the market's own tab row.
+  // Settings and the sidebar keep them in the heading.
+  const batchActions = (
+    <>
+      {(() => {
+        const self = installed['dsh-shelfry'] !== undefined ? 'dsh-shelfry' : 'dsh-shelfry'
+        const status = updates[self]
+        return status && status.updateAvailable && !updatedNames.includes(self)
+          && !quietUpdateSet.has(self)
+          && (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={updatingName !== null || busyUrl !== null}
+              onClick={() => {
+                setTab('installed')
+                if (status.restoreRequired === true) askRestore(self)
+                else doUpdate(self)
+              }}
+            >{updatingName === self ? t('updating') : status.restoreRequired === true ? t('restoreOnline') : t('marketUpdate')}</Button>
+          )
+      })()}
+      {reminderBatchUpdatableNames.length >= 1 && (
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={updatingAll || updatingName !== null || busyUrl !== null || removingName !== null}
+          onClick={() => { setTab('installed'); doUpdateAll() }}
+        >{updatingAll ? t('updating') : t('updateAll') + ' (' + reminderBatchUpdatableNames.length + ')'}</Button>
+      )}
+      {bootId !== null && reminderUpdateNames.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => ignoreUpdateNotices(reminderUpdateNames)}
+        >{t('ignoreAllUpdateNotices')}</Button>
+      )}
+    </>
+  )
+  const exportLogButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={css.exportLogBtn}
+      icon={<IconDownloadOutline16 size={14} />}
+      disabled={exportState === 'busy'}
+      onClick={doExportLog}
+    >{exportState === 'busy' ? t('exportingLog') : t('exportLog')}</Button>
+  )
+
   return (
     <div
       ref={rootRef}
       className={`${css.root} notranslate`}
-      style={surface === 'plugins' && pluginsTabHeight !== null ? { height: `${String(pluginsTabHeight)}px` } : undefined}
       data-dsh-shelfry-root
-      data-dsh-shelfry-surface={surface}
       data-dsh-shelfry-plugins-tab={surface === 'plugins' ? 'true' : undefined}
       /* Browser page translation is the one reported cause of the blank
          market (#293 by @apdc111, and the same shape in #286 / #241, none of
@@ -6923,9 +7382,10 @@ export function MarketSection(props: MarketSectionProps) {
       data-dsh-shelfry-fullscreen={tab === 'themes' && themesFullscreen ? 'true' : undefined}
     >
       <div ref={headRef} className={css.head}>
+        {surface !== 'plugins' && (
         <div className={css.headTop}>
         <div className={css.titleRow}>
-          <MarketLogo size={20} style={{ flexShrink: 0 }} />
+          <MarketLogo size={18} ambient style={{ flexShrink: 0 }} />
           <h2 className={css.title}>{t('nav')}</h2>
           <p className={css.sub}>{t('subtitle')}</p>
           </div>
@@ -6936,49 +7396,11 @@ export function MarketSection(props: MarketSectionProps) {
           <a className={css.repoLink} href="https://github.com/shelfry/dsh-shelfry" target="_blank" rel="noreferrer" title="dsh-shelfry · GitHub">dsh-shelfry</a>
           {version !== null && <span className={css.version} title={t('versionHint')}>v{version}</span>}
           <a className={css.submitLink} href="https://shelfry.app" target="_blank" rel="noreferrer">{t('submitPlugin')}</a>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={css.exportLogBtn}
-            icon={<IconDownloadOutline16 size={14} />}
-            disabled={exportState === 'busy'}
-            onClick={doExportLog}
-          >{exportState === 'busy' ? t('exportingLog') : t('exportLog')}</Button>
-          {(() => {
-            const self = 'dsh-shelfry'
-            const status = updates[self]
-            return status && status.updateAvailable && !updatedNames.includes(self)
-              && !quietUpdateSet.has(self)
-              && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={updatingName !== null || busyUrl !== null}
-                  onClick={() => {
-                    setTab('installed')
-                    if (status.restoreRequired === true) askRestore(self)
-                    else doUpdate(self)
-                  }}
-                >{updatingName === self ? t('updating') : status.restoreRequired === true ? t('restoreOnline') : t('marketUpdate')}</Button>
-              )
-          })()}
-          {reminderBatchUpdatableNames.length >= 1 && (
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={updatingAll || updatingName !== null || busyUrl !== null || removingName !== null}
-              onClick={() => { setTab('installed'); doUpdateAll() }}
-            >{updatingAll ? t('updating') : t('updateAll') + ' (' + reminderBatchUpdatableNames.length + ')'}</Button>
-          )}
-          {bootId !== null && reminderUpdateNames.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => ignoreUpdateNotices(reminderUpdateNames)}
-            >{t('ignoreAllUpdateNotices')}</Button>
-          )}
+          {exportLogButton}
+          {batchActions}
           </div>
         </div>
+        )}
         {showSidebarTip && (
           <div className={css.sidebarTip}>
             <span>{t('sidebarTip')}</span>
@@ -7019,6 +7441,12 @@ export function MarketSection(props: MarketSectionProps) {
             onClick={() => { if (tab !== 'backup' && tab !== 'diagnostics') setTab('backup') }}
           >{t('tabAdvanced')}</button>
           <span className={css.grow} />
+          {/* The host page already names this tab, so these sit here instead
+              of a second title row. Settings and the sidebar keep them in
+              the heading. Export stays reachable on this surface — install
+              failures ask for a log, and this is where that failure happens. */}
+          {surface === 'plugins' && batchActions}
+          {surface === 'plugins' && exportLogButton}
           {/* In the tab row, not above the grid: paginating, searching and
               switching tab all leave it — and any pending decision — in place. */}
           <OperationsPanel
@@ -7328,7 +7756,7 @@ export function MarketSection(props: MarketSectionProps) {
       <div
         className={css.body}
         ref={bodyRef}
-        onScroll={e => {
+        onScroll={surface === 'plugins' && !themesFullscreen ? undefined : e => {
           const show = e.currentTarget.scrollTop > 400
           setShowTop(prev => (prev === show ? prev : show))
           // Card menus are portaled to document.body and re-pinned to their
@@ -7497,7 +7925,7 @@ export function MarketSection(props: MarketSectionProps) {
                 </Button>
               </div>
             : data === null
-              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
+              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
               : (
                   <>
                     <div ref={setCatsSentinel} />
@@ -7622,21 +8050,25 @@ export function MarketSection(props: MarketSectionProps) {
                       : (
                           <>
                             <Masonry items={pagePlugins} render={plugin => pluginCard(plugin)} />
-                            <Pager
-                              currentPage={currentPage}
-                              totalPages={totalPages}
-                              pageSize={pageSize}
-                              onGoToPage={goToPage}
-                              onChangePageSize={changePageSize}
-                              t={t}
-                            />
+                            {surface === 'plugins'
+                              ? <LoadMore more={discoverMore.more} onLoad={discoverMore.loadMore} t={t} />
+                              : (
+                                  <Pager
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    pageSize={pageSize}
+                                    onGoToPage={goToPage}
+                                    onChangePageSize={changePageSize}
+                                    t={t}
+                                  />
+                                )}
                           </>
                         )}
                   </>
                 )
           : tab === 'favorites'
             ? data === null
-              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
+              ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
               : favoriteUrls.length === 0
                 ? <div className={css.empty}>{t('favoritesEmpty')}</div>
                 : (
@@ -7698,14 +8130,18 @@ export function MarketSection(props: MarketSectionProps) {
                                     {t('favoritesPluginsSection').replace('{0}', String(favoritePlugins.length))}
                                   </h3>
                                   <Masonry items={favoritePagePlugins} render={plugin => pluginCard(plugin)} />
-                                  <Pager
-                                    currentPage={favoritePluginPagination.currentPage}
-                                    totalPages={favoritePluginPagination.totalPages}
-                                    pageSize={favoritePluginPagination.pageSize}
-                                    onGoToPage={favoritePluginPagination.goToPage}
-                                    onChangePageSize={favoritePluginPagination.changePageSize}
-                                    t={t}
-                                  />
+                                  {surface === 'plugins'
+                                    ? <LoadMore more={favoritePluginMore.more} onLoad={favoritePluginMore.loadMore} t={t} />
+                                    : (
+                                        <Pager
+                                          currentPage={favoritePluginPagination.currentPage}
+                                          totalPages={favoritePluginPagination.totalPages}
+                                          pageSize={favoritePluginPagination.pageSize}
+                                          onGoToPage={favoritePluginPagination.goToPage}
+                                          onChangePageSize={favoritePluginPagination.changePageSize}
+                                          t={t}
+                                        />
+                                      )}
                                 </>
                               )}
                               {favoriteThemes.length > 0 && (
@@ -7716,14 +8152,18 @@ export function MarketSection(props: MarketSectionProps) {
                                   <div className={css.themeGallery}>
                                     {favoritePageThemes.map(themePluginCard)}
                                   </div>
-                                  <Pager
-                                    currentPage={favoriteThemePagination.currentPage}
-                                    totalPages={favoriteThemePagination.totalPages}
-                                    pageSize={favoriteThemePagination.pageSize}
-                                    onGoToPage={favoriteThemePagination.goToPage}
-                                    onChangePageSize={favoriteThemePagination.changePageSize}
-                                    t={t}
-                                  />
+                                  {surface === 'plugins'
+                                    ? <LoadMore more={favoriteThemeMore.more} onLoad={favoriteThemeMore.loadMore} t={t} />
+                                    : (
+                                        <Pager
+                                          currentPage={favoriteThemePagination.currentPage}
+                                          totalPages={favoriteThemePagination.totalPages}
+                                          pageSize={favoriteThemePagination.pageSize}
+                                          onGoToPage={favoriteThemePagination.goToPage}
+                                          onChangePageSize={favoriteThemePagination.changePageSize}
+                                          t={t}
+                                        />
+                                      )}
                                 </>
                               )}
                             </>
@@ -7770,7 +8210,7 @@ export function MarketSection(props: MarketSectionProps) {
                     )
                   })()}
                   {data === null
-                    ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
+                    ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
                     : anyThemePlugins.length === 0
                       ? <div className={css.empty}>{t('themeEmpty')}</div>
                       : themePlugins.length === 0
@@ -7789,14 +8229,18 @@ export function MarketSection(props: MarketSectionProps) {
                               <div className={css.themeGallery}>
                                 {themePagePlugins.map(themePluginCard)}
                               </div>
-                              <Pager
-                                currentPage={themePagination.currentPage}
-                                totalPages={themePagination.totalPages}
-                                pageSize={themePagination.pageSize}
-                                onGoToPage={themePagination.goToPage}
-                                onChangePageSize={themePagination.changePageSize}
-                                t={t}
-                              />
+                              {surface === 'plugins'
+                                ? <LoadMore more={themeMore.more} onLoad={themeMore.loadMore} t={t} />
+                                : (
+                                    <Pager
+                                      currentPage={themePagination.currentPage}
+                                      totalPages={themePagination.totalPages}
+                                      pageSize={themePagination.pageSize}
+                                      onGoToPage={themePagination.goToPage}
+                                      onChangePageSize={themePagination.changePageSize}
+                                      t={t}
+                                    />
+                                  )}
                             </>
                           )}
                 </>
@@ -7805,7 +8249,7 @@ export function MarketSection(props: MarketSectionProps) {
             ? <Diagnostics t={t} />
             : tab === 'blocked'
               ? data === null
-                ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} /></span>{t('loading')}</div>
+                ? <div className={css.loading}><span className={css.logoMark}><MarketLogo size={26} animated /></span>{t('loading')}</div>
                 : blockedNames.length === 0
                   ? <div className={css.empty}>{t('blockedEmpty')}</div>
                   : (
@@ -8162,7 +8606,7 @@ export function MarketSection(props: MarketSectionProps) {
                                     </span>
                                     {entry?.deprecated === true && <span className={css.depBadge}>{t('deprecatedBadge')}</span>}
                                   </div>
-                                  {!missing && name !== 'dsh-shelfry' && (
+                                  {!missing && name !== 'dsh-shelfry' && name !== 'dsh-shelfry' && (
                                     <span className={css.irowMenu}>{renderInstalledBlockMenu(name)}</span>
                                   )}
                                   </div>
@@ -8542,7 +8986,7 @@ export function MarketSection(props: MarketSectionProps) {
               variant="outline"
               className={css.topBtn}
               aria-label={t('backTop')}
-              onClick={() => { const el = bodyRef.current; if (el) el.scrollTo({ top: 0, behavior: 'smooth' }) }}
+              onClick={scrollToTop}
             ><IconChevronUpOutline14 size={16} /></Button>
           </span>
         </Tooltip>
@@ -8711,9 +9155,7 @@ export function MarketSection(props: MarketSectionProps) {
             <span className={css.owner} title={confirming.owner}>{confirming.owner}</span>
             <CatalogVersionMark version={confirming.version} tip={catalogVersionTip} />
             <DownloadCount plugin={confirming} t={t} />
-            {typeof confirming.stars === 'number' && (
-              <span className={css.star}>{'· ★ ' + formatCount(confirming.stars)}</span>
-            )}
+            <StarCount plugin={confirming} t={t} />
             {confirming.added && (
               <span className={css.star} title={t('published')}>{`· ${confirming.added}`}</span>
             )}
@@ -8952,8 +9394,18 @@ export function MarketSection(props: MarketSectionProps) {
               : findingCompat.status === 'loading'
                 ? t('hostIncompatibleSearching')
                 : findingCompat.status === 'found'
-                  ? t(hostIncompatible.kind === 'install' ? 'hostIncompatibleFoundInstall' : 'hostIncompatibleFoundUpdate')
-                      .replace('{version}', findingCompat.version)
+                  // A compatible release that is still inside the release-age
+                  // wait is not an available answer. Say so here, with the
+                  // wait attached, instead of letting the button fail later.
+                  ? hostCompatHeld
+                    ? (hostCompatHeldHours === null
+                        ? t('hostIncompatibleHeldTargetUnknown').replace('{version}', findingCompat.version)
+                        : t('hostIncompatibleHeldTarget')
+                            .replace('{version}', findingCompat.version)
+                            .replace('{window}', String(hostCompatWindowHours))
+                            .replace('{hours}', String(hostCompatHeldHours)))
+                    : t(hostIncompatible.kind === 'install' ? 'hostIncompatibleFoundInstall' : 'hostIncompatibleFoundUpdate')
+                        .replace('{version}', findingCompat.version)
                   : findingCompat.status === 'not-found'
                     ? t('hostIncompatibleNoCompat')
                     : findingCompat.status === 'error'
@@ -8972,13 +9424,13 @@ export function MarketSection(props: MarketSectionProps) {
                   that asks the user to accept a broken host, and it must not
                   look like the recommended one. */}
               <Button
-                variant={findingCompat.status === 'found' ? 'outline' : 'primary'}
+                variant={findingCompat.status === 'found' && !hostCompatHeld ? 'outline' : 'primary'}
                 onClick={() => setHostIncompatible(null)}
               >{t(hostIncompatible.kind === 'install' ? 'hostIncompatibleCancel' : 'hostIncompatibleKeep')}</Button>
               {findingCompat.status === 'found' && (
                 <Button
                   variant="primary"
-                  disabled={hostIncompatible.kind === 'install' ? busyUrl !== null : updatingName !== null}
+                  disabled={hostCompatHeld || (hostIncompatible.kind === 'install' ? busyUrl !== null : updatingName !== null)}
                   onClick={() => {
                     const kind = hostIncompatible.kind
                     const target = hostIncompatible.name
@@ -8991,8 +9443,12 @@ export function MarketSection(props: MarketSectionProps) {
                       doUpdate(target, false, false, version)
                     }
                   }}
-                >{t(hostIncompatible.kind === 'install' ? 'hostIncompatibleInstallCompat' : 'hostIncompatibleUpdateCompat')
-                  .replace('{version}', findingCompat.version)}</Button>
+                >{hostCompatHeld
+                  ? (hostCompatHeldHours === null
+                      ? t('hostIncompatibleHeldButtonUnknown')
+                      : t('hostIncompatibleHeldButton').replace('{hours}', String(hostCompatHeldHours)))
+                  : t(hostIncompatible.kind === 'install' ? 'hostIncompatibleInstallCompat' : 'hostIncompatibleUpdateCompat')
+                      .replace('{version}', findingCompat.version)}</Button>
               )}
               {findingCompat.status === 'error' && hostIncompatible.npmName !== null && (
                 <Button variant="outline" onClick={() => setCompatRetry(n => n + 1)}>{t('hostIncompatibleRetry')}</Button>
