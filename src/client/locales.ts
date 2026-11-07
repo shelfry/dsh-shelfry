@@ -825,7 +825,7 @@ export type MarketKey = keyof typeof zh
 
 export const en: Record<MarketKey, string> = {
   nav: 'Plugin Shelfry',
-  setCardDesc: 'View the plugin market version and settings.',
+  setCardDesc: 'View the Plugin Shelfry version and settings.',
   setSelfUpToDate: 'Up to date',
   setSelfUpdateReady: 'New version available:',
   setSelfUpdateHint: 'Updating downloads the new version; it takes effect after a restart.',

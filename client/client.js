@@ -992,7 +992,7 @@ window.__ModuleLoader__.load({ id: "dsh-shelfry", factory: (require) => {
 		};
 		const en = {
 			nav: "Plugin Shelfry",
-			setCardDesc: "View the plugin market version and settings.",
+			setCardDesc: "View the Plugin Shelfry version and settings.",
 			setSelfUpToDate: "Up to date",
 			setSelfUpdateReady: "New version available:",
 			setSelfUpdateHint: "Updating downloads the new version; it takes effect after a restart.",
