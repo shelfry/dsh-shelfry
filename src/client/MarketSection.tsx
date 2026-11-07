@@ -7361,6 +7361,7 @@ export function MarketSection(props: MarketSectionProps) {
       ref={rootRef}
       className={`${css.root} notranslate`}
       data-dsh-shelfry-root
+      data-dsh-shelfry-surface={surface}
       data-dsh-shelfry-plugins-tab={surface === 'plugins' ? 'true' : undefined}
       /* Browser page translation is the one reported cause of the blank
          market (#293 by @apdc111, and the same shape in #286 / #241, none of

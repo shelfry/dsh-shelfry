@@ -459,6 +459,11 @@
 /* Fullscreen from the Plugins page has no dialog to expand, so the
    market covers the window itself. */
 [data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important;background:var(--dsw-alias-bg-layer-1,#fff)}
+/* 设置页：把滚动交还给宿主对话框整页，去掉 .body 的内层滚动条。
+   只作用于 settings surface，插件页签与左侧栏不命中；
+   顶部、吸顶与 logo 动画保持上游现状。 */
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible;flex:none}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
