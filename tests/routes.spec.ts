@@ -580,7 +580,7 @@ describe('GET /dsh-shelfry/backup — a failure says why (#55)', () => {
     expect(res.status).toBe(500)
     const body = JSON.parse(res.body) as { error: string }
     expect(body.error).toContain('配置文件超过 256 个')
-    expect(body.error).toContain('Export selected plugins instead')
+    expect(body.error).toContain('export selected plugins instead')
     expect(readPersistentLog(join(tmp, 'log.ndjson')).join('\n')).toContain('"event":"backup"')
   })
 

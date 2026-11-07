@@ -204,7 +204,7 @@ export declare function readMinimumReleaseAgeMs(profile: string, explicitDir?: s
  * always: a plugin install can be refused by a DIFFERENT, younger package that
  * is already in the lockfile, because pnpm verifies the whole lockfile before
  * any mutation (#39). #944 hit exactly that — updating `dsh-cost-meter` failed
- * with `dsh-market@1.66.44` named in the error, and the note then told the user
+ * with `dsh-shelfry@1.66.44` named in the error, and the note then told the user
  * to wait out *the plugin's* version, which was not the version holding them.
  *
  * Only the entry pnpm prints in its violation line is read (`  <name>@<version>

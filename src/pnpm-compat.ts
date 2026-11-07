@@ -14,7 +14,7 @@
  *   length can be the first mismatch pnpm reports on Windows).
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { CHINA_NPM_REGISTRY } from './regions.ts'
 
@@ -226,7 +226,89 @@ function integrityViolators(diagnostic: string): string[] {
  *   is recognized from what pnpm said.
  * @returns the classified failure, or null when unrecognized (raw output is then shown as-is).
  */
-export function classifyPnpmFailure(output: string, exitCode?: number | null): PnpmFailure | null {
+/**
+ * What the caller knows about the profile a command ran against.
+ *
+ * Only the diagnose-the-store branch uses it today: the recorded pnpm version
+ * and store live in that profile's own `node_modules/.modules.yaml` (#1100).
+ */
+export interface PnpmFailureContext {
+  profileDirectory?: string
+}
+
+/**
+ * The pnpm that BUILT a profile's node_modules, from the record pnpm leaves
+ * there (#1100). The file is a pnpm-internal shape, so it is tried as JSON
+ * first and only then is this one scalar read as YAML with a regex. A parse
+ * failure answers null, it does not throw.
+ *
+ * Despite its name the file holds JSON on newer pnpm (measured: 10.34.9,
+ * 11.8.0, 12.16.1) and YAML on older pnpm (9.15.9, 10.20.0, 10.28.2).
+ */
+function recordedPnpmVersion(profileDirectory: string): string | null {
+  try {
+    const text = readFileSync(join(profileDirectory, 'node_modules', '.modules.yaml'), 'utf8')
+    let packageManager: unknown
+    try {
+      packageManager = (JSON.parse(text) as { packageManager?: unknown } | null)?.packageManager
+    } catch {
+      const match = /^packageManager:[ \t]*['"]?pnpm@([0-9][^\s'"]*)['"]?[ \t]*$/mu.exec(text)
+      return match?.[1] ?? null
+    }
+    if (typeof packageManager !== 'string') return null
+    return /^pnpm@([0-9][^\s'"]*)$/u.exec(packageManager)?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The store a profile's node_modules is linked to, from the same record as
+ * recordedPnpmVersion (#1100). pnpm 12's ndjson stream does not name it.
+ */
+function recordedStoreDir(profileDirectory: string): string | undefined {
+  try {
+    const text = readFileSync(join(profileDirectory, 'node_modules', '.modules.yaml'), 'utf8')
+    try {
+      const storeDir = (JSON.parse(text) as { storeDir?: unknown } | null)?.storeDir
+      return typeof storeDir === 'string' ? storeDir : undefined
+    } catch {
+      return /^storeDir:[ \t]*['"]?([^'"\r\n]+?)['"]?[ \t]*$/mu.exec(text)?.[1]
+    }
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Both store paths from pnpm's ndjson stream (#1100). The market always runs
+ * mutations with --reporter=ndjson, which carries none of the rendered text:
+ * pnpm 11 puts them on the error event, pnpm 12 only says which store it wants
+ * on its pnpm:context event.
+ */
+function storesFromNdjson(output: string): { linked?: string; wanted?: string } {
+  const found: { linked?: string; wanted?: string } = {}
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('{')) continue
+    try {
+      const event = JSON.parse(trimmed) as Record<string, unknown>
+      if (event.name === 'pnpm:context' && typeof event.storeDir === 'string') found.wanted ??= event.storeDir
+      if (typeof event.expectedStorePath === 'string') found.linked = event.expectedStorePath
+      if (typeof event.actualStorePath === 'string') found.wanted = event.actualStorePath
+    } catch {
+      // Human reporter output and truncated NDJSON.
+    }
+  }
+  return found
+}
+
+/** The version segment pnpm appends under any storeDir: `…/store/v11` → `v11`. */
+function storeVersionSegment(path: string | undefined): string | undefined {
+  return path === undefined ? undefined : /[/\\](v\d+)[/\\]*$/.exec(path)?.[1]
+}
+
+export function classifyPnpmFailure(output: string, exitCode?: number | null, context?: PnpmFailureContext): PnpmFailure | null {
   // #817: the host's silence watchdog (@deepseek-ai/dsh-plugin-manager,
   // `idleTimeoutMs`, 10 minutes by default) killed pnpm. Checked first: it is
   // the last thing that happened, so whatever pnpm printed before is not the
@@ -287,8 +369,13 @@ export function classifyPnpmFailure(output: string, exitCode?: number | null): P
   // clear error it replaced. The paths are in the message; the choice is
   // the user's.
   if (output.includes('ERR_PNPM_UNEXPECTED_STORE')) {
-    const linked = /currently linked from the store at "([^"]+)"/.exec(output)?.[1]
-    const wanted = /wants to use the store at "([^"]+)"/.exec(output)?.[1]
+    const ndjson = storesFromNdjson(output)
+    // pnpm 12's default reporter wraps long lines, inside the quotes too.
+    const rendered = (pattern: RegExp) => pattern.exec(output)?.[1]?.replace(/\s*\n\s*/g, '')
+    const linked = rendered(/currently linked from the store at "([^"]+)"/)
+      ?? ndjson.linked
+      ?? (context?.profileDirectory === undefined ? undefined : recordedStoreDir(context.profileDirectory))
+    const wanted = rendered(/wants to use the store at "([^"]+)"/) ?? ndjson.wanted
     const modulesDir = /The dependencies at "([^"]+)"/.exec(output)?.[1]
     const detail = linked !== undefined && wanted !== undefined
       ? `\n  node_modules → ${linked}\n  pnpm 现在想用 / pnpm now wants → ${wanted}`
@@ -308,6 +395,34 @@ export function classifyPnpmFailure(output: string, exitCode?: number | null): P
         code: 'unexpected-store',
         recoverable: false,
         message: `桌面端的插件安装暂存目录（.generations/staging）被上层的 pnpm workspace 接管（通常是 ~/pnpm-workspace.yaml，它的 node_modules 链到另一个 store），pnpm 因此拒绝在暂存目录里安装。这不是 profile 的 node_modules。处理办法（任选其一）：用那个上层 workspace 自己的 pnpm 大版本重新链接它的 node_modules；或不需要那份祖先 workspace 的话，删掉它的 pnpm-workspace.yaml。暂存目录 → ${modulesDir}${detail} / the desktop client's install staging directory (.generations/staging) was claimed by a pnpm workspace above it (usually ~/pnpm-workspace.yaml, whose node_modules links a different pnpm store), so pnpm refuses to install there. This is not the profile's node_modules. Fix (any one): relink that outer workspace's node_modules with its own pnpm major; or remove that ancestor pnpm-workspace.yaml if you do not need it. Staging directory → ${modulesDir}${detail}`,
+      }
+    }
+    // #1100: a store-format mismatch across pnpm majors. pnpm appends its OWN
+    // version segment under whatever `storeDir` says (`/tmp/store-v10` becomes
+    // `/tmp/store-v10/v11`), so the advice below — write the recorded store
+    // into the profile — cannot work however the path is written. The report
+    // measured exactly that, plus a rollback that failed for the same reason.
+    // When the two stores end in different segments, name the recorded version
+    // and send the user to the right pnpm instead.
+    //
+    // pnpm's "different major version" sentence cannot decide this: it is
+    // printed on a same-major mismatch too (measured on 11.8.0), and the ndjson
+    // stream the market reads does not carry it at all. It only decides when a
+    // segment cannot be read.
+    const linkedSegment = storeVersionSegment(linked)
+    const wantedSegment = storeVersionSegment(wanted)
+    const acrossMajors = linkedSegment !== undefined && wantedSegment !== undefined
+      ? linkedSegment !== wantedSegment
+      : /different major version of pnpm/i.test(output)
+    if (acrossMajors) {
+      const recorded = context?.profileDirectory === undefined
+        ? null
+        : recordedPnpmVersion(context.profileDirectory)
+      const named = recorded === null ? '' : ` ${recorded}`
+      return {
+        code: 'unexpected-store',
+        recoverable: false,
+        message: `这个 profile 的 node_modules 是用另一个大版本的 pnpm${named} 建的，而正在跑的这个 pnpm 大版本不同：它会在任何 storeDir 下面再拼自己的版本目录（上面第二个路径末尾那一段），所以**写 storeDir 修不好**，自动回滚也会以同样的方式失败。${detail}\n出路（任选）：\n  1) 用建这份 node_modules 的那个 pnpm 大版本重新执行——${recorded === null ? '版本号写在 profile 的 node_modules/.modules.yaml 里（packageManager）' : `即 pnpm ${recorded}`}，装好后让它排在 PATH 前面；\n  2) 或者留在这个新大版本上，清空 node_modules 重新安装（包会重新下载）。 / this profile's node_modules was built by a different pnpm${named === '' ? '' : ` (${recorded})`} major than the one now running: pnpm appends its own store-version segment under whatever storeDir says (the second path above ends with it), so **writing storeDir cannot fix this**, and the automatic rollback fails the same way.${detail}\nTwo ways out: 1) run the pnpm major that built this node_modules — ${recorded === null ? 'its version is recorded in the profile’s node_modules/.modules.yaml (packageManager)' : `pnpm ${recorded}`} — with it ahead of the current one on PATH; or 2) stay on the new major and reinstall node_modules from scratch (every package is downloaded again).`,
       }
     }
     return {
@@ -451,9 +566,20 @@ export function classifyPnpmFailure(output: string, exitCode?: number | null): P
   // `setupPolicyHandlers`, which an integration calling the CLI cannot wire,
   // so the only answer is the one-shot override. Classifying it here is what
   // connects it to that retry; without it the raw internal hint was surfaced.
-  if (output.includes('ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION')
+  // ...unless the lockfile is what is actually wrong (#1075). A profile whose
+  // lockfile is missing an entry makes pnpm re-resolve, and the resolver then
+  // applies the fresh-release policy from scratch — so the SAME log carries
+  // the lockfile's own error AND this policy code as collateral. Waiting or
+  // retrying cannot repair a missing lockfile entry, and the one-shot override
+  // this branch exists to trigger only lifts the age window, so classifying
+  // the pair as a wait names the wrong cause and promises a retry that must
+  // fail. The lockfile diagnoses below say what it is and how to repair it.
+  const lockfileContradictsItself = output.includes('ERR_PNPM_OUTDATED_LOCKFILE')
+    || output.includes('ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY')
+    || /Broken lockfile/.test(output)
+  if (!lockfileContradictsItself && (output.includes('ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION')
     || output.includes('ERR_PNPM_NO_MATURE_MATCHING_VERSION')
-    || output.includes('ERR_PNPM_RESOLUTION_POLICY_VIOLATIONS_UNHANDLED')) {
+    || output.includes('ERR_PNPM_RESOLUTION_POLICY_VIOLATIONS_UNHANDLED'))) {
     return {
       code: 'release-age-violation',
       recoverable: false,

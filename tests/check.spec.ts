@@ -1103,6 +1103,27 @@ describe('one loader id on two rows depends on the loader (#853)', () => {
     return host
   }
 
+  it('reads the loader nested under a non-hoisted CLI install (#1092)', () => {
+    // Reported layout: npm-installed global CLI, dependencies NOT hoisted —
+    // the shared root above the package holds only `dsh` itself, and its
+    // loader lives at `<install>/node_modules/@deepseek-ai/…`. The probe
+    // answered null there, so this gate stayed fatal and EVERY update was
+    // rolled back over a duplicate id the running loader only warns about.
+    const dir = pdir()
+    twoRowsOnOneId(dir)
+    const host = mkdtempSync(join(tmpdir(), 'dshm-host-'))
+    const install = join(host, 'node_modules', '@deepseek-ai', 'dsh')
+    const nested = join(install, 'node_modules', '@deepseek-ai', 'cordis-plugin-loader')
+    mkdirSync(nested, { recursive: true })
+    writeFileSync(join(install, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: '0.2.1-rc.5' }))
+    writeFileSync(join(nested, 'package.json'), JSON.stringify({ name: '@deepseek-ai/cordis-plugin-loader', version: '1.0.6' }))
+
+    const report = analyzeProfile(dir, { dshInstallDir: install })
+
+    expect(report.summary.errors.some(e => e.includes('duplicate loader entry id'))).toBe(false)
+    expect(report.summary.warnings.some(w => w.includes('dsh-shelfry'))).toBe(true)
+  })
+
   it('reads the loader from a host that PROVIDES it when the profile lockfile cannot (#943)', () => {
     // The official Desktop embeds the loader in app.asar and hands it to every
     // profile, so a profile lockfile can never name it. Reading that as an old
@@ -2225,6 +2246,45 @@ describe('satisfiesRange', () => {
     expect(satisfiesRange('0.2.9', '<0.3', { includePrerelease: true })).toBe(true)
     expect(satisfiesRange('2.1.0', '>=2', { includePrerelease: true })).toBe(true)
     expect(satisfiesRange('1.9.9', '>=2', { includePrerelease: true })).toBe(false)
+  })
+
+  it('moves a partial bound to the edge of its release line, as node-semver does', () => {
+    // Every row is node-semver 7's own answer. Comparing against the raw
+    // partial string ordered versions character by character: `9.1.0` sat
+    // above `10` and `0.10.0` below `0.3`.
+    const cases: Array<[string, string, boolean]> = [
+      ['9.1.0', '<10', true],
+      ['10.0.0', '<2', false],
+      ['0.10.0', '<0.3', false],
+      ['0.12.0', '>=0.1.5 <0.3', false],
+      ['0.3.0-rc.1', '<0.3', false],
+      // `>0.3` is `>=0.4.0`, `>1` is `>=2.0.0`: the whole named line is excluded.
+      ['0.2.5', '>0.2', false],
+      ['0.3.0', '>0.3', false],
+      ['0.4.0', '>0.3', true],
+      ['1.5.0', '>1', false],
+      // `<=0.3` is `<0.4.0-0`: the whole named line is included.
+      ['0.3.5', '<=0.3', true],
+      ['0.4.0-0', '<=0.3', false],
+      // `~1` is `>=1.0.0 <2.0.0-0`, `^0` is `<1.0.0-0`, `^0.0` is `<0.1.0-0`.
+      ['1.5.0', '~1', true],
+      ['2.0.0', '~1', false],
+      ['0.5.0', '^0', true],
+      ['0.0.5', '^0.0', true],
+      ['0.1.0', '^0.0', false],
+    ]
+    for (const [version, range, expected] of cases) {
+      expect(satisfiesRange(version, range), `${version} ${range}`).toBe(expected)
+    }
+  })
+
+  it('lowers a partial floor to its first prerelease under includePrerelease', () => {
+    // node-semver desugars `>=2` to `>=2.0.0-0` when prereleases are included.
+    expect(satisfiesRange('2.0.0-rc.1', '>=2', { includePrerelease: true })).toBe(true)
+    expect(satisfiesRange('0.4.0-rc.1', '>0.3', { includePrerelease: true })).toBe(true)
+    expect(satisfiesRange('0.3.0-rc.1', '~0.3', { includePrerelease: true })).toBe(true)
+    expect(satisfiesRange('0.3.0-rc.1', '^0.3', { includePrerelease: true })).toBe(true)
+    expect(satisfiesRange('2.0.0-rc.1', '>=2')).toBe(false)
   })
 
   it('keeps a BARE partial version unknown: `1.2` is an x-range, not `1.2.0`', () => {

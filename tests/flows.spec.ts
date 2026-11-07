@@ -1158,6 +1158,61 @@ describe('host-provided profile and package-operation seams', () => {
     expect(cancel).toHaveBeenCalledOnce()
   })
 
+  it('answers a bundle’s own declared repository as its code source', async () => {
+    // The detail page shows an install spec, not an address. This route answers
+    // per PACKAGE, and null rather than guess when nothing declares a repository.
+    const dir = fake.profileDir
+    // A linked local checkout whose only source evidence is its Git origin.
+    const checkoutRoot = join(dir, 'checkout')
+    const linked = join(checkoutRoot, 'linked-copy')
+    mkdirSync(join(checkoutRoot, '.git'), { recursive: true })
+    mkdirSync(linked, { recursive: true })
+    writeFileSync(join(linked, 'package.json'), JSON.stringify({ name: 'linked-plugin' }))
+    writeFileSync(join(checkoutRoot, '.git', 'config'), '[remote "origin"]\n\turl = https://github.com/SomeoneElse/Other.git\n')
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      dependencies: {
+        '@acme/widget': '1.0.0',
+        'no-source': '2.0.0',
+        'git-widget': 'git+https://github.com/Acme/GitWidget.git#3f2a1b4c5d6e7f8091a2b3c4d5e6f708192a3b4c',
+        'gitlab-widget': 'git+https://gitlab.com/Studio/Widget.git',
+        'linked-plugin': `link:${linked}`,
+      },
+    }))
+    const packages: Array<[string, unknown]> = [
+      ['@acme/widget', {
+        name: '@acme/widget',
+        version: '1.0.0',
+        repository: { type: 'git', url: 'git+https://github.com/Acme/Widget.git' },
+      }],
+      ['no-source', { name: 'no-source', version: '2.0.0' }],
+    ]
+    for (const [name, manifest] of packages) {
+      const pkgDir = join(dir, 'node_modules', name)
+      mkdirSync(pkgDir, { recursive: true })
+      writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(manifest))
+    }
+
+    const widget = await bed.dispatch('GET', `/dsh-shelfry/source-repo?name=${encodeURIComponent('@acme/widget')}`)
+    expect(widget.status).toBe(200)
+    expect(widget.json).toEqual({ url: 'https://github.com/acme/widget' })
+    // The spelling pnpm writes back for a GitHub install (#803) is one matching
+    // cannot read, so the spec has to answer — no package directory exists here.
+    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=git-widget')).json)
+      .toEqual({ url: 'https://github.com/Acme/GitWidget' })
+    // Reading the spec is not GitHub-only; the link follows the spec's host.
+    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=gitlab-widget')).json)
+      .toEqual({ url: 'https://gitlab.com/Studio/Widget' })
+    // A linked checkout draws nothing: its Git origin is a matching hint (#141),
+    // not the package's source.
+    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=linked-plugin')).json)
+      .toEqual({ url: null })
+    // A package declaring no repository draws no row — a guessed repository
+    // would send the reader to somebody else's code.
+    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=no-source')).json).toEqual({ url: null })
+    // And a name that is not installed at all answers the same way.
+    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo')).json).toEqual({ url: null })
+  })
+
   it('maps a generation-wide Desktop package-operation gate to conflict', async () => {
     bed.dispose()
     bed = createTestbed({}, {
@@ -1411,6 +1466,77 @@ describe('backup and restore (#55)', () => {
     // install fails once (store probe), add of the missing dep fails (store
     // probe again), then dsh-loop adds cleanly.
     expect(fake.calls.slice(-5).map(call => call[0])).toEqual(['install', 'store', 'add', 'store', 'add'])
+  })
+
+  /** The market is the package RUNNING the restore. Reinstalling it from the
+   * backup replaces its files under the live module, and the removal path
+   * takes it out of its own manifest before the retry — both end the request
+   * that is doing the restoring (a restore that "crashes" and leaves the
+   * profile half-written). These two tests pin the protections. */
+  it('keeps the running market version instead of installing the backup\'s', async () => {
+    const manifestPath = join(profileDir('web'), 'package.json')
+    writeFileSync(manifestPath, JSON.stringify({
+      dependencies: { 'dsh-shelfry': '1.73.11' },
+      dsh: { profile: { bundles: ['dsh-shelfry'] } },
+    }))
+    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const backupManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
+    backupManifest.json.dependencies['dsh-shelfry'] = '1.73.12'
+
+    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+
+    expect(restored.status).toBe(200)
+    // Reported, because the operator's question is "why is it still the old
+    // version?" — and the update flow is where that gets answered.
+    expect(restored.json.pinned).toEqual([{ name: 'dsh-shelfry', from: '1.73.12', to: '1.73.11' }])
+    expect(installedSpec('dsh-shelfry')).toBe('1.73.11')
+  })
+
+  it('keeps the running market in the manifest while the per-plugin retry runs', async () => {
+    const manifestPath = join(profileDir('web'), 'package.json')
+    writeFileSync(manifestPath, JSON.stringify({
+      dependencies: { 'dsh-shelfry': '1.73.11' },
+      dsh: { profile: { bundles: ['dsh-shelfry'] } },
+    }))
+    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const backupManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
+    backupManifest.json.dependencies = { missing: '^1.0.0', 'dsh-loop': '^1.0.0' }
+    backupManifest.json.dsh = { profile: { bundles: ['dsh-shelfry', 'missing', 'dsh-loop'] } }
+    fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
+    fake.failInstallOnce = true
+    fake.captureBundlesOnNextAdd = true
+
+    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+
+    expect(restored.status).toBe(200)
+    expect(restored.json.errors).toEqual([expect.objectContaining({ name: 'missing' })])
+    // Dropping it here is what unmounts the plugin answering this request.
+    expect(fake.bundlesBeforeFallbackAdd).toEqual(['dsh-shelfry'])
+    const finalManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    expect(finalManifest.dependencies['dsh-shelfry']).toBe('1.73.11')
+    expect(finalManifest.dependencies['dsh-loop']).toBe('^1.0.0')
+    expect(finalManifest.dependencies.missing).toBeUndefined()
+    expect(finalManifest.dsh.profile.bundles).toEqual(['dsh-shelfry', 'dsh-loop'])
+  })
+
+  /** The retry deletes what failed, so the manifest it leaves behind cannot
+   * answer "was any of this another machine's path?" (#205). The failure list
+   * can: the generic pnpm error is the only thing an operator would otherwise
+   * see for a `link:/Users/…` spec that was never satisfiable here. */
+  it('names the machine-specific path among the retry failures', async () => {
+    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const backupManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
+    backupManifest.json.dependencies = { 'dev-plugin': 'link:/Users/rudy/dev/dev-plugin', 'dsh-loop': '^1.0.0' }
+    backupManifest.json.dsh = { profile: { bundles: [] } }
+    fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
+    fake.failInstallOnce = true
+
+    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+
+    expect(restored.status).toBe(200)
+    expect(restored.json.errors).toEqual([expect.objectContaining({ name: 'dev-plugin' })])
+    expect(restored.json.unportable).toEqual([{ name: 'dev-plugin', spec: 'link:/Users/rudy/dev/dev-plugin' }])
+    expect(installedSpec('dsh-loop')).toBe('^1.0.0')
   })
 })
 
@@ -2332,6 +2458,36 @@ describe('install flow', () => {
     const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
     expect(listed.json.diagnostics.schema).toBe('dsh-shelfry/diagnostics/v1')
     expect(listed.json.diagnostics.findings).toEqual([])
+  })
+
+  it('drops the release-age exclude row its install added when the plugin is uninstalled (#1093)', async () => {
+    // pnpm writes a `minimumReleaseAgeExclude` row while installing a version
+    // still inside the wait window, and removing the dependency never touched
+    // that file: the profile kept pinning a version of a package it no longer
+    // had. Only THIS package's row goes — another package's row and the rest
+    // of the file must survive.
+    fake.npm['dsh-loop'] = {
+      latest: '1.0.0',
+      versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
+    }
+    const workspacePath = join(fake.profileDir, 'pnpm-workspace.yaml')
+    writeFileSync(workspacePath, [
+      'minimumReleaseAge: 1440',
+      'minimumReleaseAgeExclude:',
+      '  - dsh-loop@1.0.0',
+      '  - other@2.0.0',
+      '',
+    ].join('\n'))
+    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    expect(installed.status).toBe(200)
+
+    const removed = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+
+    expect(removed.status).toBe(200)
+    const workspace = readFileSync(workspacePath, 'utf8')
+    expect(workspace).not.toContain('dsh-loop@')
+    expect(workspace).toContain('other@2.0.0')
+    expect(workspace).toContain('minimumReleaseAge: 1440')
   })
 })
 
@@ -6699,6 +6855,72 @@ describe('a recognized pnpm failure is shown as its own sentence (#848)', () => 
   })
 })
 
+describe('a store mismatch across pnpm majors reaches the user as one (#1100)', () => {
+  // What pnpm 12 writes under --reporter=ndjson, which the market always
+  // passes: no rendered text, and the recorded store only in the profile's own
+  // file. Shape measured on real pnpm 12.16.1, paths made up.
+  const NDJSON = [
+    JSON.stringify({ name: 'pnpm:context', level: 'debug', currentLockfileExists: true, storeDir: '/root/.dsh/.pnpm-store/v11' }),
+    JSON.stringify({ name: 'pnpm', level: 'error', code: 'ERR_PNPM_UNEXPECTED_STORE', message: 'adding a new package: Unexpected store location', prefix: '/root/.dsh/profiles/web' }),
+  ].join('\n')
+  const RECORDS = [
+    ['JSON', `${JSON.stringify({ layoutVersion: 5, packageManager: 'pnpm@10.34.9', storeDir: '/root/.dsh/.pnpm-store/v10' }, null, 2)}\n`],
+    ['YAML', 'layoutVersion: 5\npackageManager: pnpm@10.34.9\nstoreDir: /root/.dsh/.pnpm-store/v10\n'],
+  ]
+
+  beforeEach(() => {
+    fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
+  })
+
+  function leaveRecord(record: string): void {
+    mkdirSync(join(fake.profileDir, 'node_modules'), { recursive: true })
+    writeFileSync(join(fake.profileDir, 'node_modules', '.modules.yaml'), record)
+  }
+
+  function expectNamed(failed: { status: number; json: Record<string, unknown> }): void {
+    expect(failed.status).toBe(502)
+    const error = String(failed.json.error)
+    expect(error).toContain('pnpm 10.34.9')
+    expect(error).toContain('写 storeDir 修不好')
+    expect(error).not.toContain('storeDir: <上面第一个路径>')
+    expect(error).toContain('node_modules → /root/.dsh/.pnpm-store/v10\n')
+    expect(error).toContain('pnpm now wants → /root/.dsh/.pnpm-store/v11\n')
+    // The same sentence in the stderr the log and the export carry.
+    expect(String(failed.json.stderr)).toContain('pnpm 10.34.9')
+  }
+
+  it.each(RECORDS)('on install, from a %s record', async (_shape, record) => {
+    leaveRecord(record)
+    fake.failNextAddStderrOnce = NDJSON
+
+    expectNamed(await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' }))
+  })
+
+  it.each(RECORDS)('on update, from a %s record', async (_shape, record) => {
+    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    fake.npm['dsh-loop'].latest = '1.2.0'
+    fake.npm['dsh-loop'].versions['1.2.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
+    const publishedAt = new Date(Date.now() - 3_600_000).toISOString()
+    vi.stubGlobal('fetch', (url: string) => {
+      const u = String(url)
+      if (u.endsWith('/latest')) return Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 }))
+      return Promise.resolve(new Response(JSON.stringify({ 'dist-tags': { latest: '1.2.0' }, time: { '1.2.0': publishedAt } }), { status: 200 }))
+    })
+    leaveRecord(record)
+    fake.failNextAddStderrOnce = NDJSON
+
+    expectNamed(await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' }))
+  })
+
+  it.each(RECORDS)('on uninstall, from a %s record', async (_shape, record) => {
+    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    leaveRecord(record)
+    fake.failNextRemoveOnce = NDJSON
+
+    expectNamed(await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' }))
+  })
+})
+
 describe('build-script approval flow (#6)', () => {
   it('surfaces ignored builds, approve-builds allows only installed packages, and the retry succeeds', async () => {
     fake.npm['dsh-loop'] = {
@@ -7520,6 +7742,38 @@ describe('generic enable/disable toggle (#60)', () => {
     expect(written.match(/disabled: false/gu)).toHaveLength(1)
   })
 
+  it('does not force-open an opt-in row the user layer holds closed with a longer entry (#1110)', async () => {
+    // Same rule as #876, but the user's block is a LONG entry — it carries a
+    // `name`, so `rewriteRowBlocks` will not cut it up (#821) and the block
+    // cannot be removed. `enableRow`'s force-enable then appended
+    // `disabled: false` AFTER that entry, and the host composes later entries
+    // last: the opt-in row was switched on by turning the package on.
+    await installNpm('dsh-loop')
+    mkdirSync(join(fake.profileDir, 'node_modules', 'dsh-loop'), { recursive: true })
+    writeFileSync(join(fake.profileDir, 'node_modules', 'dsh-loop', 'cordis.patch.yml'), [
+      '- insert:',
+      '    - id: loop-core',
+      '      name: dsh-loop',
+      '    - id: loop-opt-in',
+      '      name: dsh-loop-opt-in',
+      '      disabled: true',
+      '',
+    ].join('\n'))
+    const patchPath = join(fake.profileDir, 'cordis.patch.yml')
+    const own = '- id: loop-opt-in\n  name: dsh-loop-opt-in\n  disabled: true\n'
+    writeFileSync(patchPath, own)
+
+    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+
+    expect(on.status).toBe(200)
+    const written = readFileSync(patchPath, 'utf8')
+    // The user's entry is exactly as it was, and nothing was appended over it.
+    expect(written.startsWith(own)).toBe(true)
+    expect(written).not.toContain('- id: loop-opt-in\n  disabled: false')
+    // The package's own row still gets its standing `disabled: false`.
+    expect(written.match(/disabled: false/gu)).toHaveLength(1)
+  })
+
   it('never writes a literal override over a row the bundle decides with an expression (#1043)', async () => {
     // The report's shape: a package ships rows with `disabled: !!js …`
     // conditions — the bundle itself decides, per host, at compose time. The
@@ -7695,6 +7949,63 @@ describe('generic enable/disable toggle (#60)', () => {
     expect(pushedDown(entry)).toBe(false)
     const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
     expect(listed.json.disabled).not.toContain('dsh-patchy')
+  })
+
+  it('follows the switch through on, off, on when the row has more keys than the flag (#1099)', async () => {
+    // DSH's own plugin page writes the flag after the keys a row already has.
+    // The market kept answering "on" here while the listing still said off,
+    // and the second "on" left the plugin really off.
+    const { userPatch, entry } = await installPatchy()
+    const own = "- id: dsh-patchy\n  name: 'dsh-patchy'\n  inject: [ tools ]\n  disabled: true\n"
+    writeFileSync(userPatch, own)
+    entry.options.disabled = true
+    entry.fiber = undefined
+    const expectOn = async (on: { status: number; json: any }) => {
+      expect(on.status).toBe(200)
+      expect(on.json.activation['dsh-patchy'].state).toBe('live')
+      expect(readFileSync(userPatch, 'utf8').endsWith('- id: dsh-patchy\n  disabled: false\n')).toBe(true)
+      const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+      expect(listed.json.patchDisabled).not.toContain('dsh-patchy')
+      expect(listed.json.patchForced).toContain('dsh-patchy')
+      expect(listed.json.activation['dsh-patchy'].state).toBe('live')
+    }
+
+    await expectOn(await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true }))
+
+    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    expect(off.status).toBe(200)
+    expect(off.json.activation['dsh-patchy'].state).toBe('disabled')
+    expect(readFileSync(userPatch, 'utf8').endsWith('- id: dsh-patchy\n  disabled: true\n')).toBe(true)
+    const listedOff = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    expect(listedOff.json.patchDisabled).toContain('dsh-patchy')
+    expect(listedOff.json.patchForced).not.toContain('dsh-patchy')
+
+    await expectOn(await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true }))
+    expect(readFileSync(userPatch, 'utf8').startsWith(own)).toBe(true)
+  })
+
+  it('does not read a row that names another module as a decision (#1113)', async () => {
+    // The shape a package rename leaves behind: the row's `name` is no longer
+    // what the id composes to, and the host skips it — `applyPatches`:
+    // `if (name && name !== target.name)`. Counting the flag alone showed the
+    // plugin as 「已停用」 while it was running, and answering "off" wrote
+    // nothing because that row looked like the user's decision.
+    const { userPatch, entry } = await installPatchy()
+    const stale = '- id: dsh-patchy\n  name: old-package-name\n  disabled: false\n'
+    writeFileSync(userPatch, stale)
+    entry.options.disabled = null
+    entry.fiber = {}
+
+    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    expect(listed.json.patchDisabled).not.toContain('dsh-patchy')
+    expect(listed.json.patchForced).not.toContain('dsh-patchy')
+
+    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    expect(off.status).toBe(200)
+    // Its own row, written below the stale one; the stale row is untouched.
+    expect(readFileSync(userPatch, 'utf8')).toBe(`${stale}- id: dsh-patchy\n  disabled: true\n`)
+    const listedOff = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    expect(listedOff.json.patchDisabled).toContain('dsh-patchy')
   })
 
   it('still keeps a plugin off when nothing outside the market re-enabled it', async () => {
@@ -10195,6 +10506,99 @@ describe('Agent-safe drain mode (#411)', () => {
     } finally { drainBed.dispose() }
   })
 
+  it('finishes the update when a session opens while it runs, in the host creation order', async () => {
+    await seedInstalledLoop()
+    advanceLatest('1.2.0')
+    const main = new FakeAgent('main', 'running')
+    const agents = [main]
+    const drainBed = createTestbed({}, undefined, agentsService(agents))
+    try {
+      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      expect(accepted.status).toBe(202)
+      const gate = gateExecutionFetch()
+      main.finishTurn()
+      await gate.entered
+
+      const late = new FakeAgent('late')
+      const factory = late.runFactory(async () => {
+        agents.push(late)
+        drainBed.emit('agent/created', { agent: late })
+      })
+      await factory.finish()
+      expect(late.held).toBe(true)
+
+      gate.release()
+      const completed = await settled(drainBed, String(accepted.json.operationId))
+      expect(completed.state).toBe('succeeded')
+      expect(installedSpec('dsh-loop')).toBe('^1.2.0')
+      await new Promise(resolve => setTimeout(resolve, 10))
+      expect(late.held).toBe(false)
+    } finally { drainBed.dispose() }
+  })
+
+  it('runs pnpm past a session still inside its factory and leaves no hold on it', async () => {
+    await seedInstalledLoop()
+    advanceLatest('1.2.0')
+    const main = new FakeAgent('main', 'running')
+    const agents = [main]
+    const drainBed = createTestbed({}, undefined, agentsService(agents))
+    try {
+      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      expect(accepted.status).toBe(202)
+      const gate = gateExecutionFetch()
+      main.finishTurn()
+      await gate.entered
+
+      const late = new FakeAgent('late')
+      const factory = late.runFactory(async () => {
+        agents.push(late)
+        drainBed.emit('agent/created', { agent: late })
+      })
+      gate.release()
+      const completed = await settled(drainBed, String(accepted.json.operationId))
+      expect(completed.state).toBe('succeeded')
+      expect(installedSpec('dsh-loop')).toBe('^1.2.0')
+
+      await factory.finish()
+      await new Promise(resolve => setTimeout(resolve, 10))
+      expect(late.held).toBe(false)
+    } finally { drainBed.dispose() }
+  })
+
+  it('stops the update when a message latched in the factory starts a turn', async () => {
+    await seedInstalledLoop()
+    advanceLatest('1.2.0')
+    const main = new FakeAgent('main', 'running')
+    const agents = [main]
+    const drainBed = createTestbed({}, undefined, agentsService(agents))
+    try {
+      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      expect(accepted.status).toBe(202)
+      const gate = gateExecutionFetch()
+      main.finishTurn()
+      await gate.entered
+
+      const late = new FakeAgent('late')
+      late.onStatus = status => drainBed.emit('agent/status', { agent: late, status })
+      const factory = late.runFactory(async () => {
+        agents.push(late)
+        drainBed.emit('agent/created', { agent: late })
+      })
+      late.followup()
+      await factory.finish()
+      expect(late.status).toBe('running')
+
+      const callsBefore = fake.calls.length
+      gate.release()
+      const completed = await settled(drainBed, String(accepted.json.operationId))
+      expect(completed.state).toBe('failed')
+      // This text comes from the status event; the later gate words it differently.
+      expect(completed.failure).toMatchObject({ code: 'AGENT_BARRIER_LOST', message: expect.stringContaining('started work') })
+      expect(fake.calls.length).toBe(callsBefore)
+      expect(installedSpec('dsh-loop')).toBe('^1.0.0')
+    } finally { drainBed.dispose() }
+  })
+
   it('defers a fresh install while an Agent runs and installs after idle', async () => {
     fake.npm['dsh-loop'] = {
       latest: '1.0.0',
@@ -10542,6 +10946,69 @@ describe('Agent-safe drain mode (#411)', () => {
       expect(completed?.state).toBe('succeeded')
       expect(installedSpec('dsh-loop')).toBe('^1.2.0')
     } finally { drainBed.dispose() }
+  })
+})
+
+describe('catalog-owned floating release archives', () => {
+  const original = 'https://github.com/o/whale/releases/latest/download/full.tgz'
+  const target = 'https://github.com/o/whale/releases/download/v2.0.0/full.tgz'
+  const bundle = { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'index.js' }
+  const patch = "- insert:\n    - id: dsh-whale\n      name: 'dsh-whale'\n"
+  beforeEach(() => {
+    registryModule.loadRegistry.mockImplementation(() => Promise.resolve({ ...REGISTRY, plugins: [...REGISTRY.plugins, {
+      ...REGISTRY.plugins.find(plugin => plugin.name === 'dsh-prebuilt')!,
+      name: 'WhaleMaid', url: 'https://github.com/o/whale/tree/main/packages/host', tarball: original,
+    }] }))
+    writeFileSync(join(fake.profileDir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-whale': original }, dsh: { profile: { bundles: ['dsh-whale'] } } }))
+    const path = join(fake.profileDir, 'node_modules/dsh-whale')
+    mkdirSync(path, { recursive: true })
+    writeFileSync(join(path, 'package.json'), JSON.stringify({ name: 'dsh-whale', version: '1.0.0', ...bundle }))
+    writeFileSync(join(path, 'index.js'), 'old-whale')
+    writeFileSync(join(path, 'cordis.patch.yml'), patch)
+    fake.tarballs[original] = { name: 'dsh-whale', manifest: { name: 'dsh-whale', version: '1.0.0', ...bundle }, artifacts: ['index.js', 'cordis.patch.yml'], artifactContents: { 'index.js': 'old-whale', 'cordis.patch.yml': patch } }
+    fake.tarballs[target] = { name: 'dsh-whale', manifest: { name: 'dsh-whale', version: '2.0.0', ...bundle }, artifacts: ['index.js', 'cordis.patch.yml'], artifactContents: { 'index.js': 'new-whale', 'cordis.patch.yml': patch } }
+    vi.stubGlobal('fetch', async (input: unknown) => {
+      const url = String(input)
+      if (url === 'https://github.com/o/whale/releases/latest') return new Response(null, { status: 302, headers: { location: 'https://github.com/o/whale/releases/tag/v2.0.0' } })
+      if (url === 'https://raw.githubusercontent.com/o/whale/v2.0.0/packages/host/package.json') return new Response(JSON.stringify({ name: 'dsh-whale', version: '2.0.0' }))
+      if (url === target) return new Response(null, { status: 302, headers: { location: 'https://release-assets.githubusercontent.com/asset' } })
+      return new Response('{}', { status: 404 })
+    })
+  })
+  afterEach(() => { registryModule.loadRegistry.mockImplementation(() => Promise.resolve(REGISTRY)) })
+
+  it('lists and applies a published complete package without switching to npm or source', async () => {
+    const page = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    expect(page.json.updates['dsh-whale']).toMatchObject({ latest: '2.0.0', updateAvailable: true })
+    const single = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates?name=dsh-whale&force=1')
+    expect(single.json.package).toMatchObject({ name: 'dsh-whale', latestVersion: '2.0.0', updateAvailable: true })
+    const summary = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates/summary')
+    expect(summary.json.packages).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'dsh-whale', latestVersion: '2.0.0' })]))
+    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-whale' })
+    expect(update.status, JSON.stringify(update.json)).toBe(200)
+    expect(update.json.ok).toBe(true)
+    expect(installedSpec('dsh-whale')).toBe(target)
+    expect(fake.calls.some(call => call.includes(target))).toBe(true)
+    expect(fake.calls.some(call => /dsh-whale@|github:o\/whale/.test(call))).toBe(false)
+  })
+  it('refuses a downgrade before invoking the installer', async () => {
+    const path = join(fake.profileDir, 'node_modules/dsh-whale/package.json')
+    writeFileSync(path, JSON.stringify({ name: 'dsh-whale', version: '3.0.0', dsh: {}, main: 'index.js' }))
+    const calls = fake.calls.length
+    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-whale' })
+    expect(update.status).toBe(400)
+    expect(fake.calls).toHaveLength(calls)
+    expect(installedSpec('dsh-whale')).toBe(original)
+  })
+  it('rejects archive bytes whose installed version differs from the published target', async () => {
+    fake.tarballs[target]!.manifest = { name: 'dsh-whale', version: '1.5.0', ...bundle }
+    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-whale' })
+    expect(update.json.ok).toBe(false)
+    expect(JSON.stringify(update.json)).toContain('2.0.0')
+    expect(installedSpec('dsh-whale')).toBe(original)
+    // Preserve the existing policy: a mutable archive URL cannot prove an
+    // exact old build. Restore declarations but report that limitation.
+    expect(String(update.json.error)).toContain('could not be verified')
   })
 })
 

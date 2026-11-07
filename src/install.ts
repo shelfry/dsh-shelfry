@@ -173,7 +173,8 @@ export async function withHoistRecovery(
     }
   }
   if (!ok(result) && !result.cancelled && !repairedDuringRun) {
-    const failure = classifyPnpmFailure(`${result.stderr}\n${result.stdout}`, result.exitCode)
+    // The profile is the only place the recorded pnpm major lives (#1100).
+    const failure = classifyPnpmFailure(`${result.stderr}\n${result.stdout}`, result.exitCode, { profileDirectory })
     if (failure?.code === 'unparseable-build-key' && repairProfilePolicy) {
       // The profile's own allowBuilds block is what fails, so no retry of the
       // same command can pass until it is repaired (#698). Drop only the
@@ -294,7 +295,7 @@ export async function withHoistRecovery(
     // gone (the name carries it), so a live download is never touched.
     await cleanOrphanedStore(run, profile)
     const diagnostics = diagnosticsTail(result)
-    const failure = classifyPnpmFailure(`${result.stderr}\n${result.stdout}`, result.exitCode)
+    const failure = classifyPnpmFailure(`${result.stderr}\n${result.stdout}`, result.exitCode, { profileDirectory })
     if (failure !== null) {
       result = {
         ...result,
@@ -607,7 +608,7 @@ function readReleaseAgeMinutesFromNpmrc(dir: string): number | 'invalid' | null 
  * always: a plugin install can be refused by a DIFFERENT, younger package that
  * is already in the lockfile, because pnpm verifies the whole lockfile before
  * any mutation (#39). #944 hit exactly that — updating `dsh-cost-meter` failed
- * with `dsh-market@1.66.44` named in the error, and the note then told the user
+ * with `dsh-shelfry@1.66.44` named in the error, and the note then told the user
  * to wait out *the plugin's* version, which was not the version holding them.
  *
  * Only the entry pnpm prints in its violation line is read (`  <name>@<version>

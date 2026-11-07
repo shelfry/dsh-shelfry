@@ -33,7 +33,7 @@ import { REGIONS, routesFor, type Region } from './regions.ts'
  * packument. A probe that downloads a third of a megabyte to answer "which
  * of these is closer" has spent more than the answer is worth.
  */
-const PROBE_PATH = 'dshmarket/latest'
+const PROBE_PATH = 'dsh-shelfry/latest'
 
 /**
  * Ask every region's registry the same question; return whichever answers

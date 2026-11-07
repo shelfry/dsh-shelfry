@@ -17,6 +17,7 @@ import {
   PendingUpdateJournal,
   clearStaleProfileLock,
   pendingUpdatesFile,
+  MAX_AUTO_REPAIR_ATTEMPTS,
   repairInterruptedUpdates,
   withDeadline,
 } from '../src/pending-updates.ts'
@@ -312,6 +313,34 @@ describe('repairing an update a previous start interrupted', () => {
     expect(service.installBundle).not.toHaveBeenCalled()
     expect(report.failed).toMatchObject([{ name: 'example', reason: expect.stringContaining('1.5.0') }])
     expect(journal.list()).toHaveLength(1)
+  })
+
+  it('stops retrying a package that failed on every start, and keeps the record (#1061)', async () => {
+    // Each attempt may spend the full REPAIR_INSTALL_TIMEOUT_MS (5 min) before
+    // giving up, on every boot, for a spec that will never install. The
+    // reporter's machine paid that cost on the Desktop host's behalf for five
+    // days without ever being told; the market's own record must not do the
+    // same. Two failed starts keep retrying, the third ends it with a sentence
+    // that says where to act.
+    const dir = profile()
+    const journal = new PendingUpdateJournal(pendingUpdatesFile(dir))
+    journal.begin({ profile: 'desktop', name: 'example', from: '1.0.0', to: '2.0.0', spec: 'example@2.0.0' })
+    const service = manager(async () => ({ application: 'failed' }))
+
+    for (let start = 0; start < MAX_AUTO_REPAIR_ATTEMPTS - 1; start += 1) {
+      const report = await repairInterruptedUpdates({ profile: 'desktop', profileDirectory: dir, manager: service })
+      expect(report.failed).toHaveLength(1)
+    }
+    // The start that reaches the cap still tried.
+    await repairInterruptedUpdates({ profile: 'desktop', profileDirectory: dir, manager: service })
+    expect(service.installBundle).toHaveBeenCalledTimes(MAX_AUTO_REPAIR_ATTEMPTS)
+
+    service.installBundle.mockClear()
+    const report = await repairInterruptedUpdates({ profile: 'desktop', profileDirectory: dir, manager: service })
+
+    expect(service.installBundle).not.toHaveBeenCalled()
+    expect(report.failed).toMatchObject([{ name: 'example', reason: expect.stringContaining('重新安装') }])
+    expect(journal.list()).toMatchObject([{ name: 'example', attempts: MAX_AUTO_REPAIR_ATTEMPTS }])
   })
 })
 

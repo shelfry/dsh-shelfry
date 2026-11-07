@@ -20,7 +20,29 @@ export const BACKUP_FORMAT = 'dsh-profile-backup'
 export const MAX_BACKUP_BYTES = 2 * 1024 * 1024
 const MAX_FILES = 256
 const SKIP_NAMES = new Set(['node_modules', '.dsh-shelfry', '.git', 'pnpm-lock.yaml'])
-const BACKUP_TOO_LARGE = `这个 profile 的配置超过 ${MAX_BACKUP_BYTES / (1024 * 1024)} MB，整份备份放不下。可以只导出选中的插件。 / this profile's configuration is larger than ${MAX_BACKUP_BYTES / (1024 * 1024)} MB, which is too much for one whole-profile backup. Export selected plugins instead.`
+/**
+ * Directories that are caches by name, wherever they sit.
+ *
+ * The market's own cache is `.dsh-shelfry` (skipped above), but another
+ * component writes `<profile>/cache` — not hidden, so the dot rule below let
+ * it through and the whole thing was read as configuration. With a few
+ * multi-megabyte json files in there the profile could not be backed up at
+ * all, and the error blamed the profile's own configuration (#1064).
+ *
+ * Only the exporter skips these; `validatedBackup` still accepts a document
+ * that carries them, because backups written before this rule put them in.
+ */
+const SKIP_DIRS = new Set(['cache'])
+/**
+ * Said when the profile does not fit: the way out has to be one that works.
+ *
+ * The old sentence offered "只导出选中的插件" unconditionally, but that path
+ * walks the same profile once "包含配置文件" is ticked and fails with the
+ * same words (#1064) — so it now names the trap as well.
+ */
+const EXPORT_SELECTED_ZH = '可以改成只导出选中的插件，并且别勾「包含配置文件」，那会撞同一个上限'
+const EXPORT_SELECTED_EN = 'export selected plugins instead, and leave "Include config files" unticked — ticking it hits the same cap'
+const BACKUP_TOO_LARGE = `这个 profile 的配置超过 ${MAX_BACKUP_BYTES / (1024 * 1024)} MB，整份备份放不下。${EXPORT_SELECTED_ZH}。 / this profile's configuration is larger than ${MAX_BACKUP_BYTES / (1024 * 1024)} MB, which is too much for one whole-profile backup; ${EXPORT_SELECTED_EN}.`
 /** File names that routinely contain credentials (backup exports).
  *  Values are never masked in place — the export is one-to-one for
  *  faithful restores — but presence is surfaced by the UI warning. */
@@ -61,6 +83,8 @@ function profileFiles(root: string, dir = root): string[] {
     // "configuration" and blew the 2 MB cap (#972). Hidden FILES stay —
     // `.env` and `.npmrc` are real profile config.
     if (entry.isDirectory() && entry.name.startsWith('.')) continue
+    // Same rule, one name the dot check cannot cover (#1064).
+    if (entry.isDirectory() && SKIP_DIRS.has(entry.name)) continue
     const path = resolve(dir, entry.name)
     if (entry.isSymbolicLink()) continue
     if (entry.isDirectory()) files.push(...profileFiles(root, path))
@@ -68,7 +92,7 @@ function profileFiles(root: string, dir = root): string[] {
     // Told in the user's words, with the way out: this is the cap a heavy
     // profile actually hits, and the per-plugin export is the answer.
     if (files.length > MAX_FILES) {
-      throw new Error(`这个 profile 的配置文件超过 ${MAX_FILES} 个，整份备份放不下。可以只导出选中的插件。 / this profile has more than ${MAX_FILES} configuration files, which is too many for one whole-profile backup. Export selected plugins instead.`)
+      throw new Error(`这个 profile 的配置文件超过 ${MAX_FILES} 个，整份备份放不下。${EXPORT_SELECTED_ZH}。 / this profile has more than ${MAX_FILES} configuration files, which is too many for one whole-profile backup; ${EXPORT_SELECTED_EN}.`)
     }
   }
   return files
@@ -651,4 +675,42 @@ export function mergeRestoreManifest(
   const dshMerged: Record<string, unknown> = { ...(backupDsh ?? {}), ...(currentDsh ?? {}), profile: profileMerged }
   merged.dsh = dshMerged
   return merged
+}
+
+/**
+ * Dependencies a restore must leave at the spec the target already has — the
+ * market itself, while it is the package running the restore.
+ *
+ * A restore applies the backup's manifest through `pnpm install`, which
+ * rewrites whatever that manifest pins. When the backup was written by a
+ * different market version, that install replaces THIS package's files under
+ * the live module: the mixed state the update route refuses (#608), made
+ * worse here because the code answering the restore request is the code being
+ * swapped out. The running spec therefore wins, and the backup's spec is
+ * returned so the caller can report it — the update flow can apply it later,
+ * with its restart and rollback machinery.
+ *
+ * Only string specs take part: anything else is not a pin this can compare.
+ */
+export function pinRunningDeps(
+  merged: Record<string, unknown>,
+  current: Record<string, unknown>,
+  names: ReadonlySet<string>,
+): { dependencies: Record<string, unknown>; pinned: Array<{ name: string; from: string; to: string }> } {
+  const mergedDeps = merged.dependencies === null || typeof merged.dependencies !== 'object' || Array.isArray(merged.dependencies)
+    ? {}
+    : merged.dependencies as Record<string, unknown>
+  const currentDeps = current.dependencies === null || typeof current.dependencies !== 'object' || Array.isArray(current.dependencies)
+    ? {}
+    : current.dependencies as Record<string, unknown>
+  const dependencies: Record<string, unknown> = { ...mergedDeps }
+  const pinned: Array<{ name: string; from: string; to: string }> = []
+  for (const name of names) {
+    const wanted = mergedDeps[name]
+    const running = currentDeps[name]
+    if (typeof wanted !== 'string' || typeof running !== 'string' || wanted === running) continue
+    dependencies[name] = running
+    pinned.push({ name, from: wanted, to: running })
+  }
+  return { dependencies, pinned }
 }

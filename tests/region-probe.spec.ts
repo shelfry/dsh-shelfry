@@ -73,9 +73,9 @@ describe('probeRegion', () => {
     const calls = vi.mocked(globalThis.fetch).mock.calls.map(call => String(call[0]))
     expect(calls).toHaveLength(2)
     // `/latest` 是几 KB；裸包名约 320KB。探测只为回答「哪边更快」，下载
-    // 三分之一兆比这个答案本身更贵。探测的是已发布的 `dshmarket` 包，不是
+    // 三分之一兆比这个答案本身更贵。探测的是已发布的 `dsh-shelfry` 包，不是
     // 本仓库（本仓库还没有发布到 npm，用它会让探测永远 404）。
-    for (const url of calls) expect(url.endsWith('/dshmarket/latest')).toBe(true)
+    for (const url of calls) expect(url.endsWith('/dsh-shelfry/latest')).toBe(true)
   })
 })
 

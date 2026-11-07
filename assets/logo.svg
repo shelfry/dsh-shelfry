@@ -27,7 +27,8 @@
     }
   </style>
   <rect width="128" height="128" rx="28" fill="#f6f2ea"/>
-  <g fill="#2b2620">
+  <!-- 四格整体缩到 90%：飞块位移 12px 时外角仍留在圆角底板内。 -->
+  <g fill="#2b2620" transform="translate(6.4 6.4) scale(0.9)">
     <rect class="cell" style="--w:0" x="16" y="16" width="44" height="44" rx="7"/>
     <rect class="cell" style="--w:1" x="16" y="68" width="44" height="44" rx="7"/>
     <rect class="cell" style="--w:2" x="68" y="68" width="44" height="44" rx="7"/>

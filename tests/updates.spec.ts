@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { checkUpdates, compareVersions, fetchNpmLatest, isUpgrade, resolveDesktopMatureUpdate } from '../src/updates.ts'
+import { checkUpdates, compareVersions, fetchNpmLatest, isUpgrade, readVersionMaturity, resolveDesktopMatureUpdate } from '../src/updates.ts'
 
 describe('compareVersions', () => {
   it('orders by major, minor, then patch', () => {
@@ -221,6 +221,37 @@ describe('checkUpdates — fresh-release wait (#945)', () => {
       expect(second.widget?.heldUpdate).toBeUndefined()
       expect(packuments).toBe(2)
     } finally { clock.mockRestore() }
+  })
+
+  it('offers the market its own mature release even though it follows a channel (#1087)', async () => {
+    // The market is the one package the channel setting is FOR, so it is
+    // always in channelFor — and `desktopStable` used to require
+    // `channel === undefined`, which disabled the mature-release fallback
+    // (#1019) for exactly this row. The market releases about daily, so each
+    // release restarted the age window on `/latest` and the row never offered
+    // a version that was already mature. On the stable channel the resolved
+    // target IS `latest`, so the fallback applies here like anywhere else.
+    const dir = npmProfile(1440, 'dsh-shelfry')
+    const now = Date.now()
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      if (String(url).endsWith('/dsh-shelfry/latest')) return new Response(JSON.stringify({ version: '1.2.0' }))
+      return new Response(JSON.stringify({
+        'dist-tags': { latest: '1.2.0' }, versions: { '1.0.0': {}, '1.1.0': {}, '1.2.0': {} },
+        time: {
+          '1.0.0': '2026-01-01T00:00:00.000Z',
+          // Mature: 48 hours old, past the 24-hour window.
+          '1.1.0': new Date(now - 48 * 3_600_000).toISOString(),
+          // The newest release: one hour old, inside the window.
+          '1.2.0': new Date(now - 3_600_000).toISOString(),
+        },
+      }))
+    }))
+    const channelFor = new Map([['dsh-shelfry', 'stable' as const]])
+    const result = await checkUpdates('web', true, dir, channelFor, new Map(), new Map(), { holdYoungReleases: true })
+    // Before the fix: `updateAvailable: false`, no candidate, held on 1.2.0.
+    expect(result['dsh-shelfry']).toMatchObject({
+      latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true, heldUpdate: { latest: '1.2.0' },
+    })
   })
 
   it('accepts only a verified exact-version exemption and fails closed on unknown exclusion syntax', async () => {
@@ -1382,4 +1413,94 @@ describe('fetchNpmLatest — packument fallback (#932)', () => {
     await expect(fetchNpmLatest('dsh-plugin-compat-check')).resolves.toBe('0.1.3')
     expect(calls).toHaveLength(1)
   })
+})
+
+/**
+ * readVersionMaturity answers for the version a dialog NAMES (#945). The
+ * update route's compatVersion path installs a specific release, not the
+ * selector's candidate, so the same two-attempt, cache-busting read has to
+ * judge that exact version — and it must never throw, because it runs inside
+ * a request that is otherwise ready to answer.
+ */
+describe('readVersionMaturity — the exact version a dialog names (#945)', () => {
+  function npmProfile(windowMinutes?: number, name = 'widget'): string {
+    const dir = join(mkdtempSync(join(tmpdir(), 'dshm-maturity-')), 'profiles', 'web')
+    mkdirSync(join(dir, 'node_modules', name), { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { [name]: '^1.0.0' } }))
+    writeFileSync(join(dir, 'node_modules', name, 'package.json'), JSON.stringify({ name, version: '1.0.0', dsh: {} }))
+    writeFileSync(join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n')
+    if (windowMinutes !== undefined) writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: ' + String(windowMinutes) + '\nminimumReleaseAgeIgnoreMissingTime: false\n')
+    return dir
+  }
+
+  /** Registry answers the packument only; an undefined timestamp leaves 1.1.0 unmeasured. */
+  function packument(published: string | undefined, name = 'widget'): void {
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      expect(String(url)).toContain('/' + encodeURIComponent(name))
+      const body = { 'dist-tags': { latest: '1.1.0' }, versions: { '1.0.0': {}, '1.1.0': {} },
+        time: { '1.0.0': '2026-01-01T00:00:00.000Z', ...(published === undefined ? {} : { '1.1.0': published }) } }
+      return new Response(JSON.stringify(body), { status: 200 })
+    }))
+  }
+
+  const hoursAgo = (hours: number): string => new Date(Date.now() - hours * 3_600_000).toISOString()
+
+  it('holds a compatible release that is inside the window, and names when it opens', async () => {
+    const dir = npmProfile(1440)
+    const published = hoursAgo(1)
+    packument(published)
+    const maturity = await readVersionMaturity('widget', '1.1.0', 'web', dir)
+    expect(maturity).toMatchObject({ version: '1.1.0', installable: false, held: true, exempt: false, reason: 'held', releaseAgeMs: 86_400_000 })
+    expect(maturity.publishedAt).toBe(new Date(published).toISOString())
+    expect(maturity.nextMaturityAt).toBe(new Date(Date.parse(published) + 86_400_000).toISOString())
+  })
+
+  it('calls a release older than the window installable', async () => {
+    const dir = npmProfile(1440)
+    packument(hoursAgo(48))
+    expect(await readVersionMaturity('widget', '1.1.0', 'web', dir))
+      .toMatchObject({ installable: true, held: false, reason: 'eligible' })
+  })
+
+  it('follows a profile rule that exempts this exact version', async () => {
+    const dir = npmProfile(1440)
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\nminimumReleaseAgeExclude:\n  - widget@1.1.0\n')
+    packument(hoursAgo(1))
+    expect(await readVersionMaturity('widget', '1.1.0', 'web', dir))
+      .toMatchObject({ installable: true, held: false, exempt: true, reason: 'eligible' })
+  })
+
+  it('says the age is unknown rather than borrowing the exemption for it', async () => {
+    const dir = npmProfile(1440)
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\nminimumReleaseAgeExclude:\n  - widget@1.1.0\n')
+    packument(undefined)
+    expect(await readVersionMaturity('widget', '1.1.0', 'web', dir))
+      .toMatchObject({ installable: false, held: true, publishedAt: null, nextMaturityAt: null, reason: 'unknown-age' })
+  })
+
+  it('reports a version the registry does not carry, without pretending it is installable', async () => {
+    const dir = npmProfile(1440)
+    packument(hoursAgo(1))
+    expect(await readVersionMaturity('widget', '9.9.9', 'web', dir))
+      .toMatchObject({ version: '9.9.9', installable: null, held: false, reason: 'unknown-version' })
+  })
+
+  it('returns an answer instead of throwing when the registry is unreachable', async () => {
+    const dir = npmProfile(1440)
+    let hits = 0
+    vi.stubGlobal('fetch', vi.fn(async () => { hits++; throw new Error('registry down') }))
+    await expect(readVersionMaturity('widget', '1.1.0', 'web', dir)).resolves
+      .toMatchObject({ installable: null, held: false, reason: 'registry-unavailable' })
+    expect(hits).toBe(2)
+  })
+
+  it('refuses to guess when the profile policy itself is unreadable', async () => {
+    const dir = npmProfile(1440)
+    writeFileSync(join(dir, '.npmrc'), 'minimum-release-age=soon\n')
+    packument(hoursAgo(1))
+    expect(await readVersionMaturity('widget', '1.1.0', 'web', dir))
+      .toMatchObject({ installable: null, held: false, reason: 'policy-unknown' })
+  })
+
+  afterEach(() => { vi.unstubAllGlobals() })
 })

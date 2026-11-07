@@ -12,10 +12,11 @@ import { DIST_TAG, type Channel } from './channels.ts'
 import { resolveHeadCommit } from './accelerate.ts'
 import { inProbe } from './probe-context.ts'
 import { marketFetch } from './net.ts'
+import { publishedReleaseUpdate, type CatalogReleaseSource } from './release-updates.ts'
 import { activeRegion, githubRoutesFor, rememberGithubRoute, throughProxy, type Region } from './regions.ts'
 import type { GitToNpmMigration, NpmRenameMigration } from './source-migration.ts'
 import { isNumericReleaseAgeWindow, readMinimumReleaseAgeMs } from './install.ts'
-import { isStableReleaseVersion, selectMatureUpdate, type MatureUpdateSelection, type NpmPackument } from './release-candidates.ts'
+import { isStableReleaseVersion, selectMatureUpdate, versionMaturity, type MatureUpdateSelection, type NpmPackument } from './release-candidates.ts'
 import { hasDshManifest, profileDir, readGitResolutionCommit, readInstalled, readInstalledVersion, readLockCommits, readProfileBundles } from './profile.ts'
 import { userPatchPackageReferences } from './patch.ts'
 import { catalogRepoKey, gitCommitOfTarget, gitRefOfTarget, gitUploadPackUrl, hasSemverSelector, hostedRepoKey, githubCommitOfTarget, githubRefOfTarget, isGenerationLink, isGitHostedSpec, lookupRepoFromUrl, parseGitHubRemote, repoOfTarget } from './sources.ts'
@@ -431,6 +432,58 @@ export async function resolveDesktopMatureUpdate(name: string, installed: string
   }
 }
 
+/**
+ * The maturity of ONE precisely named version, for the compatibility dialog.
+ * "You can update to 1.7.11" is only advice; this answers whether that exact
+ * version may be installed right now, and if not, when. Never throws: an
+ * unreadable policy or an unreachable registry is reported as unknown so the
+ * UI can stay quiet instead of promising something the install would refuse.
+ */
+export interface RequestedVersionMaturity {
+  version: string
+  /** true = installable now, false = held, null = not verifiable here. */
+  installable: boolean | null
+  held: boolean
+  exempt: boolean
+  publishedAt: string | null
+  nextMaturityAt: string | null
+  releaseAgeMs: number | null
+  reason: 'eligible' | 'held' | 'unknown-age' | 'policy-unknown' | 'registry-unavailable' | 'unknown-version'
+}
+
+export async function readVersionMaturity(name: string, version: string, profile: string, activeProfileDir: string, now = Date.now()): Promise<RequestedVersionMaturity> {
+  const unknown = (reason: RequestedVersionMaturity['reason']): RequestedVersionMaturity => ({
+    version, installable: null, held: false, exempt: false, publishedAt: null, nextMaturityAt: null, releaseAgeMs: null, reason,
+  })
+  const windowMs = readMinimumReleaseAgeMs(profile, activeProfileDir)
+  const policy = readReleaseAgeExclusions(activeProfileDir, name)
+  if (windowMs === null || policy.kind === 'unknown') return unknown('policy-unknown')
+  // Same two-attempt, cache-busting read as resolveDesktopMatureUpdate: a stale
+  // mirror must not be able to make a held version look installable.
+  let packument: NpmPackument | null = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const suffix = attempt === 0 ? '' : `?t=${String(Date.now())}`
+      packument = (await fetchJson(npmUrl(`${encodeURIComponent(name)}${suffix}`))) as NpmPackument
+      break
+    } catch { /* Retry once against a potentially stale mirror. */ }
+  }
+  if (packument === null) return unknown('registry-unavailable')
+  const versions = packument.versions
+  if (typeof versions !== 'object' || versions === null || !Object.hasOwn(versions, version)) return unknown('unknown-version')
+  const maturity = versionMaturity(packument, version, now, { minimumReleaseAgeMs: windowMs, ...policy.exclusions })
+  return {
+    version,
+    installable: maturity.mature,
+    held: !maturity.mature,
+    exempt: maturity.exempt,
+    publishedAt: maturity.publishedAt === null ? null : new Date(maturity.publishedAt).toISOString(),
+    nextMaturityAt: maturity.matureAt === null ? null : new Date(maturity.matureAt).toISOString(),
+    releaseAgeMs: windowMs,
+    reason: maturity.mature ? 'eligible' : maturity.publishedAt === null ? 'unknown-age' : 'held',
+  }
+}
+
 async function fetchJson(url: string): Promise<unknown> {
   // Through the proxy when one is configured: Node's global fetch ignores
   // HTTP_PROXY, so on a machine whose route out is a local proxy every
@@ -807,14 +860,14 @@ export async function checkUpdates(
    * with `--config.minimum-release-age=0` and CAN install a young release.
    * Hiding those on the CLI would suppress updates that work.
    */
-  options: { holdYoungReleases?: boolean } = {},
+  options: { holdYoungReleases?: boolean; releaseSources?: ReadonlyMap<string, CatalogReleaseSource> } = {},
 ): Promise<Record<string, UpdateStatus>> {
   const activeProfileDir = profileDir(profile, explicitDir)
   // The channel is part of the key: switching to betas has to change the
   // answer immediately, and a cache keyed on the profile alone would serve
   // the stable verdict for the rest of the TTL — reading as "the setting did
   // nothing".
-  const cacheKey = `${activeProfileDir}\u0000${options.holdYoungReleases === true ? 'hold' : 'any'}\u0000${[...channelFor].map(([n, c]) => `${n}:${c}`).sort().join(',')}\u0000${[...onlineSourceFor].map(([n, s]) => `${n}:${s}`).sort().join(',')}\u0000${[...catalogNpmByRepo].map(([n, s]) => `${n}:${s}`).sort().join(',')}\u0000${options.holdYoungReleases === true ? profilePolicyFingerprint(activeProfileDir) : ''}`
+  const cacheKey = `${activeProfileDir}\u0000${options.holdYoungReleases === true ? 'hold' : 'any'}\u0000${[...channelFor].map(([n, c]) => `${n}:${c}`).sort().join(',')}\u0000${[...onlineSourceFor].map(([n, s]) => `${n}:${s}`).sort().join(',')}\u0000${[...catalogNpmByRepo].map(([n, s]) => `${n}:${s}`).sort().join(',')}\u0000${options.holdYoungReleases === true ? profilePolicyFingerprint(activeProfileDir) : ''}` + JSON.stringify([...(options.releaseSources ?? [])])
   if (!force && updatesCache?.key === cacheKey && Date.now() < updatesCache.recheckAt) {
     return updatesCache.data
   }
@@ -941,6 +994,12 @@ export async function checkUpdates(
         // when a catalog entry owns both the repo the archive came from and
         // this name; otherwise report no update rather than a false one.
         if (/^https?:/i.test(spec)) {
+          const source = options.releaseSources?.get(name)
+          if (source !== undefined) {
+            const release = await publishedReleaseUpdate(source, name)
+            result[name] = { kind: 'npm', version, current: version, latest: release?.version ?? null, updateAvailable: isUpgrade(version, release?.version ?? null) }
+            return
+          }
           const repo = lookupRepoFromUrl(spec)
           const repoKey = repo === null ? null : catalogRepoKey(repo)
           if (repoKey === null || catalogNpmByRepo.get(repoKey) !== name) {
@@ -964,7 +1023,18 @@ export async function checkUpdates(
         const mayFollowATag = !upgrade
           && (version?.includes('-') === true || (stable !== null && version !== null && isUpgrade(stable, version) === false && stable !== version))
         const newerPrerelease = mayFollowATag ? await newerPrereleaseFor(name, version) : null
-        const desktopStable = options.holdYoungReleases === true && channel === undefined
+        // `channel === undefined` used to stand for "this row follows `latest`",
+        // and the market itself always has a channel (it is the one package
+        // the setting is for), so the mature-release fallback (#1019) skipped
+        // exactly the package that needs it most. The market releases about
+        // daily: every release restarted the age window on `/latest`, so the
+        // row showed "up to date" while releases from the previous two days
+        // were long past the window (#1087). What the guard actually means is
+        // "the target this row follows IS `latest`" — true on the stable
+        // channel, and false only when beta/dev resolve something newer, where
+        // a mature stable candidate is not the version the user asked for.
+        const followsLatest = channel === undefined || (stable !== null && latest === stable)
+        const desktopStable = options.holdYoungReleases === true && followsLatest
           && isStableReleaseVersion(version)
           && !/^https?:/i.test(spec) && !spec.includes(':') && !spec.includes('/')
         const mature = desktopStable && upgrade

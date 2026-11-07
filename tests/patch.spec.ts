@@ -11,15 +11,15 @@
  *   placeholder is commented out instead of being appended after.
  */
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { load } from 'js-yaml'
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  carrierRowIds,
+  carrierRowIds, composedRowName,
   foreignRowIds, disableRow, enableRow, findUserPatchPath, isProtectedModule, packagePatchFlags,
-  readUserPatchState, removeRowBlocks, rowIdsForPackage, userPatchPackageReferences, type PatchHost,
+  readUserPatchState, removeRowBlocks, rowFlagApplies, rowIdsForPackage, userPatchPackageReferences, type PatchHost,
 } from '../src/patch.ts'
 
 function patchDir(): string {
@@ -51,6 +51,56 @@ describe('readUserPatchState', () => {
       expect(state.disables).toEqual(['schedule'])
       expect(state.forced).toEqual(['skins'])
       expect(state.inserts).toEqual(['workbench'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('reads a disable flag that is not on the line after the id (#1099)', () => {
+    // Reported shape: the entry written in YAML's natural order —
+    // id, name, inject, disabled. Reading only the NEXT line saw `name:` and
+    // concluded the row was enabled, so a plugin the user had switched off
+    // was reported "restart to apply" on every boot, forever.
+    const dir = patchDir()
+    try {
+      writeFileSync(join(dir, 'cordis.patch.yml'), [
+        '- id: p-dsh-market-amap-map-assistant',
+        "  name: '@p-dsh-market/amap-map-assistant'",
+        '  inject: [ sessions, skills, tools, webServer ]',
+        '  disabled: true',
+        '- id: still-on',
+        '  name: dsh-loop',
+        '  disabled: false',
+        '',
+      ].join('\n'))
+      // The rows carry their own `name`s (#1113): recorded, so the caller can
+      // compare them against the composed entries.
+      expect(readUserPatchState(join(dir, 'cordis.patch.yml'))).toEqual({
+        disables: ['p-dsh-market-amap-map-assistant'],
+        forced: ['still-on'],
+        inserts: [],
+        names: { 'p-dsh-market-amap-map-assistant': '@p-dsh-market/amap-map-assistant', 'still-on': 'dsh-loop' },
+      })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not read a nested config key as the row flag (#1099)', () => {
+    // `config: { disabled: true }` is a plugin's own setting, not the loader
+    // row's switch; a deeper indent must never count.
+    const dir = patchDir()
+    try {
+      writeFileSync(join(dir, 'cordis.patch.yml'), [
+        '- id: nested',
+        '  config:',
+        '    disabled: true',
+        '- id: also-nested',
+        '  config:',
+        '    disabled: false',
+        '',
+      ].join('\n'))
+      expect(readUserPatchState(join(dir, 'cordis.patch.yml'))).toEqual({ disables: [], forced: [], inserts: [] })
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -418,6 +468,167 @@ describe('disableRow / enableRow', () => {
       const text = readPatch(dir)
       expect(text.startsWith('- id: other\n  disabled: true\n')).toBe(true)
       expect(text).toContain('- id: workbench\n  disabled: true\n')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('hand-written spellings the line scanner cannot see (#1112)', () => {
+  const dirs: string[] = []
+  afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
+  function patchDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'dshm-patch-'))
+    dirs.push(dir)
+    return dir
+  }
+  /** The row as the host composes it: the last entry naming it decides. */
+  const composedFlag = (text: string): unknown =>
+    (load(text) as Array<{ id?: string; disabled?: unknown }>)
+      .filter(row => row.id === 'pet')
+      .at(-1)?.disabled
+
+  it.each([
+    ['flow style', '- { id: pet, disabled: true }\n'],
+    ['disabled above id', '- disabled: true\n  id: pet\n'],
+    ['a capitalised True', '- id: pet\n  disabled: True\n'],
+    ['a comment on the id line', '- id: pet # keep\n  disabled: true\n'],
+  ])('follows on, off, on for the row written as %s', async (_label, text) => {
+    // The second "on" is the one that broke: the first enable appends a block
+    // the scanner CAN see, the disable flips that block, and the second enable
+    // removes it — leaving only the spelling the scanner cannot see, so the
+    // row stayed off while the route answered 200.
+    const dir = patchDir()
+    const patch = join(dir, 'cordis.patch.yml')
+    writeFileSync(patch, text)
+
+    expect((await enableRow(patch, 'pet')).ok).toBe(true)
+    expect(composedFlag(readFileSync(patch, 'utf8'))).toBe(false)
+
+    expect((await disableRow(patch, 'pet')).ok).toBe(true)
+    expect(composedFlag(readFileSync(patch, 'utf8'))).toBe(true)
+
+    expect((await enableRow(patch, 'pet')).ok).toBe(true)
+    expect(composedFlag(readFileSync(patch, 'utf8'))).toBe(false)
+  })
+})
+
+describe('rows with more keys than the flag (#1099)', () => {
+  // The shape DSH's own plugin page leaves behind: it sets the flag on a row
+  // that already has other keys, so the flag lands after them. Rows like this
+  // are never cut up (#821), so the market can only override them from below.
+  const longer = (flag: boolean, eol = '\n'): string =>
+    ['- id: pet', "  name: 'dsh-pet'", '  inject: [ tools ]', `  disabled: ${flag}`, ''].join(eol)
+  const block = (flag: boolean): string => `- id: pet\n  disabled: ${flag}\n`
+
+  /** What the host composes: entries apply in order, so the row's last flag decides. */
+  const finalFlag = (dir: string): boolean | undefined =>
+    (load(readPatch(dir)) as Array<{ id?: string; disabled?: boolean }>)
+      .filter(row => row.id === 'pet' && row.disabled !== undefined)
+      .at(-1)?.disabled
+
+  it.each(['\n', '\r\n'])('ends where the switch says through on, off, on (%j)', async eol => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      const original = longer(true, eol)
+      writeFileSync(patch, original)
+      expect(readUserPatchState(patch)).toMatchObject({ disables: ['pet'], forced: [], inserts: [] })
+
+      expect((await enableRow(patch, 'pet')).ok).toBe(true)
+      expect(finalFlag(dir)).toBe(false)
+      expect(readUserPatchState(patch)).toMatchObject({ disables: [], forced: ['pet'], inserts: [] })
+
+      expect((await disableRow(patch, 'pet')).ok).toBe(true)
+      expect(finalFlag(dir)).toBe(true)
+      expect(readUserPatchState(patch)).toMatchObject({ disables: ['pet'], forced: [], inserts: [] })
+
+      // This enable removes the appended block, and the row's own
+      // `disabled: true` is back in charge: removing is not enough.
+      expect((await enableRow(patch, 'pet')).ok).toBe(true)
+      expect(finalFlag(dir)).toBe(false)
+      expect(readUserPatchState(patch)).toMatchObject({ disables: [], forced: ['pet'], inserts: [] })
+
+      // Asking again changes nothing, and the user's row was never touched.
+      const settled = readPatch(dir)
+      expect((await enableRow(patch, 'pet')).ok).toBe(true)
+      expect(readPatch(dir)).toBe(settled)
+      expect(settled.startsWith(original)).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    ['a block after a longer row', longer(true) + block(false), { disables: [], forced: ['pet'] }],
+    ['a longer row after a block', block(false) + longer(true), { disables: ['pet'], forced: [] }],
+    ['two longer rows', longer(false) + longer(true), { disables: ['pet'], forced: [] }],
+    ['the same flag twice', block(true) + longer(true), { disables: ['pet'], forced: [] }],
+  ])('reports only the last word of a row: %s', (_label, text, expected) => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      writeFileSync(patch, text)
+      expect(readUserPatchState(patch)).toMatchObject({ ...expected, inserts: [] })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    ['a force above a longer disabled row', block(false) + longer(true)],
+    ['a disable above a longer disabled row', block(true) + longer(true)],
+    ['two longer rows', longer(false) + longer(true)],
+  ])('enable does not stop short of %s', async (_label, text) => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      writeFileSync(patch, text)
+      expect((await enableRow(patch, 'pet')).ok).toBe(true)
+      expect(finalFlag(dir)).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    ['a force above a longer enabled row', block(false) + longer(false)],
+    ['a disable above a longer enabled row', block(true) + longer(false)],
+    ['two longer rows', longer(true) + longer(false)],
+  ])('disable does not stop short of %s', async (_label, text) => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      writeFileSync(patch, text)
+      expect((await disableRow(patch, 'pet')).ok).toBe(true)
+      expect(finalFlag(dir)).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('gives back a longer enabled row untouched after off and on', async () => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      writeFileSync(patch, longer(false))
+      await disableRow(patch, 'pet')
+      expect(finalFlag(dir)).toBe(true)
+      await enableRow(patch, 'pet')
+      expect(readPatch(dir)).toBe(longer(false))
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not force a row on over a flag that belongs to its config', async () => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      const nested = '- id: pet\n  config:\n    disabled: true\n'
+      writeFileSync(patch, block(true) + nested)
+      await enableRow(patch, 'pet')
+      expect(readPatch(dir)).toBe(nested)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -1138,6 +1349,101 @@ describe('a patch file that cannot be written is refused in words, not by throwi
       writeFileSync(missing, '- id: keep\n  disabled: true\n')
       expect(removeRowBlocks(missing, ['pet']).ok).toBe(true)
       expect(readFileSync(missing, 'utf8')).toBe('- id: keep\n  disabled: true\n')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+/**
+ * A row left behind by a package rename (#1113).
+ *
+ * The host skips a patch entry whose `name` is not the name that row's id
+ * composes to — `applyPatches`: `if (name && name !== target.name)`. Anything
+ * that counts the flag alone therefore reports a plugin as 「已停用」 while it
+ * is running. Only a row that CARRIES a name can disagree, and only when the
+ * composed name is known.
+ */
+describe('rows whose name is not the composed entry (#1113)', () => {
+  /** A host whose loader holds the named entries. */
+  const hostWith = (entries: Array<{ id: string; name: string }>): PatchHost =>
+    ({ loader: { entries: () => entries.map(options => ({ options })) } })
+
+  it('records the name a flag row carries, and nothing when it carries none', () => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      writeFileSync(patch, "- id: pet\n  name: old-package-name\n  disabled: true\n- id: loop\n  disabled: true\n")
+      expect(readUserPatchState(patch).names).toEqual({ pet: 'old-package-name' })
+      writeFileSync(patch, '- id: loop\n  disabled: true\n')
+      expect(readUserPatchState(patch).names).toBeUndefined()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('reads the name the loader composed for an id', () => {
+    expect(composedRowName(hostWith([{ id: 'pet', name: 'dsh-pet' }]), 'pet')).toBe('dsh-pet')
+    expect(composedRowName(hostWith([]), 'pet')).toBeNull()
+  })
+
+  it('applies a flag only when the row names this entry', () => {
+    const state = { disables: ['pet'], forced: [], inserts: [], names: { pet: 'old-package-name' } }
+    expect(rowFlagApplies(state, 'pet', 'dsh-pet')).toBe(false)
+    expect(rowFlagApplies(state, 'pet', 'old-package-name')).toBe(true)
+    // An id that is not in the loader has nothing to compare against.
+    expect(rowFlagApplies(state, 'pet', null)).toBe(true)
+    // A row with no name is applied by every host.
+    expect(rowFlagApplies({ disables: ['pet'], forced: [], inserts: [] }, 'pet', 'dsh-pet')).toBe(true)
+  })
+
+  it('does not report a package as disabled over a renamed row', () => {
+    const dir = patchDir()
+    try {
+      mkdirSync(join(dir, 'node_modules', 'dsh-loop'), { recursive: true })
+      writeFileSync(join(dir, 'node_modules', 'dsh-loop', 'cordis.patch.yml'), '- insert:\n    - id: loop-core\n      name: dsh-loop\n')
+      const patch = join(dir, 'cordis.patch.yml')
+      writeFileSync(patch, '- id: loop-core\n  name: old-package-name\n  disabled: true\n')
+      const host = hostWith([{ id: 'loop-core', name: 'dsh-loop' }])
+      expect(packagePatchFlags(host, dir, ['dsh-loop'], readUserPatchState(patch)).disabled).toEqual([])
+      // The same row naming the entry applies, as before.
+      writeFileSync(patch, '- id: loop-core\n  name: dsh-loop\n  disabled: true\n')
+      expect(packagePatchFlags(host, dir, ['dsh-loop'], readUserPatchState(patch)).disabled).toEqual(['dsh-loop'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('disables the row itself instead of trusting a renamed row the host skips', async () => {
+    // The reported write shape (#1113): the stale row says disabled, the host
+    // skips it, the plugin keeps running, and the toggle answered 200 without
+    // writing anything because that row looked like the user's decision.
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      const stale = '- id: pet\n  name: old-package-name\n  disabled: true\n'
+      writeFileSync(patch, stale)
+      expect((await disableRow(patch, 'pet', { expectedName: 'dsh-pet' })).ok).toBe(true)
+      expect(readPatch(dir)).toBe(`${stale}- id: pet\n  disabled: true\n`)
+      expect(readUserPatchState(patch).disables).toEqual(['pet'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('does not treat a renamed row as still holding the row off', async () => {
+    const dir = patchDir()
+    try {
+      const patch = join(dir, 'cordis.patch.yml')
+      const stale = '- id: pet\n  name: old-package-name\n  disabled: true\n'
+      writeFileSync(patch, stale)
+      // Cleanup leaves the stale row alone — it never applied — and reports
+      // nothing left to clean.
+      expect((await enableRow(patch, 'pet', { cleanOnly: true, expectedName: 'dsh-pet' })).ok).toBe(true)
+      expect(readPatch(dir)).toBe(stale)
+      // A force-enable then writes ABOVE it, which is what the host applies.
+      expect((await enableRow(patch, 'pet', { expectedName: 'dsh-pet' })).ok).toBe(true)
+      expect(readPatch(dir)).toBe(`${stale}- id: pet\n  disabled: false\n`)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

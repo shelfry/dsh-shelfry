@@ -10,7 +10,7 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { resolveDshHome } from '../src/home-paths.ts'
 import {
-  addProfileBundle, bundleExpressionRowIds, bundleOptOutRowIds, bundlePatchInsertedIds, bundlesDroppedFromProfile, readProfileManifestSnapshot, bundlePatchTargets, conflictingEntryIds, declaredBundlePatchFiles, dropFromManifest, entryArtifactExists, generationManagedNames, hasDshManifest, hasLoadableEntry, holdsNativeAddon, isDshProfileName, mergeDuplicateReleaseAgeExcludes, parsePatchRows, pluginSubdirs, profileDir, shippedInsertedRowIds,
+  addProfileBundle, bundleExpressionRowIds, bundleOptOutRowIds, bundlePatchInsertedIds, bundlesDroppedFromProfile, readProfileManifestSnapshot, bundlePatchTargets, conflictingEntryIds, declaredBundlePatchFiles, dropFromManifest, dropReleaseAgeExcludes, entryArtifactExists, generationManagedNames, hasDshManifest, hasLoadableEntry, holdsNativeAddon, isDshProfileName, mergeDuplicateReleaseAgeExcludes, parsePatchRows, pluginSubdirs, profileDir, shippedInsertedRowIds,
   readDependencyOwners, readGitResolutionCommit, readInstalled, readInstalledManifest, readInstalledRepoEvidence, readInstalledRepoIdentities, readInstalledVersion, readLockCommits,
   removeProfileBundle,
 } from '../src/profile.ts'
@@ -682,6 +682,46 @@ describe('hasLoadableEntry — carrier bundles (#203)', () => {
     writeLoadable(join(dirname(profile), 'node_modules', '@deepseek-ai', 'dsh-mcp-client'))
 
     expect(hasLoadableEntry(profile, 'dsh-ouroboros')).toBe(true)
+  })
+
+  it('accepts a carrier whose patch mounts its own subpaths (#1091)', () => {
+    // Reported shape: a pure patch carrier (no main/exports/root index.js)
+    // whose three insert targets are its own files. Every target was read as
+    // a package directory, so nine probes came up empty and the market
+    // uninstalled a package pnpm had just installed correctly.
+    const profile = writeProfile({})
+    const carrier = join(profile, 'node_modules', '@wufeng0105', 'dsh-enhance')
+    mkdirSync(join(carrier, 'enhance-scope'), { recursive: true })
+    mkdirSync(join(carrier, 'auto-approve'), { recursive: true })
+    mkdirSync(join(carrier, 'ui'), { recursive: true })
+    writeFileSync(join(carrier, 'package.json'), '{"name":"@wufeng0105/dsh-enhance","dsh":{"bundle":{"patch":"cordis.patch.yml"}}}')
+    writeFileSync(join(carrier, 'cordis.patch.yml'), [
+      '- insert:',
+      "    - id: enhance-scope",
+      "      name: '@wufeng0105/dsh-enhance/enhance-scope/index.js'",
+      "    - id: auto-approve",
+      "      name: '@wufeng0105/dsh-enhance/auto-approve/index.js'",
+      "    - id: enhance-ui",
+      "      name: './ui/index.js'",
+      '',
+    ].join('\n'))
+    writeFileSync(join(carrier, 'enhance-scope', 'index.js'), '')
+    writeFileSync(join(carrier, 'auto-approve', 'index.js'), '')
+    writeFileSync(join(carrier, 'ui', 'index.js'), '')
+
+    expect(hasLoadableEntry(profile, '@wufeng0105/dsh-enhance')).toBe(true)
+  })
+
+  it('does not read a relative target that climbs out of the package as its own (#1091)', () => {
+    const profile = writeProfile({})
+    const carrier = join(profile, 'node_modules', 'carrier')
+    mkdirSync(carrier, { recursive: true })
+    writeFileSync(join(carrier, 'package.json'), '{"dsh":{"bundle":{"patch":"cordis.patch.yml"}}}')
+    writeFileSync(join(carrier, 'cordis.patch.yml'), "- name: '../escape/index.js'\n  config: {}\n")
+    mkdirSync(join(profile, 'node_modules', 'escape'), { recursive: true })
+    writeFileSync(join(profile, 'node_modules', 'escape', 'index.js'), '')
+
+    expect(hasLoadableEntry(profile, 'carrier')).toBe(false)
   })
 
   it('still finds a target the profile itself installed, unaffected by the fix', () => {
@@ -1604,6 +1644,98 @@ describe('removeProfileBundle / addProfileBundle', () => {
     expect(manifest.name).toBe('dsh-profile-web')
     expect(manifest.dependencies).toEqual({ 'dsh-shelfry': '^1.0.0' })
     expect(manifest.dsh.profile.bundles).toEqual(['dsh-shelfry'])
+  })
+})
+
+describe('dropReleaseAgeExcludes (#1093)', () => {
+  function workspace(contents: string): string {
+    const dir = writeProfile({ name: 'dsh-profile-web', dependencies: {} })
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), contents)
+    return dir
+  }
+
+  it('drops the removed package rows and leaves every other row and comment intact', () => {
+    // pnpm writes one row per package it installs inside the wait window.
+    // Uninstalling removed the dependency but not these, so the profile kept
+    // pinning versions of a package it no longer had.
+    const dir = workspace([
+      'packages:',
+      '  - .',
+      'minimumReleaseAgeExclude:',
+      '  # pinned while testing the beta',
+      "  - 'typescript@7.1.0-dev.20261103.1'",
+      "  - '@typescript/typescript-darwin-arm64@7.1.0-dev.20261103.1'",
+      '  - dsh-shelfry@1.73.8',
+      'allowBuilds:',
+      '  esbuild: true',
+      '',
+    ].join('\n'))
+
+    expect(dropReleaseAgeExcludes('web', 'typescript')).toEqual(['typescript@7.1.0-dev.20261103.1'])
+    expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe([
+      'packages:',
+      '  - .',
+      'minimumReleaseAgeExclude:',
+      '  # pinned while testing the beta',
+      // A platform subpackage is a DIFFERENT package name; nothing in the file
+      // says it belongs to `typescript`, so guessing would drop live policy.
+      "  - '@typescript/typescript-darwin-arm64@7.1.0-dev.20261103.1'",
+      '  - dsh-shelfry@1.73.8',
+      'allowBuilds:',
+      '  esbuild: true',
+      '',
+    ].join('\n'))
+  })
+
+  it('removes the key itself when the removed package was its only entry', () => {
+    // `minimumReleaseAgeExclude:` with no rows is a null value, and pnpm
+    // rejects the file rather than reading it as an empty list.
+    const dir = workspace([
+      'packages:',
+      '  - .',
+      'minimumReleaseAgeExclude:',
+      '  - typescript@7.1.0',
+      'allowBuilds:',
+      '  esbuild: true',
+      '',
+    ].join('\n'))
+
+    expect(dropReleaseAgeExcludes('web', 'typescript')).toEqual(['typescript@7.1.0'])
+    expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe([
+      'packages:',
+      '  - .',
+      'allowBuilds:',
+      '  esbuild: true',
+      '',
+    ].join('\n'))
+  })
+
+  it('leaves the file byte-for-byte alone when the package has no row', () => {
+    const original = ['packages:', '  - .', 'minimumReleaseAgeExclude:', '  - dsh-shelfry@1.73.8', ''].join('\n')
+    const dir = workspace(original)
+
+    expect(dropReleaseAgeExcludes('web', 'typescript')).toEqual([])
+    expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(original)
+  })
+
+  it('drops a pnpm folded union as one row, not two half-rows (#820)', () => {
+    // pnpm wraps a long `||` union across lines. Reading only the first line
+    // would leave the continuation behind as an unparseable orphan.
+    const dir = workspace(['minimumReleaseAgeExclude:', "  - 'typescript@1.0.0 ||", "    1.0.1'", ''].join('\n'))
+
+    expect(dropReleaseAgeExcludes('web', 'typescript')).toEqual(['typescript@1.0.0 || 1.0.1'])
+    expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe('')
+  })
+
+  it('leaves a block it cannot read exactly alone', () => {
+    // A `#` with no whitespace before it is part of the scalar, not a
+    // comment: the entry does not parse, so the whole block is skipped rather
+    // than rewritten from a guess.
+    const original = ['minimumReleaseAgeExclude:', '  - typescript@1.0.0#oops', ''].join('\n')
+    const dir = workspace(original)
+
+    expect(dropReleaseAgeExcludes('web', 'typescript')).toEqual([])
+    expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(original)
   })
 })
 
