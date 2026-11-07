@@ -3,7 +3,7 @@
  *
  * 2026-11-07 同步上游 dsh-market v1.73.14 时，界面层整包覆盖了本地品牌文案，
  * 设置卡片标题退回上游措辞，e2e 断言随即 6/9 leg 变红。这里把身份、数据源、
- * 品牌文案、视觉几何四组关键值钉住，随 `npm test` 运行，只读不写。
+ * 品牌文案、视觉几何、布局滚动、导航图标六组关键值钉住，随 `npm test` 运行，只读不写。
  *
  * 维护规则：新增品牌文案键时，同一次提交里补上对应断言；上游同步后若护栏
  * 变红，说明定制被覆盖，按清单逐项恢复。
@@ -19,7 +19,13 @@ import {
   MARK_PLUG_BLOCK,
   MARK_VIEW_BOX,
 } from '../src/client/market-mark.ts'
-import { NAV_ICON_MARKER, NAV_ICON_SIZE, marketMaskSvg } from '../src/client/settings-nav-icon.ts'
+import {
+  NAV_ICON_MARKER,
+  NAV_ICON_SIZE,
+  NAV_ROW_SELECTOR,
+  marketMaskSvg,
+  navIconCss,
+} from '../src/client/settings-nav-icon.ts'
 
 /** 项目根目录下的文件，按相对路径读取。 */
 function readRoot(relativePath: string): string {
@@ -211,5 +217,64 @@ describe('D. 视觉与几何', () => {
       expect(svg).toContain(`x="${block.x}"`)
     }
     expect(svg).toContain(`x="${MARK_PLUG_BLOCK.x}"`)
+  })
+})
+
+describe('E. 布局与滚动定制', () => {
+  it('24. 列表底部留白与滚动内边距保留', () => {
+    const css = readSrc('client/Market.module.css')
+    expect(css).toContain('padding:8px 4px 64px')
+    expect(css).toContain('scroll-padding-bottom:64px')
+  })
+
+  it('25. 设置页头部吸顶并沿用导航背景色', () => {
+    const css = readSrc('client/Market.module.css')
+    expect(css).toContain('.head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-layer-2')
+    expect(css).toContain('.stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dsw-alias-bg-layer-2')
+  })
+
+  it('26. 设置页不再出现内层滚动条', () => {
+    const css = readSrc('client/Market.module.css')
+    expect(css).toContain('.body{overflow:visible;flex:none}')
+  })
+
+  it('27. 插件页签整页滚动与吸顶让位保留', () => {
+    const css = readSrc('client/Market.module.css')
+    expect(css).toContain('.stickyHead{display:contents}')
+    expect(css).toContain('top:var(--dshm-host-sticky-top,0px)')
+  })
+
+  it('28. 全屏模式仍固定铺满视口', () => {
+    const css = readSrc('client/Market.module.css')
+    expect(css).toContain(
+      '[data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important',
+    )
+  })
+
+  it('29. 吸顶偏移变量名未被改写', () => {
+    const css = readSrc('client/Market.module.css')
+    for (const name of ['--dshm-host-sticky-top', '--dshm-plugins-head-height', '--dshm-head-h']) {
+      expect(css).toContain(name)
+    }
+  })
+})
+
+describe('F. 导航图标定制', () => {
+  it('30. 导航行选择器未变', () => {
+    expect(NAV_ROW_SELECTOR).toBe('[role="dialog"] nav button')
+  })
+
+  it('31. 导航图标尺寸与掩膜样式未变', () => {
+    const css = navIconCss('url(mask)')
+    expect(css).toContain('width: 16px')
+    expect(css).toContain('height: 16px')
+    expect(css).toContain('background-color: currentColor')
+    expect(css).toContain('mask-size: 16px 16px')
+  })
+
+  it('32. 只给本插件行打标记，其余行清除', () => {
+    const source = readSrc('client/settings-nav-icon.ts')
+    expect(source).toContain("row.setAttribute(NAV_ICON_MARKER, '')")
+    expect(source).toContain('row.removeAttribute(NAV_ICON_MARKER)')
   })
 })

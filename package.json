@@ -30,6 +30,7 @@
     "test:compat": "vitest run --config vitest.compat.config.ts",
     "prepack": "npm run build && node scripts/preflight.mjs",
     "check:web-auth-capture": "node scripts/check-web-auth-capture.mjs",
+    "sync:upstream": "node scripts/sync-upstream.mjs",
     "test:web": "node scripts/check-web-auth-capture.mjs && vitest run --config vitest.web.config.ts"
   },
   "dependencies": {

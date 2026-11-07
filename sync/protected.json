@@ -1,0 +1,24 @@
+{
+  "policy": "protected",
+  "note": "上游同步时，本清单内的文件禁止整文件覆盖；只允许人工逐块合并。",
+  "files": [
+    { "path": "src/regions.ts", "why": "官方目录地址 CATALOG_OFFICIAL", "merge": "manual" },
+    { "path": "src/settings.ts", "why": "设置命名空间 dsh-shelfry", "merge": "manual" },
+    { "path": "src/index.ts", "why": "插件入口身份 name", "merge": "manual" },
+    { "path": "src/presets.ts", "why": "自识别集合 MARKET_SELF_NAMES", "merge": "manual" },
+    { "path": "src/official-desktop.ts", "why": "自识别集合 SELF_NAMES", "merge": "manual" },
+    { "path": "src/routes.ts", "why": "自识别集合 SELF_NAMES", "merge": "manual" },
+    { "path": "src/install.ts", "why": "安装锁定包名", "merge": "manual" },
+    { "path": "src/client/index.ts", "why": "客户端包名与导出", "merge": "manual" },
+    { "path": "src/client/locales.ts", "why": "三语品牌与文案", "merge": "manual" },
+    { "path": "src/client/MarketSection.tsx", "why": "插件端界面定制", "merge": "manual" },
+    { "path": "src/client/Market.module.css", "why": "滚动、吸顶、导航背景色、底部留白", "merge": "manual" },
+    { "path": "src/client/market-mark.ts", "why": "四格标记几何常量", "merge": "manual" },
+    { "path": "src/client/settings-nav-icon.ts", "why": "导航图标与选择器", "merge": "manual" },
+    { "path": "client/client.js", "why": "客户端构建产物", "merge": "rebuild" },
+    { "path": "locale/zh.json", "why": "中文插件元信息", "merge": "manual" },
+    { "path": "locale/en.json", "why": "英文插件元信息", "merge": "manual" },
+    { "path": "package.json", "why": "包名、版本、图标、仓库与发布清单", "merge": "manual" },
+    { "path": "assets/logo.svg", "why": "插件 logo", "merge": "manual" }
+  ]
+}
