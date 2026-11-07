@@ -464,8 +464,8 @@
    头部与搜索/分类条吸顶，保持修改前顶部导航固定的效果。 */
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]){height:auto;--dshm-head-h:0px}
 [data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .body{overflow:visible;flex:none}
-[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-base,#fff)}
-[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dsw-alias-bg-base,#fff)}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .head{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base,#fff))}
+[data-dsh-shelfry-surface="settings"]:not([data-dsh-shelfry-fullscreen="true"]) .stickyHead{top:calc(var(--dshm-head-h,0px) + 8px);background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base,#fff))}
 @media (prefers-reduced-motion:reduce){
   .themeCard,.themeCover img{transition:none}
   .themeCard:hover{transform:none}
@@ -602,15 +602,12 @@
 .actWhy{margin-top:2px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px;color:var(--dsw-alias-label-secondary,#9ca3af);font-size:13px}
 .spin{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-brand-primary,#4f6ef7);animation:sp .8s linear infinite}
-/* The mark's two motions, on one clock.
-   The grid breathes along the diagonal — `--dshm-wave` is each cell's
-   row + column — and the plug arrives behind that wave, seats in the corner
-   the wave has just left, holds, then withdraws before the next pass. One
-   duration for both is the point: the block has to read as following the
-   wave, and two independently timed loops drift apart the moment either is
-   retuned. `transform-box: fill-box` makes the offsets below user units of
-   THIS rect, so they are the same (+1.28, -1.27) the static mark is drawn
-   with. Both are opacity and transform only: no filter, no layout. */
+/* 标记的两段动作共用一条时间轴。
+   格子沿对角线呼吸（`--dshm-wave` 是每格的行 + 列），飞块跟着波浪落进刚空出来的
+   右上角，停住，再在下一轮前退出。共用一个周期是关键：飞块要读成跟在波浪后面，
+   两条独立循环只要一条改了时长就会错开。`transform-box: fill-box` 让下面的位移以
+   这一格的用户单位计；飞块本身画在槽位里，动画负责把它从外侧推回、落位。
+   两段都只动 opacity 和 transform：没有滤镜，也不引起布局。 */
 .logoMark{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-brand-primary,#4f6ef7)}
 .logoCell,.logoPlug,.logoPlugAmbient{--dshm-cycle:2.8s}
 /* The loading form is the same gesture at a working pace. It is reporting that
@@ -624,26 +621,23 @@
    does not exist, which is what tests/client/host-theme-vars.spec.ts guards. */
 .logoCell{--dshm-wave:0;animation:dshmMarkWave var(--dshm-cycle) cubic-bezier(.4,0,.2,1) infinite;animation-delay:calc(var(--dshm-wave) * 110ms)}
 .logoPlug,.logoPlugAmbient{transform-box:fill-box;transform-origin:50% 50%;animation:dshmMarkPlug var(--dshm-cycle) cubic-bezier(.4,0,.2,1) infinite}
-/* The dip is short on purpose. A long one (a quarter of the cycle, which is
-   what a plain "breathing" loop wants) leaves five of the eight cells below
-   full at any instant, and at 18px the whole grid greys out together — it
-   reads as a loading skeleton, not as a wave. Ten percent of the cycle per
-   cell, stepped 110ms, keeps the band to about two cells wide, so the eye
-   follows a passing shadow and most of the grid stays ink. */
+/* 暗下去的时间刻意很短。拖长到四分之一周期（普通“呼吸”循环的做法）会让大部分
+   格子在任一时刻都不满亮，18px 下整块一起发灰——读起来像加载骨架，而不是波浪。
+   每格占周期的十分之一、按 110ms 递进，暗带只有约两格宽，眼睛看到的是划过的
+   阴影，其余格子保持实心。 */
 @keyframes dshmMarkWave{
   0%,100%{opacity:1}
   6%{opacity:.5}
   16%{opacity:1}
 }
-/* The block arrives behind the wave: the empty slot is `wave` 2, which dips at
-   ~15% and is lit again by ~25%, and the block settles at 30%. It overshoots by
-   a tenth of a block at 22% so it lands in the corner rather than stopping on
-   it, then holds until 62% and withdraws before the next pass. */
+/* 飞块跟在波浪后面：它要填的右上槽位是 `wave` 1，约 10% 处暗下去、20% 前回亮，
+   30% 时落位。22% 处多冲一点点（约十分之一个格），让它“落”进角落而不是停在上面，
+   然后保持到 62%，再在下一轮前抽走。 */
 @keyframes dshmMarkPlug{
-  0%,8%{transform:rotate(9deg)}
-  22%{transform:translate(-1.35px,1.34px) rotate(0)}
-  30%,62%{transform:translate(-1.28px,1.27px) rotate(0)}
-  76%,100%{transform:rotate(9deg)}
+  0%,8%{transform:translate(1.35px,-1.35px) rotate(9deg)}
+  22%{transform:translate(-0.11px,0.11px) rotate(0)}
+  30%,62%{transform:translate(0,0) rotate(0)}
+  76%,100%{transform:translate(1.35px,-1.35px) rotate(9deg)}
 }
 /* A reader who asked for less motion gets a still mark — except in the loading
    state, where motion is the signal and suppressing it would leave nothing to
