@@ -4,8 +4,14 @@ name: upstream-watch
 
 on:
   schedule:
-    # GitHub 的 cron 按 UTC 计时：01:00 UTC = 北京时间 09:00。
+    # GitHub 的 cron 按 UTC 计时：01:00 UTC = 北京时间 09:00，09:00 UTC = 北京时间 17:00。
+    # 定时触发是 best-effort，漏跑无法避免，所以再加一条晚间的做兜底。
     - cron: '0 1 * * *'
+    - cron: '0 9 * * *'
+  # 每次推到 main 就顺带巡检一次：合并完成后基线已更新，正常不会发消息；
+  # 上游发版而基线没跟上的情况会立刻提醒，不依赖定时器是否跑成功。
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       force:
