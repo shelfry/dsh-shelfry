@@ -12446,6 +12446,7 @@ window.__ModuleLoader__.load({ id: "dsh-shelfry", factory: (require) => {
 								return;
 							}
 							setRecords((list) => patch(list, updateRecordId, { state: "queued" }));
+							if (body.busy === true) return;
 							setInstallError(t("queuedRunBusy"));
 							setOperationsOpen(true);
 							return;

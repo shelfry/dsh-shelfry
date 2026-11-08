@@ -900,7 +900,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     // Synchronous up to the first await → the lock is already held.
     const snap = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
     expect(snap.status).toBe(409)
-    expect(jsonBody(snap)).toEqual({ error: 'another plugin operation is running' })
+    expect(jsonBody(snap)).toEqual({ error: 'another plugin operation is running', busy: true })
 
     const order = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
     expect(order.status).toBe(409)
@@ -936,7 +936,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
 
     const snap = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
     expect(snap.status).toBe(409)
-    expect(jsonBody(snap)).toEqual({ error: 'another plugin operation is running' })
+    expect(jsonBody(snap)).toEqual({ error: 'another plugin operation is running', busy: true })
 
     const order = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
     expect(order.status).toBe(409)
@@ -944,7 +944,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     // update distinguishes the two locks in its message.
     const upd = await hit(routes, '/dsh-shelfry/update', post('/dsh-shelfry/update', { name: 'alpha' }))
     expect(upd.status).toBe(409)
-    expect(jsonBody(upd)).toEqual({ error: 'another install is already running' })
+    expect(jsonBody(upd)).toEqual({ error: 'another install is already running', busy: true })
   })
 
   it('restores the profile from the pre-write backup when the write throws (auto-rollback)', async () => {
