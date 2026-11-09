@@ -55,7 +55,7 @@ function mount(commandRuntime?: PluginCommandRuntime): { host: MarketHost; route
     plugin: () => ({ await: async () => undefined, dispose: async () => undefined }),
   }
   // 固定地区，避免每次挂载都触发一次真实网络探测：探测是异步写状态的，
-  // 会和 ``.dsh-crate/state.json`` 的快照断言抢同一个文件。
+  // 会和 `.dsh-crate/state.json` 的快照断言抢同一个文件。
   mountMarketRoutes(host, { profile: 'web', region: 'global' }, commandRuntime)
   return { host, routes }
 }
@@ -560,6 +560,24 @@ describe('GET /dsh-crate/installed — local repository evidence', () => {
       installed: { 'dsh-vision-bridge': `link:${target}` },
       repoIdentities: { 'dsh-vision-bridge': ['gxx182/dsh-vision-bridge'] },
       repoHints: {},
+    })
+  })
+
+  it('reports the source of a plugin installed from a Release archive URL (#1147)', async () => {
+    // A plugin published only as a GitHub Release tarball installs as a plain
+    // https spec, which repoOfTarget deliberately refuses (that answer decides
+    // where future updates come from). Reporting nothing here left the client
+    // with no identity at all, so with a same-named catalog row present it
+    // could not say which one was installed: Discover kept offering Install
+    // and the Installed tab showed the bare package name.
+    const spec = 'https://github.com/StarWind97/dsh-fatfish-notes/releases/download/v0.6.0/dsh-fatfish-notes-0.6.0.tgz'
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-fatfish-notes': spec } }))
+
+    const res = await hit(routes, '/dsh-crate/installed', { method: 'GET', url: '/dsh-crate/installed' })
+    expect(res.status).toBe(200)
+    expect(jsonBody(res)).toMatchObject({
+      installed: { 'dsh-fatfish-notes': spec },
+      repoIdentities: { 'dsh-fatfish-notes': ['starwind97/dsh-fatfish-notes'] },
     })
   })
 })

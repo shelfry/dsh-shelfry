@@ -70,6 +70,35 @@ export declare function resolveProfileEntry(profileDir: string, name: string): s
  */
 export declare function parseSimplePatch(patchText: string): HotRow[] | null;
 /**
+ * Which shape stopped `parseSimplePatch` — the CAUSE, not just "not plain".
+ *
+ * `parseSimplePatch` collapses five different inputs into one `null`: a
+ * `config` block, a `disabled`/`enabled` switch row, any other key (`inject`,
+ * a nested mapping), a row whose `name` never arrives, and a patch with no
+ * insert rows at all. Every caller that had to explain the refusal threw all
+ * five into one sentence written for the first, and told users their patch
+ * "contains config/expression rows" when it merely switched a row off
+ * (#1102). Naming the shape is the difference between a sentence the reader
+ * can act on and one they cannot (#813, AGENTS.md: 说不出来就别用一句话把
+ * 空缺填上).
+ */
+export type PatchBlocker = 'config' | 'disabled' | 'incomplete' | 'empty' | 'other';
+export interface PatchScan {
+    /** Insert rows read before the scan stopped; empty when it did not. */
+    rows: HotRow[];
+    /** null when the patch IS a plain insert list (`rows` is then non-empty). */
+    blocker: PatchBlocker | null;
+    /** The key that stopped the scan, when there is one to name. */
+    key?: string;
+}
+export declare function scanPatch(patchText: string): PatchScan;
+/**
+ * One sentence for a refusal that is only about the patch's shape, naming the
+ * cause and what happens next. Shared by the hot mount and the activation
+ * verdict so the two cannot drift apart on the same fact again.
+ */
+export declare function patchBlockerReason(blocker: PatchBlocker, key?: string): string;
+/**
  * Wipe leftover hot-mount inputs; call once when the market host starts.
  * `state.json` (disable choices + groups) deliberately survives.
  */
