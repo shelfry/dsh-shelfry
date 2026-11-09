@@ -48,7 +48,8 @@ describe('stateDir', () => {
     expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe('{"old":true}')
   })
 
-  it('改名失败时回退到旧目录，数据仍可读写', () => {
+  // Windows 的 chmod 只切只读位，挡不住 rename，无法构造这个失败场景
+  it.skipIf(process.platform === 'win32')('改名失败时回退到旧目录，数据仍可读写', () => {
     const dir = profile()
     mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
     writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), '{"old":true}')
