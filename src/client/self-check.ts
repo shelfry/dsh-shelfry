@@ -33,7 +33,7 @@ import { lastMarketCrash } from './ErrorBoundary.tsx'
  * @throws when the server half cannot be fetched; callers show their own state.
  */
 export async function exportMarketLog(): Promise<void> {
-  const res = await fetch(api('/dsh-shelfry/logs'))
+  const res = await fetch(api('/dsh-crate/logs'))
   if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   const serverText = await res.text()
   const browser = clientDiagnostics()
@@ -44,7 +44,7 @@ export async function exportMarketLog(): Promise<void> {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = 'dsh-shelfry-log.txt'
+  anchor.download = 'dsh-crate-log.txt'
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
@@ -65,8 +65,8 @@ export async function exportMarketLog(): Promise<void> {
  * reason: a module variable would be duplicated along with everything else
  * and each copy would confidently report 1.
  */
-const globals = globalThis as typeof globalThis & { __dshShelfryClientLoads?: number }
-globals.__dshShelfryClientLoads = (globals.__dshShelfryClientLoads ?? 0) + 1
+const globals = globalThis as typeof globalThis & { __dshCrateClientLoads?: number }
+globals.__dshCrateClientLoads = (globals.__dshCrateClientLoads ?? 0) + 1
 
 /**
  * The marks Chrome and Edge leave on `<html>` when they translate a page.
@@ -112,13 +112,13 @@ const hasDom = (): boolean => typeof document !== 'undefined' && document.body !
  */
 export function clientDiagnostics(): string[] {
   if (!hasDom()) return []
-  const portals = document.querySelectorAll('[data-dsh-shelfry-portal]')
-  const roots = document.querySelectorAll('[data-dsh-shelfry-root]')
+  const portals = document.querySelectorAll('[data-dsh-crate-portal]')
+  const roots = document.querySelectorAll('[data-dsh-crate-root]')
   const last = portals.length > 0 ? portals[portals.length - 1] : null
   return [
     // >1 is the double-load signal above. Reported always, so that a normal
     // page proves the number is being read rather than defaulting.
-    `client bundle evaluations: ${String(globals.__dshShelfryClientLoads ?? 0)}`,
+    `client bundle evaluations: ${String(globals.__dshCrateClientLoads ?? 0)}`,
     `market roots in the document: ${String(roots.length)}`,
     // Asked by hand in #384. A container that is not body's last child sits
     // under whatever was appended after it, which is the other way a button
@@ -127,8 +127,8 @@ export function clientDiagnostics(): string[] {
       + (last === null ? '' : ` (last one is body's last child: ${String(last === document.body.lastElementChild)})`),
     // Asked by hand in #293: "blank" can mean the section never mounted, or
     // mounted and rendered nothing. Those have different causes.
-    `plugin cards rendered: ${String(document.querySelectorAll('[data-dsh-shelfry-root] [class*="_card"]').length)}`,
-    // The mount point every /dsh-shelfry/* request is resolved against (#345).
+    `plugin cards rendered: ${String(document.querySelectorAll('[data-dsh-crate-root] [class*="_card"]').length)}`,
+    // The mount point every /dsh-crate/* request is resolved against (#345).
     // A surprising value here explains a whole class of "nothing loads".
     // #293: browser page translation replaces text nodes underneath React,
     // which is the one reported cause of the blank market. Chrome and Edge

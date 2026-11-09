@@ -1,5 +1,5 @@
 /**
- * Response shapes of the /dsh-shelfry/* host routes plus the pure helpers the
+ * Response shapes of the /dsh-crate/* host routes plus the pure helpers the
  * Market UI shares between its section and toast components.
  */
 
@@ -11,14 +11,14 @@ export type { SharedHostPackageDependencyFinding } from '../diagnostics.ts'
 /** Localized text keyed by language ('zh' / 'en'). */
 export type LocalizedText = Record<string, string | undefined>
 
-/** One registry entry from /dsh-shelfry/registry. */
+/** One registry entry from /dsh-crate/registry. */
 /**
  * Resolve a market API path against the page the UI is served from.
  *
- * Every call used to be root-absolute (`/dsh-shelfry/…`), which the browser
+ * Every call used to be root-absolute (`/dsh-crate/…`), which the browser
  * resolves against the ORIGIN — so behind a reverse proxy that mounts dsh
  * under a prefix (`https://host/app/my-dsh/`), the panel rendered and then
- * every request in it went to `https://host/dsh-shelfry/…`, missed the prefix
+ * every request in it went to `https://host/dsh-crate/…`, missed the prefix
  * rule entirely, and 404'd (#345).
  *
  * Anchored on `document.baseURI`, which is the directory the host serves its
@@ -58,7 +58,7 @@ export interface RegistryPlugin {
   downloadsEnd?: string | null
   downloadsCheckedAt?: string | null
   /**
-   * Catalog npm `latest` (awesome-dsh-plugin / dsh-shelfry#348). Shown in the
+   * Catalog npm `latest` (awesome-dsh-plugin / dsh-crate#348). Shown in the
    * discover byline only when it is a non-empty string.
    */
   version?: string | null
@@ -100,7 +100,7 @@ export function pluginCategories(plugin: Pick<RegistryPlugin, 'category'>): stri
   return categories
 }
 
-/** The catalog payload under `registry` in /dsh-shelfry/registry. */
+/** The catalog payload under `registry` in /dsh-crate/registry. */
 export interface Registry {
   /** Catalog generation marker; unchanged payload generations share caches. */
   updated: string
@@ -188,7 +188,7 @@ export type InstalledRepoIdentities = Record<string, string[]>
 /** Weak Git-origin hints used only to disambiguate multiple same-named entries. */
 export type InstalledRepoHints = Record<string, string[]>
 
-/** Response of the /dsh-shelfry/gist export action. */
+/** Response of the /dsh-crate/gist export action. */
 export interface GistExportResult {
   ok: boolean
   gistId: string
@@ -204,7 +204,7 @@ export function isGenerationSpec(spec: string): boolean {
   return /^link:/i.test(spec) && /(?:^|[\\/])\.generations[\\/]live[\\/]/i.test(spec)
 }
 
-/** Per-package update status from /dsh-shelfry/updates. */
+/** Per-package update status from /dsh-crate/updates. */
 export interface UpdateStatus {
   updateAvailable?: boolean
   /** Server-verified precise Desktop stable npm update target. */
@@ -283,7 +283,7 @@ export interface DrainHistoryWire {
   agentsAtEnd: number
 }
 
-/** Poll payload from /dsh-shelfry/status. */
+/** Poll payload from /dsh-crate/status. */
 export interface MarketStatus {
   /** The market's own version — rendered in the heading so screenshots carry it. */
   version?: string
@@ -436,7 +436,7 @@ export function installCommandFor(
   return { command: command.replace(named[0], `--profile ${wanted}`), unusable: false }
 }
 
-/** The /dsh-shelfry/installed payload (fields the market UI consumes). */
+/** The /dsh-crate/installed payload (fields the market UI consumes). */
 export interface InstalledPayload {
   profile?: string
   installed: InstalledMap
@@ -497,7 +497,7 @@ export interface ThemeSnapshot {
   themes: ThemeDef[]
 }
 
-/** Bound locale translator for the dsh-shelfry namespace. */
+/** Bound locale translator for the dsh-crate namespace. */
 export type Translate = (key: string) => string
 
 export function avatarColor(name: string): string {
@@ -584,7 +584,7 @@ export interface ListQuery {
  * standing in it."
  */
 export function isMarketItself(plugin: Pick<RegistryPlugin, 'name' | 'npm'>): boolean {
-  return plugin.name === 'dsh-shelfry' || plugin.npm === 'dsh-shelfry'
+  return plugin.name === 'dsh-crate' || plugin.npm === 'dsh-crate'
 }
 
 /**
@@ -1491,7 +1491,7 @@ function warnRefusedCuratedScreenshots(plugin: RegistryPlugin, rejections: Scree
   if (refusedCuratedScreenshots.has(key)) return
   refusedCuratedScreenshots.add(key)
   console.warn(
-    `[dsh-shelfry] catalog entry "${plugin.name}" declares ${details.length} screenshot(s) the market will not load — ${details.join('; ')}`,
+    `[dsh-crate] catalog entry "${plugin.name}" declares ${details.length} screenshot(s) the market will not load — ${details.join('; ')}`,
   )
 }
 

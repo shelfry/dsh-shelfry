@@ -167,21 +167,21 @@ describe('bundle stack (#98 diagnostics)', () => {
     const dir = pdir()
     writeProfile(dir, {
       name: 'web-profile',
-      dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-shelfry'] } },
-      dependencies: { '@deepseek-ai/dsh-base': '^4.0.1', 'dsh-shelfry': '^1.9.0' },
+      dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-crate'] } },
+      dependencies: { '@deepseek-ai/dsh-base': '^4.0.1', 'dsh-crate': '^1.9.0' },
     })
     writeBundle(dir, '@deepseek-ai/dsh-base', '4.0.1', [
       { insert: [{ id: 'dsh-base', name: 'dsh-base' }] },
     ])
-    writeBundle(dir, 'dsh-shelfry', '1.9.0', [
-      { insert: [{ id: 'dsh-shelfry', name: 'dsh-shelfry' }] },
+    writeBundle(dir, 'dsh-crate', '1.9.0', [
+      { insert: [{ id: 'dsh-crate', name: 'dsh-crate' }] },
     ])
 
     // This fixture deliberately models a visible DSH installation anchor.
     const report = analyzeProfile(dir, { dshInstallDir: dir })
 
     // Order comes straight from dsh.profile.bundles.
-    expect(report.bundles.map(b => b.name)).toEqual(['@deepseek-ai/dsh-base', 'dsh-shelfry'])
+    expect(report.bundles.map(b => b.name)).toEqual(['@deepseek-ai/dsh-base', 'dsh-crate'])
     // Classification: in-box dsh bundle vs community plugin.
     expect(report.bundles[0]?.kind).toBe('official')
     expect(report.bundles[1]?.kind).toBe('community')
@@ -193,8 +193,8 @@ describe('bundle stack (#98 diagnostics)', () => {
     expect(report.bundles[0]?.error).toBeNull()
     // Loader entries collected from each layer's patch, in stack order.
     expect(report.bundles[0]?.entries).toEqual(['dsh-base'])
-    expect(report.bundles[1]?.entries).toEqual(['dsh-shelfry'])
-    expect(report.rows.map(r => r.id)).toEqual(['dsh-base', 'dsh-shelfry'])
+    expect(report.bundles[1]?.entries).toEqual(['dsh-crate'])
+    expect(report.rows.map(r => r.id)).toEqual(['dsh-base', 'dsh-crate'])
     expect(report.summary.ok).toBe(true)
   })
 
@@ -1035,10 +1035,10 @@ describe('one loader id on two rows depends on the loader (#853)', () => {
       dependencies: { '@deepseek-ai/dsh-base': '^4.0.1' },
     })
     writeBundle(dir, '@deepseek-ai/dsh-base', '4.0.1', [
-      { insert: [{ id: 'dsh-shelfry', name: 'dsh-shelfry' }] },
+      { insert: [{ id: 'dsh-crate', name: 'dsh-crate' }] },
     ])
     writeFileSync(join(dir, 'cordis.patch.yml'), dump([
-      { insert: [{ id: 'dsh-shelfry', name: 'file:///profile/node_modules/dsh-shelfry/lib/index.js' }] },
+      { insert: [{ id: 'dsh-crate', name: 'file:///profile/node_modules/dsh-crate/lib/index.js' }] },
     ]))
   }
 
@@ -1068,9 +1068,9 @@ describe('one loader id on two rows depends on the loader (#853)', () => {
     expect(report.summary.errors.some(e => e.includes('duplicate loader entry id'))).toBe(false)
     expect(report.summary.ok).toBe(true)
     // Still SAID: on this loader one of the two rows quietly loses.
-    const warning = report.summary.warnings.find(w => w.includes('dsh-shelfry'))
+    const warning = report.summary.warnings.find(w => w.includes('dsh-crate'))
     expect(warning).toBeDefined()
-    expect(String(warning)).toContain('"dsh-shelfry"')
+    expect(String(warning)).toContain('"dsh-crate"')
     expect(String(warning)).toMatch(/后一层覆盖前一层|LATER row wins/)
   })
 
@@ -1121,7 +1121,7 @@ describe('one loader id on two rows depends on the loader (#853)', () => {
     const report = analyzeProfile(dir, { dshInstallDir: install })
 
     expect(report.summary.errors.some(e => e.includes('duplicate loader entry id'))).toBe(false)
-    expect(report.summary.warnings.some(w => w.includes('dsh-shelfry'))).toBe(true)
+    expect(report.summary.warnings.some(w => w.includes('dsh-crate'))).toBe(true)
   })
 
   it('reads the loader from a host that PROVIDES it when the profile lockfile cannot (#943)', () => {
@@ -1134,7 +1134,7 @@ describe('one loader id on two rows depends on the loader (#853)', () => {
     const report = analyzeProfile(dir, { dshInstallDir: hostWithLoader('1.0.6') })
 
     expect(report.summary.errors.some(e => e.includes('duplicate loader entry id'))).toBe(false)
-    expect(report.summary.warnings.some(w => w.includes('dsh-shelfry'))).toBe(true)
+    expect(report.summary.warnings.some(w => w.includes('dsh-crate'))).toBe(true)
   })
 
   it('still refuses when the host-provided loader is one that throws on the pair', () => {

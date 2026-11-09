@@ -433,7 +433,7 @@ export async function openMarketUi(page: Page): Promise<void> {
   const dialogVisible = await dialog.waitFor({ state: 'visible', timeout: 15_000 })
     .then(() => true).catch(() => false)
   const scope = dialogVisible ? dialog : page
-  await scope.getByRole('button', { name: /插件箱子|Plugin Shelfry/ }).first().click()
+  await scope.getByRole('button', { name: /插件箱子|Plugin Crate/ }).first().click()
   // That click is the first one a leftover gate swallows: the entry never
   // opens, and the failure lands later as an empty-catalog wait that reads
   // like the market is broken. Fail at the door instead (#1033). Scoped to the
@@ -442,7 +442,7 @@ export async function openMarketUi(page: Page): Promise<void> {
   // anything having opened.
   // Presence only: the error boundary renders this attribute too, so a mounted
   // root says the market opened, not that its catalog loaded.
-  const mounted = await scope.locator('[data-dsh-shelfry-root]').first()
+  const mounted = await scope.locator('[data-dsh-crate-root]').first()
     .waitFor({ state: 'attached', timeout: 15_000 })
     .then(() => true).catch(() => false)
   if (!mounted) {
@@ -625,7 +625,7 @@ export async function launchMarketScaffold(options: ScaffoldOptions = {}): Promi
         }
         if (!statusReady) {
           try {
-            const res = await fetch(`${baseUrl}/dsh-shelfry/status`, { signal: AbortSignal.timeout(2000) })
+            const res = await fetch(`${baseUrl}/dsh-crate/status`, { signal: AbortSignal.timeout(2000) })
             // 401 is the market answering behind the host's login (#603):
             // mounted, and refusing a client with no session — which this
             // readiness probe is. A host without the login answers 200.

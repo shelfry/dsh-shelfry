@@ -1,5 +1,5 @@
 import { type ProfileBackup } from './backup.ts';
-/** The single file every dsh-shelfry backup Gist carries. */
+/** The single file every dsh-crate backup Gist carries. */
 export declare const GIST_FILENAME = "dsh-profile-backup.json";
 /** GitHub hard limit for one Gist file (1 MB); enforced before upload. */
 export declare const GIST_MAX_BYTES: number;

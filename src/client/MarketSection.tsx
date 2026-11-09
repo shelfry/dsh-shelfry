@@ -1,6 +1,6 @@
 /**
  * The Market settings section: Discover / Favorites / Themes / Installed tabs over the
- * /dsh-shelfry/* host routes, with install/update/uninstall flows and the
+ * /dsh-crate/* host routes, with install/update/uninstall flows and the
  * pending-restart bookkeeping in sessionStorage.
  */
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode, type Ref } from 'react'
@@ -1283,7 +1283,7 @@ function marketPortalHost(): HTMLElement {
     portalHost = document.createElement('div')
     // Named so anyone inspecting the DOM, or a future host wanting to give
     // plugins a real portal slot, can see who owns it.
-    portalHost.setAttribute('data-dsh-shelfry-portal', '')
+    portalHost.setAttribute('data-dsh-crate-portal', '')
     // Dialogs, the lightbox and every other layer render THROUGH this host,
     // outside the root above — so it needs the same exemption, or a
     // translated dialog crashes React exactly like a translated page (#293).
@@ -1835,7 +1835,7 @@ const hostCompatibilityInFlight = new Set<string>()
 /** Subscribers for useSyncExternalStore — every mounted MarketSection. */
 const hostCompatibilityListeners = new Set<() => void>()
 let cachedUpdates: Record<string, UpdateStatus> = {}
-/** False until /dsh-shelfry/updates has answered at least once this process. */
+/** False until /dsh-crate/updates has answered at least once this process. */
 let cachedUpdatesReady = false
 let cachedInstalledReady = false
 let cachedSkins: string[] = []
@@ -1915,7 +1915,7 @@ function savedWebdav(): { url: string; username: string; password: string; auto:
       url: typeof value.url === 'string' ? value.url : '',
       username: typeof value.username === 'string' ? value.username : '',
       // The password never persists in the browser: plugins run same-origin
-      // with dsh-shelfry, so a stored password would be readable by any plugin
+      // with dsh-crate, so a stored password would be readable by any plugin
       // client on this host and become the weakest credential in the profile
       // (review #63). It lives in server config / memory only.
       password: '',
@@ -1978,7 +1978,7 @@ function sameInstalledMap(left: InstalledMap, right: InstalledMap): boolean {
 const NOTE_MAX = 200
 
 /**
- * `/dsh-shelfry/dismiss-broken` answers with the whole remaining map, but only
+ * `/dsh-crate/dismiss-broken` answers with the whole remaining map, but only
  * `ok` is read: that map is a snapshot from when the request ran, and adopting
  * it would resurrect or drop notices the panel has since settled (#763).
  */
@@ -2735,7 +2735,7 @@ export function MarketSection(props: MarketSectionProps) {
   const [installError, setInstallError] = useState<string | null>(null)
   /**
    * The recovery surface, when a restart this page asked for did not come
-   * back. Non-null means the origin answering /dsh-shelfry/* is the recovery
+   * back. Non-null means the origin answering /dsh-crate/* is the recovery
    * server, not the host — see RecoveryPanel.tsx.
    */
   const [recovery, setRecovery] = useState<RecoveryView | null>(null)
@@ -2743,7 +2743,7 @@ export function MarketSection(props: MarketSectionProps) {
   const [recoveryKeep, setRecoveryKeep] = useState<Record<string, boolean>>({})
   const [recoveryBusy, setRecoveryBusy] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
-  /** Ignores out-of-order /dsh-shelfry/favorite responses after a newer toggle. */
+  /** Ignores out-of-order /dsh-crate/favorite responses after a newer toggle. */
   const favoriteOpGen = useRef(0)
   const [blockError, setBlockError] = useState<string | null>(null)
   const [updateExemptError, setUpdateExemptError] = useState<string | null>(null)
@@ -2751,7 +2751,7 @@ export function MarketSection(props: MarketSectionProps) {
   const updateExemptOpGen = useRef(0)
   /** Shown once a hide sticks, so the card vanishing has a place to look. */
   const [blockNotice, setBlockNotice] = useState<string | null>(null)
-  /** Ignores out-of-order /dsh-shelfry/block responses after a newer toggle. */
+  /** Ignores out-of-order /dsh-crate/block responses after a newer toggle. */
   const blockOpGen = useRef(0)
   const [pluginMenuUrl, setPluginMenuUrl] = useState<string | null>(null)
   const [installedMenuName, setInstalledMenuName] = useState<string | null>(null)
@@ -2869,7 +2869,7 @@ export function MarketSection(props: MarketSectionProps) {
     }
     const controller = new AbortController()
     setFindingCompat({ status: 'loading' })
-    fetch(api('/dsh-shelfry/find-compatible'), {
+    fetch(api('/dsh-crate/find-compatible'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ npmName: hostIncompatible.npmName, upgradeOnly: hostIncompatible.kind === 'update' }),
@@ -2942,7 +2942,7 @@ export function MarketSection(props: MarketSectionProps) {
   const [hotUrls, setHotUrls] = useState<string[]>([])
   const [hotNames, setHotNames] = useState<string[]>([])
   const [progressLine, setProgressLine] = useState<string | null>(null)
-  /** Per-package activation states from /dsh-shelfry/installed + operations. */
+  /** Per-package activation states from /dsh-crate/installed + operations. */
   const [activations, setActivationsState] = useState<Record<string, ActivationInfo>>(() => cachedActivations)
   const setActivations = useCallback(cacheState(value => { cachedActivations = value }, setActivationsState), [])
   /** #60: persisted disable list + custom groups, straight from /installed. */
@@ -2999,7 +2999,7 @@ export function MarketSection(props: MarketSectionProps) {
   const [progressCurrent, setProgressCurrent] = useState<string | null>(null)
   const [progressDone, setProgressDone] = useState(0)
   const [cancelling, setCancelling] = useState(false)
-  /** Server-side operation lock from /dsh-shelfry/status (#91). */
+  /** Server-side operation lock from /dsh-crate/status (#91). */
   const [hostBusy, setHostBusy] = useState(false)
   /**
    * The market's own version, shown beside the heading. Most bug reports
@@ -3135,7 +3135,7 @@ export function MarketSection(props: MarketSectionProps) {
   const [exportIncludeConfig, setExportIncludeConfig] = useState(false)
   /** Export failure shown INSIDE the picker so it is never hidden behind it. */
   const [exportError, setExportError] = useState<string | null>(null)
-  /** Bundle-only plugin names from /dsh-shelfry/installed (picker list). */
+  /** Bundle-only plugin names from /dsh-crate/installed (picker list). */
   const [installedBundles, setInstalledBundlesState] = useState<string[]>(() => cachedInstalledBundles)
   const setInstalledBundles = useCallback(cacheState(value => { cachedInstalledBundles = value }, setInstalledBundlesState), [])
   const bodyRef = useRef<HTMLDivElement | null>(null)
@@ -3248,7 +3248,7 @@ export function MarketSection(props: MarketSectionProps) {
   const drainingRef = useRef(false)
 
   const refreshInstalled = useCallback((force?: boolean) => {
-    fetch(api('/dsh-shelfry/installed'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/installed'), { cache: 'no-store' })
       .then(res => res.json())
       .then(body => {
         setInstalled(body.installed || {})
@@ -3282,7 +3282,7 @@ export function MarketSection(props: MarketSectionProps) {
         if (Array.isArray(body.updateExempt)) setUpdateExemptNames(body.updateExempt.filter((name: unknown): name is string => typeof name === 'string'))
         setInstalledBundles(Array.isArray(body.bundles) ? body.bundles.filter((name: unknown): name is string => typeof name === 'string') : [])
         if (body.activation && typeof body.activation === 'object') setActivations(body.activation)
-        const findings = body.diagnostics?.schema === 'dsh-shelfry/diagnostics/v1'
+        const findings = body.diagnostics?.schema === 'dsh-crate/diagnostics/v1'
           && Array.isArray(body.diagnostics.findings)
           ? body.diagnostics.findings.filter(isHostDependencyFinding)
           : []
@@ -3293,7 +3293,7 @@ export function MarketSection(props: MarketSectionProps) {
         setQueueSnapshotReady(ready => ({ ...ready, installed: true }))
       })
       .catch(() => {})
-    fetch(api('/dsh-shelfry/updates') + (force === true ? '?force=1' : ''), { cache: 'no-store' })
+    fetch(api('/dsh-crate/updates') + (force === true ? '?force=1' : ''), { cache: 'no-store' })
       .then(res => res.json())
       .then(body => {
         setUpdates(body.updates || {})
@@ -3602,7 +3602,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   const loadCatalog = useCallback(() => {
     setLoadError(null)
-    return fetch(api('/dsh-shelfry/registry'), { cache: 'no-store' })
+    return fetch(api('/dsh-crate/registry'), { cache: 'no-store' })
       .then(async (res) => {
         const body = (await res.json().catch(() => ({}))) as {
           registry?: Registry
@@ -3647,7 +3647,7 @@ export function MarketSection(props: MarketSectionProps) {
     for (let offset = 0; offset < unique.length; offset += 64) {
       const chunk = unique.slice(offset, offset + 64)
       try {
-        const response = await fetch(api('/dsh-shelfry/discovery-compatibility'), {
+        const response = await fetch(api('/dsh-crate/discovery-compatibility'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -3691,7 +3691,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   useEffect(() => {
     void loadCatalog()
-    fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/status'), { cache: 'no-store' })
       .then(readMarketStatus)
       .then(status => {
         if (status === null) return
@@ -3770,7 +3770,7 @@ export function MarketSection(props: MarketSectionProps) {
   const fixEnv = useCallback(() => {
     setEnvFixing(true)
     setEnvFailed(false)
-    fetch(api('/dsh-shelfry/setup-pnpm'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    fetch(api('/dsh-crate/setup-pnpm'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       .then(res => res.json())
       .then(body => {
         if (body.ok) {
@@ -3851,7 +3851,7 @@ export function MarketSection(props: MarketSectionProps) {
       return
     }
     const timer = setInterval(() => {
-      fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+      fetch(api('/dsh-crate/status'), { cache: 'no-store' })
         .then(readMarketStatus)
         .then(status => {
           // 404: the host unloaded the market, and this poll is the only
@@ -4416,7 +4416,7 @@ export function MarketSection(props: MarketSectionProps) {
   const doRollback = useCallback((rollbackId: string) => {
     setRollingBack(true)
     setInstallError(null)
-    fetch(api('/dsh-shelfry/rollback'), {
+    fetch(api('/dsh-crate/rollback'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ rollbackId }),
@@ -4461,7 +4461,7 @@ export function MarketSection(props: MarketSectionProps) {
       id: recordId, kind: 'install', name: plugin.name, url: plugin.url, state: 'running',
     }))
     sessionStorage.setItem('dshm-pending', JSON.stringify({ url: plugin.url, name: plugin.name }))
-    fetch(api('/dsh-shelfry/install'), {
+    fetch(api('/dsh-crate/install'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       // `version` when the refusal dialog found a release this host supports:
@@ -4722,7 +4722,7 @@ export function MarketSection(props: MarketSectionProps) {
     const removed: string[] = []
     try {
       for (const group of record.conflicts ?? []) {
-        const response = await fetch(api('/dsh-shelfry/uninstall'), {
+        const response = await fetch(api('/dsh-crate/uninstall'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ name: group.owner }),
@@ -4819,7 +4819,7 @@ export function MarketSection(props: MarketSectionProps) {
     const awaitNewBoot = () => {
       const deadline = Date.now() + 60000
       const poll = () => {
-        fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+        fetch(api('/dsh-crate/status'), { cache: 'no-store' })
           .then(res => res.json())
           .then((next) => {
             if (next.recovery === true) {
@@ -4853,7 +4853,7 @@ export function MarketSection(props: MarketSectionProps) {
       poll()
     }
     const requestRestart = (attemptsLeft: number) => {
-      fetch(api('/dsh-shelfry/restart'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      fetch(api('/dsh-crate/restart'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
         .then(res => res.json().then(body => ({ status: res.status, body })))
         .then(({ status, body }) => {
           if (status === 202 && body.ok === true) {
@@ -4913,7 +4913,7 @@ export function MarketSection(props: MarketSectionProps) {
   /** Cancel the running plugin command (#6 by @qichuang321). */
   const doCancel = useCallback((record?: OperationRecord) => {
     const body = record?.hostOperationId === undefined ? {} : { operationId: record.hostOperationId }
-    fetch(api('/dsh-shelfry/cancel'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    fetch(api('/dsh-crate/cancel'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       .catch(() => {})
   }, [])
 
@@ -4944,7 +4944,7 @@ export function MarketSection(props: MarketSectionProps) {
     // (#295 by @sanyecao88). One record per attempt, like the install flow.
     const updateRecordId = nextRecordId()
     setRecords(list => enqueue(list, { id: updateRecordId, kind: 'update', name, state: 'running', updateOptions }))
-    return fetch(api('/dsh-shelfry/update'), {
+    return fetch(api('/dsh-crate/update'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -5157,7 +5157,7 @@ export function MarketSection(props: MarketSectionProps) {
     setActivationWarnings([])
     setMigrationConfirm(null)
     setUpdatingName(name)
-    return fetch(api('/dsh-shelfry/migrate-source'), {
+    return fetch(api('/dsh-crate/migrate-source'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -5256,14 +5256,14 @@ export function MarketSection(props: MarketSectionProps) {
     setNotesFor({ name, current, latest, repoUrl })
     setUpdateNotes(null)
     setNotesState('loading')
-    fetch(`${api('/dsh-shelfry/changelog')}?name=${encodeURIComponent(name)}`)
+    fetch(`${api('/dsh-crate/changelog')}?name=${encodeURIComponent(name)}`)
       .then(res => res.json())
       .then(body => { setUpdateNotes(body as ResolvedNotes); setNotesState('ready') })
       .catch(() => setNotesState('fail'))
   }, [])
 
   const doUseSkin = useCallback((name: string) => {    setInstallError(null)
-    fetch(api('/dsh-shelfry/use-skin'), {
+    fetch(api('/dsh-crate/use-skin'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -5294,7 +5294,7 @@ export function MarketSection(props: MarketSectionProps) {
   /** Write (or clear, when empty) this plugin's note. */
   const saveNote = useCallback((name: string, text: string) => {
     setNotingName(null)
-    fetch(api('/dsh-shelfry/note'), {
+    fetch(api('/dsh-crate/note'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name, text }),
@@ -5317,7 +5317,7 @@ export function MarketSection(props: MarketSectionProps) {
       if (favorited) return list.includes(url) ? list : [...list, url]
       return list.filter(entry => entry !== url)
     })
-    fetch(api('/dsh-shelfry/favorite'), {
+    fetch(api('/dsh-crate/favorite'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ url, favorited }),
@@ -5363,7 +5363,7 @@ export function MarketSection(props: MarketSectionProps) {
       if (nextBlocked) return list.includes(name) ? list : [...list, name]
       return list.filter(entry => entry !== name)
     })
-    fetch(api('/dsh-shelfry/block'), {
+    fetch(api('/dsh-crate/block'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name, blocked: nextBlocked }),
@@ -5402,7 +5402,7 @@ export function MarketSection(props: MarketSectionProps) {
       if (nextExempt) return list.includes(name) ? list : [...list, name]
       return list.filter(entry => entry !== name)
     })
-    fetch(api('/dsh-shelfry/update-exempt'), {
+    fetch(api('/dsh-crate/update-exempt'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name, exempt: nextExempt }),
@@ -5489,7 +5489,7 @@ export function MarketSection(props: MarketSectionProps) {
       }
       setDismissBrokenError(reason)
     }
-    fetch(api('/dsh-shelfry/dismiss-broken'), {
+    fetch(api('/dsh-crate/dismiss-broken'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -5545,7 +5545,7 @@ export function MarketSection(props: MarketSectionProps) {
       try {
         let latest: string[] | null = null
         for (const url of stale) {
-          const res = await fetch(api('/dsh-shelfry/favorite'), {
+          const res = await fetch(api('/dsh-crate/favorite'), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ url, favorited: false }),
@@ -5591,7 +5591,7 @@ export function MarketSection(props: MarketSectionProps) {
     // agents-busy refusal can queue them and the drain can run them later.
     const uninstallRecordId = nextRecordId()
     setRecords(list => enqueue(list, { id: uninstallRecordId, kind: 'uninstall', name, state: 'running' }))
-    return fetch(api('/dsh-shelfry/uninstall'), {
+    return fetch(api('/dsh-crate/uninstall'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -5772,7 +5772,7 @@ export function MarketSection(props: MarketSectionProps) {
           ? record.state === 'queued'
           : record.state === 'queued' || record.state === 'running')
       if (!hasWork) return
-      void fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+      void fetch(api('/dsh-crate/status'), { cache: 'no-store' })
         .then(readMarketStatus)
         .then(status => {
           if (disposed || status === null) return
@@ -5870,7 +5870,7 @@ export function MarketSection(props: MarketSectionProps) {
   const doToggle = useCallback((name: string, enabled: boolean, reload = false) => {
     setTogglingName(name)
     setInstallError(null)
-    return fetch(api('/dsh-shelfry/toggle'), {
+    return fetch(api('/dsh-crate/toggle'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name, enabled }),
@@ -5923,7 +5923,7 @@ export function MarketSection(props: MarketSectionProps) {
       .finally(() => setTogglingName(null))
   }, [clearPendingRefresh, refreshInstalled, t])
 
-  /** Adopt the groups payload returned by POST /dsh-shelfry/groups. */
+  /** Adopt the groups payload returned by POST /dsh-crate/groups. */
   const setGroupPayload = useCallback((body: {
     groups?: Record<string, string[]>
     groupOrder?: string[]
@@ -5934,10 +5934,10 @@ export function MarketSection(props: MarketSectionProps) {
     if (Array.isArray(body.disabled)) setDisabledNames(body.disabled)
   }, [])
 
-  /** One POST /dsh-shelfry/groups round trip (create/rename/delete/members/toggle). */
+  /** One POST /dsh-crate/groups round trip (create/rename/delete/members/toggle). */
   const doGroupAction = useCallback((payload: Record<string, unknown>): Promise<boolean> => {
     setInstallError(null)
-    return fetch(api('/dsh-shelfry/groups'), {
+    return fetch(api('/dsh-crate/groups'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -5975,7 +5975,7 @@ export function MarketSection(props: MarketSectionProps) {
     names: string[],
     resume: () => void,
   ) => {
-    fetch(api('/dsh-shelfry/approve-builds'), {
+    fetch(api('/dsh-crate/approve-builds'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ packages: names }),
@@ -6073,7 +6073,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   // The market itself stays out of the batch: its update reloads this page
   // mid-run, which would strand the remaining items.
-  const selfName = installed['dsh-shelfry'] !== undefined ? 'dsh-shelfry' : 'dsh-shelfry'
+  const selfName = installed['dsh-crate'] !== undefined ? 'dsh-crate' : 'dsh-crate'
   const updatableNames = Object.keys(installed).filter(
     name => name !== selfName
       && !effectiveDisabledSet.has(name)
@@ -6211,7 +6211,7 @@ export function MarketSection(props: MarketSectionProps) {
     setBackupBusy(true)
     setBackupMessage(null)
     setRestoreErrors([])
-    return fetch(api('/dsh-shelfry/restore'), {
+    return fetch(api('/dsh-crate/restore'), {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ backup: pendingBackup }),
     }).then(async response => {
       const body = await response.json()
@@ -6226,7 +6226,7 @@ export function MarketSection(props: MarketSectionProps) {
     setBackupBusy(true)
     setBackupMessage(null)
     setRestoreErrors([])
-    fetch(api('/dsh-shelfry/webdav'), {
+    fetch(api('/dsh-crate/webdav'), {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ action, url: webdavUrl.trim(), username: webdavUser, password: webdavPassword }),
     }).then(async response => {
@@ -6311,7 +6311,7 @@ export function MarketSection(props: MarketSectionProps) {
         if (exportIncludeConfig) body.includeConfig = true
       }
     }
-    fetch(api('/dsh-shelfry/gist'), {
+    fetch(api('/dsh-crate/gist'), {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
       // Fallback ceiling only — the server answers structured errors (with a
       // code) within 25 s, so a wedged host cannot leave the user staring at
@@ -7283,7 +7283,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   /** Installed plugins the market itself cannot group (#60). */
   const groupableNames = Object.keys(installed)
-    .filter(name => name !== 'dsh-shelfry' && name !== 'dsh-shelfry' && !dependencyOnlyNames.has(name))
+    .filter(name => name !== 'dsh-crate' && name !== 'dsh-crate' && !dependencyOnlyNames.has(name))
   /** Names already inside some group; everything else shows under "ungrouped". */
   const groupedNames = useMemo(() => new Set(Object.values(groups).flat()), [groups])
   const ungroupedNames = groupableNames.filter(name => !groupedNames.has(name))
@@ -7346,7 +7346,7 @@ export function MarketSection(props: MarketSectionProps) {
   const batchActions = (
     <>
       {(() => {
-        const self = installed['dsh-shelfry'] !== undefined ? 'dsh-shelfry' : 'dsh-shelfry'
+        const self = installed['dsh-crate'] !== undefined ? 'dsh-crate' : 'dsh-crate'
         const status = updates[self]
         return status && status.updateAvailable && !updatedNames.includes(self)
           && !quietUpdateSet.has(self)
@@ -7395,9 +7395,9 @@ export function MarketSection(props: MarketSectionProps) {
     <div
       ref={rootRef}
       className={`${css.root} notranslate`}
-      data-dsh-shelfry-root
-      data-dsh-shelfry-surface={surface}
-      data-dsh-shelfry-plugins-tab={surface === 'plugins' ? 'true' : undefined}
+      data-dsh-crate-root
+      data-dsh-crate-surface={surface}
+      data-dsh-crate-plugins-tab={surface === 'plugins' ? 'true' : undefined}
       /* Browser page translation is the one reported cause of the blank
          market (#293 by @apdc111, and the same shape in #286 / #241, none of
          which ever reproduced in an untranslated browser). Chrome and Edge
@@ -7414,8 +7414,8 @@ export function MarketSection(props: MarketSectionProps) {
          rather than relying on the browser for them. `notranslate` is the
          same instruction for engines that predate the attribute. */
       translate="no"
-      data-dsh-shelfry-tab={tab}
-      data-dsh-shelfry-fullscreen={tab === 'themes' && themesFullscreen ? 'true' : undefined}
+      data-dsh-crate-tab={tab}
+      data-dsh-crate-fullscreen={tab === 'themes' && themesFullscreen ? 'true' : undefined}
     >
       <div ref={headRef} className={css.head}>
         {surface !== 'plugins' && (
@@ -7429,9 +7429,9 @@ export function MarketSection(props: MarketSectionProps) {
           {/* A quiet pointer back to the project — most visitors reach the
               market through a client that embeds it, with no other way to
               find the repo it came from. */}
-          <a className={css.repoLink} href="https://github.com/shelfry/dsh-shelfry" target="_blank" rel="noreferrer" title="dsh-shelfry · GitHub">dsh-shelfry</a>
+          <a className={css.repoLink} href="https://github.com/crate/dsh-crate" target="_blank" rel="noreferrer" title="dsh-crate · GitHub">dsh-crate</a>
           {version !== null && <span className={css.version} title={t('versionHint')}>v{version}</span>}
-          <a className={css.submitLink} href="https://shelfry.app" target="_blank" rel="noreferrer">{t('submitPlugin')}</a>
+          <a className={css.submitLink} href="https://dshcrate.com" target="_blank" rel="noreferrer">{t('submitPlugin')}</a>
           {exportLogButton}
           {batchActions}
           </div>
@@ -7829,7 +7829,7 @@ export function MarketSection(props: MarketSectionProps) {
                       size="sm"
                       icon={<IconDownloadOutline16 size={14} />}
                       disabled={backupBusy}
-                      onClick={() => downloadFile(api('/dsh-shelfry/backup'), 'dsh-profile-backup.json', t('backupExportFailed') + '：')}
+                      onClick={() => downloadFile(api('/dsh-crate/backup'), 'dsh-profile-backup.json', t('backupExportFailed') + '：')}
                     >{backupBusy ? t('backupWorking') : t('backupDownload')}</Button>
                     <Button
                       variant="outline"
@@ -8642,7 +8642,7 @@ export function MarketSection(props: MarketSectionProps) {
                                     </span>
                                     {entry?.deprecated === true && <span className={css.depBadge}>{t('deprecatedBadge')}</span>}
                                   </div>
-                                  {!missing && name !== 'dsh-shelfry' && name !== 'dsh-shelfry' && (
+                                  {!missing && name !== 'dsh-crate' && name !== 'dsh-crate' && (
                                     <span className={css.irowMenu}>{renderInstalledBlockMenu(name)}</span>
                                   )}
                                   </div>
@@ -9045,9 +9045,9 @@ export function MarketSection(props: MarketSectionProps) {
           )}
         >
           <div className={css.groupRenameField}>
-            <label htmlFor="dsh-shelfry-group-rename">{t('groupNamePh')}</label>
+            <label htmlFor="dsh-crate-group-rename">{t('groupNamePh')}</label>
             <Input
-              id="dsh-shelfry-group-rename"
+              id="dsh-crate-group-rename"
               className={css.inlineInput}
               placeholder={t('groupNamePh')}
               value={renamingValue}
@@ -9151,7 +9151,7 @@ export function MarketSection(props: MarketSectionProps) {
                         <label className={css.groupAddPick} key={name}>
                           <input
                             type="radio"
-                            name="dsh-shelfry-group-theme"
+                            name="dsh-crate-group-theme"
                             checked={themePick === name}
                             onChange={() => setThemePick(name)}
                           />

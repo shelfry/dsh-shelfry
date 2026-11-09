@@ -65,7 +65,7 @@ describe('the pending-row journal', () => {
 
   it('treats an unreadable journal as empty instead of failing the start', () => {
     const dir = profile()
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(pendingRowsFile(dir), '{"version":1,"operations":[')
     expect(PendingRowJournal.forProfile(dir).list()).toEqual([])
     expect(() => repairOrphanedRows({ profile: 'web', profileDirectory: dir })).not.toThrow()

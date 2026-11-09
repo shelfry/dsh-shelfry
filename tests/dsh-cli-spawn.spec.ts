@@ -33,7 +33,7 @@ beforeEach(() => {
   childProcess.spawn.mockReset()
   child = fakeChild()
   childProcess.spawn.mockImplementation(() => childProcess.spawn.mock.calls.length === 1 ? child : fakeChild())
-  home = mkdtempSync(join(tmpdir(), 'dsh-shelfry-spawn-'))
+  home = mkdtempSync(join(tmpdir(), 'dsh-crate-spawn-'))
   vi.stubEnv('DSH_HOME', home)
   vi.stubEnv('ComSpec', 'cmd.exe')
   vi.stubEnv('DSH_MARKET_INSTALL_TIMEOUT_MS', '1000')

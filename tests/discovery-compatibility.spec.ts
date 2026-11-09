@@ -185,7 +185,7 @@ describe('DiscoveryManifestIndex', () => {
   it('bounds concurrency and reuses the durable cache in a new index', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     directories.push(directory)
-    const cache = join(directory, '.dsh-shelfry', 'discovery.json')
+    const cache = join(directory, '.dsh-crate', 'discovery.json')
     let calls = 0
     let active = 0
     let peak = 0
@@ -223,7 +223,7 @@ describe('DiscoveryManifestIndex', () => {
   it('does not persist a registry failure as an undeclared manifest', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     directories.push(directory)
-    const cache = join(directory, '.dsh-shelfry', 'discovery.json')
+    const cache = join(directory, '.dsh-crate', 'discovery.json')
     const failed = new DiscoveryManifestIndex(cache, {
       fetcher: async () => { throw new Error('offline') },
       now: () => 1_000,
@@ -246,7 +246,7 @@ describe('DiscoveryManifestIndex', () => {
   it('an advisory pre-flight leaves no failure cooldown behind (#619)', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     directories.push(directory)
-    const cache = join(directory, '.dsh-shelfry', 'discovery.json')
+    const cache = join(directory, '.dsh-crate', 'discovery.json')
 
     let online = false
     let asked = 0
@@ -264,7 +264,7 @@ describe('DiscoveryManifestIndex', () => {
       .toEqual({ 'plugin-a': null })
 
     // The panel asks afterwards, with the registry back up. A recorded failure
-    // would answer null for the whole cooldown — that is the dsh-shelfry#614
+    // would answer null for the whole cooldown — that is the dsh-crate#614
     // shape: an install whose advice was never asked for decided the verdict
     // of the next question.
     online = true
@@ -276,7 +276,7 @@ describe('DiscoveryManifestIndex', () => {
   it('an advisory pre-flight does not seed the durable cache either (#619)', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     directories.push(directory)
-    const cache = join(directory, '.dsh-shelfry', 'discovery.json')
+    const cache = join(directory, '.dsh-crate', 'discovery.json')
 
     let served = 0
     const index = new DiscoveryManifestIndex(cache, {
@@ -442,7 +442,7 @@ describe('lookupVersion', () => {
   function tempCache(): string {
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     temporary.push(directory)
-    return join(directory, '.dsh-shelfry', 'discovery.json')
+    return join(directory, '.dsh-crate', 'discovery.json')
   }
 
   function indexWith(fetcher: (url: string) => Promise<Response>, now = 1_000, cache = tempCache()): DiscoveryManifestIndex {

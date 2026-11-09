@@ -80,8 +80,8 @@ describe('MarketErrorBoundary', () => {
     // failures with different causes, and the exported log has to keep
     // telling them apart (#293).
     render(h(MarketErrorBoundary, { text }, h(Fragile, { broken: true })))
-    expect(document.querySelectorAll('[data-dsh-shelfry-root]')).toHaveLength(1)
-    expect(document.querySelector('[data-dsh-shelfry-crashed]')).toBeTruthy()
+    expect(document.querySelectorAll('[data-dsh-crate-root]')).toHaveLength(1)
+    expect(document.querySelector('[data-dsh-crate-crashed]')).toBeTruthy()
   })
 
   it('records the crash for the exported log, with where it happened', () => {

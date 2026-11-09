@@ -71,7 +71,7 @@ export interface SettingsCardProps {
 type Channel = 'stable' | 'beta' | 'dev'
 type Region = 'global' | 'china'
 
-/** What api('/dsh-shelfry/status') tells this card. */
+/** What api('/dsh-crate/status') tells this card. */
 interface SelfStatus {
   version: string | null
   restart: boolean
@@ -100,7 +100,7 @@ interface SelfStatus {
   buildEnv: Record<string, string>
 }
 
-/** The subset of api('/dsh-shelfry/status') this card reads. */
+/** The subset of api('/dsh-crate/status') this card reads. */
 interface StatusBody {
   version?: string
   restart?: boolean
@@ -118,7 +118,7 @@ interface StatusBody {
   buildEnv?: Record<string, string>
 }
 
-/** What api('/dsh-shelfry/updates') says about the market's own row. */
+/** What api('/dsh-crate/updates') says about the market's own row. */
 interface SelfUpdate {
   updateAvailable: boolean
   latest: string | null
@@ -132,7 +132,7 @@ interface SelfUpdate {
 
 type Phase = 'idle' | 'confirming' | 'working' | 'removed' | 'updated' | 'failed'
 
-/** The market's own row as api('/dsh-shelfry/updates') sends it. */
+/** The market's own row as api('/dsh-crate/updates') sends it. */
 interface RawUpdate { updateAvailable?: boolean; latest?: string; channelSwitch?: string; restoreRequired?: boolean; kind?: string }
 
 const CHANNELS: Channel[] = ['stable', 'beta', 'dev']
@@ -306,7 +306,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     let live = true
     void (async () => {
       try {
-        const response = await fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+        const response = await fetch(api('/dsh-crate/status'), { cache: 'no-store' })
         const body = (await response.json()) as StatusBody
         if (live) setStatus(readStatus(body))
         applyGithubRouting(body)
@@ -320,9 +320,9 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
         }
       }
       try {
-        const response = await fetch(api('/dsh-shelfry/updates'), { cache: 'no-store' })
+        const response = await fetch(api('/dsh-crate/updates'), { cache: 'no-store' })
         const body = (await response.json()) as { updates?: Record<string, RawUpdate> }
-        const own = body.updates?.['dsh-shelfry'] ?? body.updates?.['dsh-shelfry']
+        const own = body.updates?.['dsh-crate'] ?? body.updates?.['dsh-crate']
         if (live && own !== undefined) setUpdate(readUpdate(own))
       } catch { /* an update check that fails leaves the row without an offer */ }
     })()
@@ -345,8 +345,8 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     setStale(false)
     void (async () => {
       try {
-        const body = await post(api('/dsh-shelfry/update'), {
-          name: 'dsh-shelfry',
+        const body = await post(api('/dsh-crate/update'), {
+          name: 'dsh-crate',
           ...(update?.restoreRequired === true ? { restore: true } : {}),
           ...(force ? { force: true } : {}),
         }) as {
@@ -370,7 +370,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     setError(null)
     void (async () => {
       try {
-        const body = await post(api('/dsh-shelfry/self-uninstall'), { confirm: true, purge })
+        const body = await post(api('/dsh-crate/self-uninstall'), { confirm: true, purge })
         if (body.ok === true) {
           if (purge) clearBrowserState(localStorage)
           setPhase('removed')
@@ -391,9 +391,9 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
 
   /** Re-ask what this channel offers; the previous answer was for another one. */
   const refreshUpdate = useCallback(async (): Promise<void> => {
-    const response = await fetch(api('/dsh-shelfry/updates') + '?force=1', { cache: 'no-store' })
+    const response = await fetch(api('/dsh-crate/updates') + '?force=1', { cache: 'no-store' })
     const body = (await response.json()) as { updates?: Record<string, RawUpdate> }
-    const own = body.updates?.['dsh-shelfry'] ?? body.updates?.['dsh-shelfry']
+    const own = body.updates?.['dsh-crate'] ?? body.updates?.['dsh-crate']
     setUpdate(own === undefined ? null : readUpdate(own))
   }, [])
 
@@ -409,7 +409,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     setError(null)
     void (async () => {
       try {
-        const body = await post(api('/dsh-shelfry/channel'), { channel: next }) as { ok?: boolean; error?: string; channel?: string }
+        const body = await post(api('/dsh-crate/channel'), { channel: next }) as { ok?: boolean; error?: string; channel?: string }
         if (body.ok !== true) { setError(body.error ?? t('setSelfFailed')); return }
         setStatus(current => (current === null ? current : { ...current, channel: asChannel(body.channel) ?? next }))
         await refreshUpdate()
@@ -430,7 +430,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     setError(null)
     void (async () => {
       try {
-        const body = await post(api('/dsh-shelfry/region'), { region: next }) as { ok?: boolean; error?: string; region?: string }
+        const body = await post(api('/dsh-crate/region'), { region: next }) as { ok?: boolean; error?: string; region?: string }
         if (body.ok !== true) { setError(body.error ?? t('setSelfFailed')); return }
         const accepted = asRegion(body.region) ?? next
         setStatus(current => (current === null ? current : { ...current, region: accepted, regionAuto: false }))
@@ -439,7 +439,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
         // start knowing what each one RESOLVES to, or the routing table would
         // have a second copy that can disagree with the first.
         try {
-          const fresh = await fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+          const fresh = await fetch(api('/dsh-crate/status'), { cache: 'no-store' })
           const status = (await fresh.json()) as StatusBody
           applyGithubRouting(status)
         } catch { /* images keep the previous route until the next load */ }
@@ -455,9 +455,9 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
     setProxySaving(true)
     void (async () => {
       try {
-        const body = await post(api('/dsh-shelfry/github-proxy'), { proxy }) as { ok?: boolean; error?: string }
+        const body = await post(api('/dsh-crate/github-proxy'), { proxy }) as { ok?: boolean; error?: string }
         if (body.ok !== true) { setError(body.error ?? t('setSelfFailed')); return }
-        const fresh = await fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+        const fresh = await fetch(api('/dsh-crate/status'), { cache: 'no-store' })
         const statusBody = (await fresh.json()) as StatusBody
         setStatus(readStatus(statusBody))
         applyGithubRouting(statusBody)
@@ -484,7 +484,7 @@ export function SettingsCard({ t, onRemoved, sidebar, entries }: SettingsCardPro
   const onSaveEnv = useCallback(async () => {
     setError(null)
     try {
-      const body = await post(api('/dsh-shelfry/build-env'), {
+      const body = await post(api('/dsh-crate/build-env'), {
         buildEnv: buildEnvFromText(envText),
       }) as { ok?: boolean; error?: string; buildEnv?: Record<string, string> }
       if (body.ok !== true) { setError(body.error ?? t('setSelfFailed')); return }

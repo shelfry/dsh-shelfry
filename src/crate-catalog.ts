@@ -1,7 +1,7 @@
 /**
- * shelfry 目录适配层。
+ * crate 目录适配层。
  *
- * shelfry 的 dsh-shelfry.json 与市场内部使用的 Registry 是两份不同的契约：
+ * crate 的 dsh-crate.json 与市场内部使用的 Registry 是两份不同的契约：
  * 前者用单字母字段（i/n/d/s/t/vr/cmd）描述条目，后者要求 category、owner、
  * description 等结构化字段。本模块只做一次单向映射，并把外部输入的校验收在
  * 这里；抓取、重试与缓存仍留在 registry.ts。
@@ -9,7 +9,7 @@
  * 字段对应关系：
  * - `i`  owner/repo，同时决定展示页与兜底安装源
  * - `n`  展示名（市场内部作为 name 使用）
- * - `d`  描述（shelfry 只提供一份文本，中英两栏共用）
+ * - `d`  描述（crate 只提供一份文本，中英两栏共用）
  * - `s`  star 数
  * - `vr` 最新版本号
  * - `t`  条目类型，映射成市场分类 id
@@ -18,7 +18,7 @@
 import { NPM_NAME_RE } from './sources.ts'
 import type { Registry, RegistryPlugin } from './registry.ts'
 
-/** shelfry 条目类型到市场分类 id 的映射；未知类型一律归入 other。 */
+/** crate 条目类型到市场分类 id 的映射；未知类型一律归入 other。 */
 const TYPE_TO_CATEGORY: Record<string, string> = {
   'cordis-plugin': 'plugin',
   skill: 'skill',
@@ -46,34 +46,34 @@ const INSTALL_PREFIX = 'dsh plugin --profile web add '
 const ADD_TOKEN = ' add '
 
 /**
- * 判断一份 JSON 是否为 shelfry 目录。
+ * 判断一份 JSON 是否为 crate 目录。
  *
  * 只用结构特征，不依赖某个版本号：带 `entries` 数组且没有 `plugins` 数组的
- * 就是 shelfry 形态，旧目录照常走 `asRegistry`，两套夹具互不干扰。
+ * 就是 crate 形态，旧目录照常走 `asRegistry`，两套夹具互不干扰。
  */
-export function isShelfryCatalog(value: unknown): boolean {
+export function isCrateCatalog(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
   const data = value as { entries?: unknown; plugins?: unknown }
   return Array.isArray(data.entries) && !Array.isArray(data.plugins)
 }
 
 /**
- * 把 shelfry 目录映射成市场内部的 Registry。
+ * 把 crate 目录映射成市场内部的 Registry。
  *
  * @param value - 已经 `JSON.parse` 过的载荷。
  * @returns 条目已校验、分类已归一化的目录。
  * @throws 载荷不是对象、缺少 entries、或没有一条可用条目时抛出。
  */
-export function asShelfryRegistry(value: unknown): Registry {
-  if (typeof value !== 'object' || value === null) throw new Error('shelfry 目录不是对象')
+export function asCrateRegistry(value: unknown): Registry {
+  if (typeof value !== 'object' || value === null) throw new Error('crate 目录不是对象')
   const data = value as { generatedAt?: unknown; entries?: unknown }
-  if (!Array.isArray(data.entries)) throw new Error('shelfry 目录缺少 entries 数组')
+  if (!Array.isArray(data.entries)) throw new Error('crate 目录缺少 entries 数组')
   const plugins: RegistryPlugin[] = []
   for (const entry of data.entries) {
-    const plugin = asShelfryPlugin(entry)
+    const plugin = asCratePlugin(entry)
     if (plugin !== null) plugins.push(plugin)
   }
-  if (plugins.length === 0) throw new Error('shelfry 目录里没有一条可用条目')
+  if (plugins.length === 0) throw new Error('crate 目录里没有一条可用条目')
   return {
     updated: typeof data.generatedAt === 'string' ? data.generatedAt : '',
     count: plugins.length,
@@ -83,12 +83,12 @@ export function asShelfryRegistry(value: unknown): Registry {
 }
 
 /**
- * 单条 shelfry 条目转成 RegistryPlugin。
+ * 单条 crate 条目转成 RegistryPlugin。
  *
  * @param entry - entries 数组里的一项，来源不可信，逐字段校验。
  * @returns 映射结果；缺少仓库路径或展示名时返回 null，由调用方跳过。
  */
-export function asShelfryPlugin(entry: unknown): RegistryPlugin | null {
+export function asCratePlugin(entry: unknown): RegistryPlugin | null {
   if (typeof entry !== 'object' || entry === null) return null
   const row = entry as Record<string, unknown>
   const repo = typeof row.i === 'string' ? row.i.trim() : ''
@@ -115,7 +115,7 @@ export function asShelfryPlugin(entry: unknown): RegistryPlugin | null {
 /**
  * 条目类型转分类 id。
  *
- * @param type - shelfry 的 `t` 字段，可能是任何类型。
+ * @param type - crate 的 `t` 字段，可能是任何类型。
  */
 export function categoryOf(type: unknown): string {
   if (typeof type !== 'string') return 'other'
@@ -129,7 +129,7 @@ export function categoryOf(type: unknown): string {
  * 去掉，带变量的地址（`github:...#${DSH_PLUGIN_REF}`）和本地绝对路径都不是
  * npm 包名，返回 null 让安装回落到 GitHub 源。
  *
- * @param command - shelfry 的 `cmd` 字段，可能是任何类型。
+ * @param command - crate 的 `cmd` 字段，可能是任何类型。
  * @returns 合法 npm 包名，或 null。
  */
 export function npmFromCommand(command: unknown): string | null {

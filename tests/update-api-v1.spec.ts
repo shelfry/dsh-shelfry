@@ -219,7 +219,7 @@ describe('public update API v1 operation model', () => {
     // On a host whose manager refuses re-adds, the market cannot update
     // itself. Retrying is pointless; the code says so without parsing text.
     const store = new UpdateOperationStoreV1('boot-self-update')
-    const op = store.create('dsh-shelfry', '1.66.40')
+    const op = store.create('dsh-crate', '1.66.40')
     store.start(op.operationId)
     expect(store.finish(op.operationId, 502, {
       failureCode: 'market-self-update',

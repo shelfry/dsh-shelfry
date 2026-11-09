@@ -71,7 +71,7 @@ describe('createSidebarEntry', () => {
     const seen = vi.fn()
     entry.subscribe(seen)
     await expect(entry.set(true)).resolves.toBe(true)
-    expect(calls.at(-1)?.url).toMatch(/\/dsh-shelfry\/sidebar-entry$/)
+    expect(calls.at(-1)?.url).toMatch(/\/dsh-crate\/sidebar-entry$/)
     expect(JSON.parse(String(calls.at(-1)?.init?.body))).toEqual({ enabled: true })
     expect(entry.enabled()).toBe(true)
     expect(live()).toBe(1)

@@ -118,7 +118,7 @@ describe('official Electron profile runtime', () => {
 
   it('reports its own running operation so /status can wait on it (#1140)', async () => {
     // The manager holds `active`/`repairing` for the whole of its own install.
-    // `/dsh-shelfry/status` used to say `busy: false` the entire time, so the
+    // `/dsh-crate/status` used to say `busy: false` the entire time, so the
     // client's queue retried every 2s into a refusal and re-showed the
     // "another operation is running" banner on each one.
     const service = manager()
@@ -334,16 +334,16 @@ describe('official Electron profile runtime', () => {
 
   it('overlays the market with the host pnpm and never removes it (#982, #900)', async () => {
     const dir = profile()
-    installed(dir, 'dsh-shelfry', '1.66.36')
+    installed(dir, 'dsh-crate', '1.66.36')
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(() => service, 'desktop', dir, hostPnpmThatAdds(dir))
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).toBe(0)
       expect(service.removeBundle).not.toHaveBeenCalled()
       expect(service.installBundle).toHaveBeenCalledTimes(1)
-      expect(JSON.parse(readFileSync(join(dir, 'node_modules', 'dsh-shelfry', 'package.json'), 'utf8')).version).toBe('1.66.48')
+      expect(JSON.parse(readFileSync(join(dir, 'node_modules', 'dsh-crate', 'package.json'), 'utf8')).version).toBe('1.66.48')
     } finally {
       await runtime.dispose()
     }
@@ -355,7 +355,7 @@ describe('official Electron profile runtime', () => {
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(() => service, 'desktop', dir, hostPnpmThatAdds(dir))
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).toBe(0)
       expect(result.stderr).not.toContain('minimum-release-age=0')
     } finally {
@@ -365,7 +365,7 @@ describe('official Electron profile runtime', () => {
 
   it('does not treat exit 0 as success when the disk version did not change (#982)', async () => {
     const dir = profile()
-    installed(dir, 'dsh-shelfry', '1.66.36')
+    installed(dir, 'dsh-crate', '1.66.36')
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(
@@ -373,10 +373,10 @@ describe('official Electron profile runtime', () => {
       hostPnpmThatAdds(dir, 'process.exit(0)'),
     )
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr).toMatch(/没有换成|did not become/)
-      expect(JSON.parse(readFileSync(join(dir, 'node_modules', 'dsh-shelfry', 'package.json'), 'utf8')).version).toBe('1.66.36')
+      expect(JSON.parse(readFileSync(join(dir, 'node_modules', 'dsh-crate', 'package.json'), 'utf8')).version).toBe('1.66.36')
     } finally {
       await runtime.dispose()
     }
@@ -384,7 +384,7 @@ describe('official Electron profile runtime', () => {
 
   it('does not treat a host add that exits 1 as success (#982)', async () => {
     const dir = profile()
-    installed(dir, 'dsh-shelfry', '1.66.36')
+    installed(dir, 'dsh-crate', '1.66.36')
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(
@@ -392,10 +392,10 @@ describe('official Electron profile runtime', () => {
       hostPnpmThatAdds(dir, 'process.stderr.write("ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION"); process.exit(1)'),
     )
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr).toMatch(/等待期|fresh-release wait/)
-      expect(JSON.parse(readFileSync(join(dir, 'node_modules', 'dsh-shelfry', 'package.json'), 'utf8')).version).toBe('1.66.36')
+      expect(JSON.parse(readFileSync(join(dir, 'node_modules', 'dsh-crate', 'package.json'), 'utf8')).version).toBe('1.66.36')
     } finally {
       await runtime.dispose()
     }
@@ -407,7 +407,7 @@ describe('official Electron profile runtime', () => {
     // (#909). The overlay already ran without the age bypass; this is not
     // an age failure, so that flag must not appear (#944).
     const dir = profile()
-    installed(dir, 'dsh-shelfry', '1.66.36')
+    installed(dir, 'dsh-crate', '1.66.36')
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(
@@ -415,11 +415,11 @@ describe('official Electron profile runtime', () => {
       hostPnpmThatAdds(dir, 'process.stderr.write("ERR_PNPM_EPERM operation not permitted, rename"); process.exit(1)'),
     )
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).not.toBe(0)
       expect(result.refusalCode).toBeUndefined()
       expect(result.stderr).toMatch(/完全退出|quit DSH Desktop/)
-      expect(result.stderr).toContain('pnpm add dsh-shelfry@1.66.48')
+      expect(result.stderr).toContain('pnpm add dsh-crate@1.66.48')
       expect(result.stderr).not.toMatch(/再点一次|update once more/)
       expect(result.stderr).not.toContain('设置 → 插件')
       expect(result.stderr).not.toContain('minimum-release-age=0')
@@ -432,7 +432,7 @@ describe('official Electron profile runtime', () => {
     // pnpm ran. A leftover market-self-update code tells a client the button
     // cannot work, and the old hint reintroduces the #944 age bypass.
     const dir = profile()
-    installed(dir, 'dsh-shelfry', '1.66.36')
+    installed(dir, 'dsh-crate', '1.66.36')
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(
@@ -440,7 +440,7 @@ describe('official Electron profile runtime', () => {
       hostPnpmThatAdds(dir, 'process.stderr.write("opaque pnpm failure"); process.exit(1)'),
     )
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).not.toBe(0)
       expect(result.refusalCode).not.toBe('market-self-update')
       expect(result.stderr).not.toContain('minimum-release-age=0')
@@ -453,7 +453,7 @@ describe('official Electron profile runtime', () => {
 
   it('names the pnpm that built node_modules when the overlay hits a store mismatch (#1100)', async () => {
     const dir = profile()
-    installed(dir, 'dsh-shelfry', '1.66.36')
+    installed(dir, 'dsh-crate', '1.66.36')
     writeFileSync(join(dir, 'node_modules', '.modules.yaml'), JSON.stringify({ packageManager: 'pnpm@10.34.9', storeDir: '/s/v10' }))
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
@@ -463,7 +463,7 @@ describe('official Electron profile runtime', () => {
       hostPnpmThatAdds(dir, `process.stderr.write(${JSON.stringify(output)}); process.exit(1)`),
     )
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@1.66.48'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@1.66.48'])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr).toContain('pnpm 10.34.9')
       expect(result.stderr).toContain('写 storeDir 修不好')
@@ -472,7 +472,7 @@ describe('official Electron profile runtime', () => {
     }
   })
 
-  it.each(['dsh-shelfry@1.66.36', 'dsh-shelfry@1.66.36'])('never removes the market itself to update it (%s, #900)', async spec => {
+  it.each(['dsh-crate@1.66.36', 'dsh-crate@1.66.36'])('never removes the market itself to update it (%s, #900)', async spec => {
     // The manager's removal unloads the bundle from the running composition
     // BEFORE pnpm runs. For the market that is the code performing the update,
     // so the reinstall never happens and the profile is left half-removed.
@@ -500,13 +500,13 @@ describe('official Electron profile runtime', () => {
   })
 
   it('says what the recommended bypass costs, and how to undo it (#944, #942)', async () => {
-    // The hint tells the user to run `pnpm add dsh-shelfry@<v> --config.minimum-release-age=0`.
+    // The hint tells the user to run `pnpm add dsh-crate@<v> --config.minimum-release-age=0`.
     // It works — and it leaves the version in the lockfile while it is still
     // inside the wait, so pnpm then refuses EVERY later plugin install/update
     // (#944). The hint named no cost and no remedy, so the user who followed it
     // was left with a profile where nothing could be installed (#942 is the
     // same sentence, reported from the other end).
-    const spec = 'dsh-shelfry@1.66.44'
+    const spec = 'dsh-crate@1.66.44'
     const service = manager()
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(() => service, 'desktop', profile())
@@ -544,7 +544,7 @@ describe('official Electron profile runtime', () => {
     service.installBundle.mockResolvedValueOnce({ application: 'failed', error: { code: 'already-installed' } })
     const runtime = createOfficialDesktopRuntime(() => service, 'desktop', profile())
     try {
-      const result = await runtime.runPlugin('desktop', ['add', 'dsh-shelfry@beta'])
+      const result = await runtime.runPlugin('desktop', ['add', 'dsh-crate@beta'])
       expect(result.stderr).toMatch(/\*\*所有插件\*\*|\*\*every\*\*/)
       expect(result.stderr).not.toMatch(/\|\| beta/)
       expect(result.stderr).not.toMatch(/引号里面|inside the quotes/)

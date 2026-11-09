@@ -1,5 +1,5 @@
 /**
- * dsh-shelfry client: registers a "Market" settings section rendering the
+ * dsh-crate client: registers a "Market" settings section rendering the
  * plugin market UI, plus the post-install toast in the shell overlay layer.
  * Built by tsdown into the __ModuleLoader__ factory bundle at
  * client/client.js; the only externals are the loader module table's react
@@ -27,7 +27,7 @@ import { MarketLogo } from './MarketSection.tsx'
 import css from './Market.module.css'
 import type { ThemeSnapshot, Translate } from './market-data.ts'
 
-const NS = 'dsh-shelfry'
+const NS = 'dsh-crate'
 
 /**
  * Primitives this bundle relies on that did not exist before rc.6. The
@@ -63,11 +63,11 @@ interface SettingsScopeHost {
  * The package name the host keys a bundle's own configuration by.
  *
  * `plugins.bundle.config` on dsh 0.1.7+ is keyed by the BUNDLE's package
- * name. The market's is `dsh-shelfry` — the name `dsh plugin add dsh-shelfry`
+ * name. The market's is `dsh-crate` — the name `dsh plugin add dsh-crate`
  * installs and the one its own `package.json` declares — which is not the
- * same string as the locale namespace (`dsh-shelfry`) this file uses for copy.
+ * same string as the locale namespace (`dsh-crate`) this file uses for copy.
  */
-const MARKET_PACKAGE_NAME = 'dsh-shelfry'
+const MARKET_PACKAGE_NAME = 'dsh-crate'
 
 /**
  * The detail-page subject as this file reads it: `pkg` is present on bundle
@@ -115,7 +115,7 @@ interface MarketClientContext {
   theme: ThemeService
 }
 
-export const name = 'dsh-shelfry'
+export const name = 'dsh-crate'
 // 'theme' is safe to require: ui-layout (mandatory in every web composition)
 // already hard-depends on it. This cordis's object-form inject means
 // intercept config, NOT {required,optional} — do not use it here.
@@ -131,12 +131,12 @@ export function apply(ctx: MarketClientContext): void {
   const mod = primitives as unknown as Record<string, unknown>
   const gaps = missingPrimitives(mod)
   if (gaps.length > 0) {
-    console.warn('[dsh-shelfry] host ui-primitives missing ' + gaps.join(', ') + ' — market section disabled (dsh web >= 0.1.0-rc.6 required)')
+    console.warn('[dsh-crate] host ui-primitives missing ' + gaps.join(', ') + ' — market section disabled (dsh web >= 0.1.0-rc.6 required)')
     return
   }
   const iconGaps = missingIcons(mod)
   if (iconGaps.length > 0) {
-    console.warn('[dsh-shelfry] host ui-primitives missing icons ' + iconGaps.join(', ') + ' — rendering without them')
+    console.warn('[dsh-crate] host ui-primitives missing icons ' + iconGaps.join(', ') + ' — rendering without them')
   }
 
   // Everything below hands registrations to the host, and a throw in there is
@@ -153,8 +153,8 @@ export function apply(ctx: MarketClientContext): void {
     mountMarket(ctx)
   } catch (error) {
     console.error(
-      '[dsh-shelfry] mounting failed, so the market is missing for this session. '
-      + 'The rest of the app is unaffected. Report at https://github.com/shelfry/dsh-shelfry/issues '
+      '[dsh-crate] mounting failed, so the market is missing for this session. '
+      + 'The rest of the app is unaffected. Report at https://github.com/crate/dsh-crate/issues '
       + 'with this line and the stack below:',
       error,
     )
@@ -166,7 +166,7 @@ export function apply(ctx: MarketClientContext): void {
  * of them. Not exported: the split is a guard, not a surface.
  */
 function mountMarket(ctx: MarketClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja }), 'dsh-shelfry: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja }), 'dsh-crate: dictionaries')
   const t = ctx.locale.bind(NS)
 
   // The section's nav glyph. Before dsh 0.2.2 the shell picked icons from its
@@ -492,7 +492,7 @@ function mountMarket(ctx: MarketClientContext): void {
   }
   detailSectionCtx.slots.inject('plugins.detail.section', () => detailSectionCtx.slots.register({
     name: 'plugins.detail.section',
-    id: 'dsh-shelfry-source',
+    id: 'dsh-crate-source',
     order: 90,
     locale: NS,
     inject: () => ({ t }),
@@ -504,7 +504,7 @@ function mountMarket(ctx: MarketClientContext): void {
   const Toast = () => h(InstallToast, { t })
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay',
-    id: 'dsh-shelfry-toast',
-    label: () => 'dsh-shelfry',
+    id: 'dsh-crate-toast',
+    label: () => 'dsh-crate',
   }, Toast))
 }

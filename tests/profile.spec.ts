@@ -91,12 +91,12 @@ describe('readInstalled', () => {
       '@deepseek-ai/dsh-headless': 'latest',
       // Community plugin published under the official scope (github source).
       '@deepseek-ai/dsh-security-audit': 'github:omdsh-dev/dsh-security-audit',
-      'dsh-shelfry': '^1.2.3',
+      'dsh-crate': '^1.2.3',
     } })
     expect(readInstalled('web')).toEqual({
       'dsh-loop': '^1.0.0',
       '@deepseek-ai/dsh-security-audit': 'github:omdsh-dev/dsh-security-audit',
-      'dsh-shelfry': '^1.2.3',
+      'dsh-crate': '^1.2.3',
     })
   })
 })
@@ -107,12 +107,12 @@ describe('dropFromManifest (half-uninstall reconcile)', () => {
       name: 'web',
       private: true,
       dependencies: { 'dsh-loop': '^1.0.0', other: '^2.0.0' },
-      dsh: { profile: { bundles: ['dsh-shelfry', 'dsh-loop'] } },
+      dsh: { profile: { bundles: ['dsh-crate', 'dsh-loop'] } },
     })
     expect(dropFromManifest('web', 'dsh-loop')).toBe(true)
     const manifest = JSON.parse(readFileSync(join(profileDir('web'), 'package.json'), 'utf8'))
     expect(manifest.dependencies).toEqual({ other: '^2.0.0' })
-    expect(manifest.dsh.profile.bundles).toEqual(['dsh-shelfry'])
+    expect(manifest.dsh.profile.bundles).toEqual(['dsh-crate'])
     expect(manifest.name).toBe('web')
     expect(manifest.private).toBe(true)
   })
@@ -1610,9 +1610,9 @@ describe('removeProfileBundle / addProfileBundle', () => {
   }
 
   it('drops a carrier bundle from dsh.profile.bundles, keeping the rest (#224)', () => {
-    const dir = writeProfile({ dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-postgres-backends', 'dsh-shelfry'] } } })
+    const dir = writeProfile({ dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-postgres-backends', 'dsh-crate'] } } })
     expect(removeProfileBundle(dir, 'dsh-postgres-backends')).toBe(true)
-    expect(readBundles(dir)).toEqual(['@deepseek-ai/dsh-base', 'dsh-shelfry'])
+    expect(readBundles(dir)).toEqual(['@deepseek-ai/dsh-base', 'dsh-crate'])
   })
 
   it('returns false and leaves the manifest byte-for-byte untouched when the bundle is absent', () => {
@@ -1632,8 +1632,8 @@ describe('removeProfileBundle / addProfileBundle', () => {
   it('preserves unrelated manifest fields across a removal', () => {
     const dir = writeProfile({
       name: 'dsh-profile-web',
-      dependencies: { 'dsh-shelfry': '^1.0.0' },
-      dsh: { profile: { bundles: ['dsh-shelfry', 'dsh-postgres-backends'] } },
+      dependencies: { 'dsh-crate': '^1.0.0' },
+      dsh: { profile: { bundles: ['dsh-crate', 'dsh-postgres-backends'] } },
     })
     expect(removeProfileBundle(dir, 'dsh-postgres-backends')).toBe(true)
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
@@ -1642,8 +1642,8 @@ describe('removeProfileBundle / addProfileBundle', () => {
       dsh: { profile: { bundles: string[] } }
     }
     expect(manifest.name).toBe('dsh-profile-web')
-    expect(manifest.dependencies).toEqual({ 'dsh-shelfry': '^1.0.0' })
-    expect(manifest.dsh.profile.bundles).toEqual(['dsh-shelfry'])
+    expect(manifest.dependencies).toEqual({ 'dsh-crate': '^1.0.0' })
+    expect(manifest.dsh.profile.bundles).toEqual(['dsh-crate'])
   })
 })
 
@@ -1665,7 +1665,7 @@ describe('dropReleaseAgeExcludes (#1093)', () => {
       '  # pinned while testing the beta',
       "  - 'typescript@7.1.0-dev.20261103.1'",
       "  - '@typescript/typescript-darwin-arm64@7.1.0-dev.20261103.1'",
-      '  - dsh-shelfry@1.73.8',
+      '  - dsh-crate@1.73.8',
       'allowBuilds:',
       '  esbuild: true',
       '',
@@ -1680,7 +1680,7 @@ describe('dropReleaseAgeExcludes (#1093)', () => {
       // A platform subpackage is a DIFFERENT package name; nothing in the file
       // says it belongs to `typescript`, so guessing would drop live policy.
       "  - '@typescript/typescript-darwin-arm64@7.1.0-dev.20261103.1'",
-      '  - dsh-shelfry@1.73.8',
+      '  - dsh-crate@1.73.8',
       'allowBuilds:',
       '  esbuild: true',
       '',
@@ -1711,7 +1711,7 @@ describe('dropReleaseAgeExcludes (#1093)', () => {
   })
 
   it('leaves the file byte-for-byte alone when the package has no row', () => {
-    const original = ['packages:', '  - .', 'minimumReleaseAgeExclude:', '  - dsh-shelfry@1.73.8', ''].join('\n')
+    const original = ['packages:', '  - .', 'minimumReleaseAgeExclude:', '  - dsh-crate@1.73.8', ''].join('\n')
     const dir = workspace(original)
 
     expect(dropReleaseAgeExcludes('web', 'typescript')).toEqual([])
@@ -1753,20 +1753,20 @@ describe('mergeDuplicateReleaseAgeExcludes (#732)', () => {
       'minimumReleaseAgeExclude:',
       "  - '@scope/a@1.0.0 || 1.0.1 ||",
       "    1.0.2'",
-      '  - dsh-shelfry@1.66.14',
-      '  - dsh-shelfry@1.66.15',
+      '  - dsh-crate@1.66.14',
+      '  - dsh-crate@1.66.15',
       'allowBuilds:',
       '  esbuild: true',
       '',
     ].join(eol))
-    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-shelfry'])
+    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-crate'])
     expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe([
       'packages:',
       '  - .',
       'minimumReleaseAgeExclude:',
       "  - '@scope/a@1.0.0 || 1.0.1 ||",
       "    1.0.2'",
-      '  - dsh-shelfry@1.66.14 || 1.66.15',
+      '  - dsh-crate@1.66.14 || 1.66.15',
       'allowBuilds:',
       '  esbuild: true',
       '',
@@ -1927,17 +1927,17 @@ describe('mergeDuplicateReleaseAgeExcludes (#732)', () => {
       'packages:',
       '  - .',
       'minimumReleaseAgeExclude:',
-      '  - dsh-shelfry@1.38.1 || 1.47.0 || 1.65.1',
+      '  - dsh-crate@1.38.1 || 1.47.0 || 1.65.1',
       '  - other@1.0.0',
-      '  - dsh-shelfry@1.65.4',
+      '  - dsh-crate@1.65.4',
       '',
     ].join('\n'))
-    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-shelfry'])
+    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-crate'])
     expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe([
       'packages:',
       '  - .',
       'minimumReleaseAgeExclude:',
-      '  - dsh-shelfry@1.38.1 || 1.47.0 || 1.65.1 || 1.65.4',
+      '  - dsh-crate@1.38.1 || 1.47.0 || 1.65.1 || 1.65.4',
       '  - other@1.0.0',
       '',
     ].join('\n'))
@@ -2003,20 +2003,20 @@ describe('mergeDuplicateReleaseAgeExcludes (#732)', () => {
       '  - billion-context@0.1.187 || 0.1.188',
       '  # 注意：同一个包名只能出现一条 —— pnpm 11.7.0 只认每个包名的第一条匹配项，',
       '  # 必须合并成一条用 ` || ` 连接（2026-10-09 修复）。',
-      '  - dsh-shelfry@1.66.12 || 1.66.14',
+      '  - dsh-crate@1.66.12 || 1.66.14',
       '  - dsh-think-translate@1.2.7',
-      '  - dsh-shelfry@1.66.15',
+      '  - dsh-crate@1.66.15',
       'allowBuilds:',
       '  esbuild: true',
       '',
     ].join('\n'))
-    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-shelfry'])
+    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-crate'])
     expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe([
       'minimumReleaseAgeExclude:',
       '  - billion-context@0.1.187 || 0.1.188',
       '  # 注意：同一个包名只能出现一条 —— pnpm 11.7.0 只认每个包名的第一条匹配项，',
       '  # 必须合并成一条用 ` || ` 连接（2026-10-09 修复）。',
-      '  - dsh-shelfry@1.66.12 || 1.66.14 || 1.66.15',
+      '  - dsh-crate@1.66.12 || 1.66.14 || 1.66.15',
       '  - dsh-think-translate@1.2.7',
       'allowBuilds:',
       '  esbuild: true',
@@ -2028,16 +2028,16 @@ describe('mergeDuplicateReleaseAgeExcludes (#732)', () => {
     const dir = workspace([
       'minimumReleaseAgeExclude:',
       '# exempted by hand',
-      '  - dsh-shelfry@1.66.12 || 1.66.14  # 保留',
+      '  - dsh-crate@1.66.12 || 1.66.14  # 保留',
       '  - other@1.0.0',
-      '  - dsh-shelfry@1.66.15 # host added this',
+      '  - dsh-crate@1.66.15 # host added this',
       '',
     ].join('\n'))
-    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-shelfry'])
+    expect(mergeDuplicateReleaseAgeExcludes('web')).toEqual(['dsh-crate'])
     expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe([
       'minimumReleaseAgeExclude:',
       '# exempted by hand',
-      '  - dsh-shelfry@1.66.12 || 1.66.14 || 1.66.15 # 保留',
+      '  - dsh-crate@1.66.12 || 1.66.14 || 1.66.15 # 保留',
       '  - other@1.0.0',
       '  # host added this',
       '',
@@ -2084,8 +2084,8 @@ describe('mergeDuplicateReleaseAgeExcludes (#732)', () => {
       'minimumReleaseAgeExclude:',
       "  - '@scope/thing@1.0.0 || 1.0.1 || 1.0.",
       "    2 || 1.0.3'",
-      '  - dsh-shelfry@1.66.14',
-      '  - dsh-shelfry@1.66.12 || 1.66.14',
+      '  - dsh-crate@1.66.14',
+      '  - dsh-crate@1.66.12 || 1.66.14',
       '',
     ].join('\n')
     const dir = workspace(original)
@@ -2099,10 +2099,10 @@ describe('mergeDuplicateReleaseAgeExcludes (#732)', () => {
     // while leaving the entry it misread untouched — worse than not acting.
     const original = [
       'minimumReleaseAgeExclude:',
-      '  - dsh-shelfry@1.66.14',
+      '  - dsh-crate@1.66.14',
       "  - '@scope/thing@1.0.0 || 1.0.",
       "    1 || 1.0.2'",
-      '  - dsh-shelfry@1.66.12',
+      '  - dsh-crate@1.66.12',
       'allowBuilds:',
       '  esbuild: true',
       '',
@@ -2129,35 +2129,35 @@ describe('bundlesDroppedFromProfile (#720)', () => {
   })
 
   it('names a package that is still a dependency but left the bundle list', () => {
-    writeProfile(manifest(['@deepseek-ai/dsh-base', 'dsh-shelfry', 'dsh-better-sidebar'], { 'dsh-shelfry': '^1', 'dsh-better-sidebar': '^0.21.1' }))
+    writeProfile(manifest(['@deepseek-ai/dsh-base', 'dsh-crate', 'dsh-better-sidebar'], { 'dsh-crate': '^1', 'dsh-better-sidebar': '^0.21.1' }))
     const before = readProfileManifestSnapshot('web')
-    writeProfile(manifest(['@deepseek-ai/dsh-base', 'dsh-shelfry'], { 'dsh-shelfry': '^1', 'dsh-better-sidebar': '^0.21.1' }))
+    writeProfile(manifest(['@deepseek-ai/dsh-base', 'dsh-crate'], { 'dsh-crate': '^1', 'dsh-better-sidebar': '^0.21.1' }))
     expect(bundlesDroppedFromProfile(before, 'web', undefined)).toEqual(['dsh-better-sidebar'])
   })
 
   it('does not name a package that was uninstalled — gone from both is what an uninstall is', () => {
-    writeProfile(manifest(['dsh-shelfry', 'dsh-gone'], { 'dsh-shelfry': '^1', 'dsh-gone': '^1' }))
+    writeProfile(manifest(['dsh-crate', 'dsh-gone'], { 'dsh-crate': '^1', 'dsh-gone': '^1' }))
     const before = readProfileManifestSnapshot('web')
-    writeProfile(manifest(['dsh-shelfry'], { 'dsh-shelfry': '^1' }))
+    writeProfile(manifest(['dsh-crate'], { 'dsh-crate': '^1' }))
     expect(bundlesDroppedFromProfile(before, 'web', undefined)).toEqual([])
   })
 
   it('does not name the package the operation itself was about', () => {
-    writeProfile(manifest(['dsh-shelfry', 'dsh-target'], { 'dsh-shelfry': '^1', 'dsh-target': '^1' }))
+    writeProfile(manifest(['dsh-crate', 'dsh-target'], { 'dsh-crate': '^1', 'dsh-target': '^1' }))
     const before = readProfileManifestSnapshot('web')
-    writeProfile(manifest(['dsh-shelfry'], { 'dsh-shelfry': '^1', 'dsh-target': '^1' }))
+    writeProfile(manifest(['dsh-crate'], { 'dsh-crate': '^1', 'dsh-target': '^1' }))
     expect(bundlesDroppedFromProfile(before, 'web', undefined, new Set(['dsh-target']))).toEqual([])
   })
 
   it('says nothing when the list is unchanged, grew, or the profile had none', () => {
-    writeProfile(manifest(['dsh-shelfry'], { 'dsh-shelfry': '^1', 'dsh-new': '^1' }))
+    writeProfile(manifest(['dsh-crate'], { 'dsh-crate': '^1', 'dsh-new': '^1' }))
     const before = readProfileManifestSnapshot('web')
-    writeProfile(manifest(['dsh-shelfry', 'dsh-new'], { 'dsh-shelfry': '^1', 'dsh-new': '^1' }))
+    writeProfile(manifest(['dsh-crate', 'dsh-new'], { 'dsh-crate': '^1', 'dsh-new': '^1' }))
     expect(bundlesDroppedFromProfile(before, 'web', undefined)).toEqual([])
 
-    writeProfile(manifest(undefined, { 'dsh-shelfry': '^1' }))
+    writeProfile(manifest(undefined, { 'dsh-crate': '^1' }))
     const without = readProfileManifestSnapshot('web')
-    writeProfile(manifest(['dsh-shelfry'], { 'dsh-shelfry': '^1' }))
+    writeProfile(manifest(['dsh-crate'], { 'dsh-crate': '^1' }))
     expect(bundlesDroppedFromProfile(without, 'web', undefined)).toEqual([])
   })
 
@@ -2165,11 +2165,11 @@ describe('bundlesDroppedFromProfile (#720)', () => {
     // The bundle list is also how the official plugin page switches a package
     // off (#696). Restoring "what was there before" would undo a deliberate
     // removal, so this only names the change.
-    writeProfile(manifest(['dsh-shelfry', 'dsh-off'], { 'dsh-shelfry': '^1', 'dsh-off': '^1' }))
+    writeProfile(manifest(['dsh-crate', 'dsh-off'], { 'dsh-crate': '^1', 'dsh-off': '^1' }))
     const before = readProfileManifestSnapshot('web')
-    const dir = writeProfile(manifest(['dsh-shelfry'], { 'dsh-shelfry': '^1', 'dsh-off': '^1' }))
+    const dir = writeProfile(manifest(['dsh-crate'], { 'dsh-crate': '^1', 'dsh-off': '^1' }))
     bundlesDroppedFromProfile(before, 'web', undefined)
-    expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).dsh.profile.bundles).toEqual(['dsh-shelfry'])
+    expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).dsh.profile.bundles).toEqual(['dsh-crate'])
   })
 })
 

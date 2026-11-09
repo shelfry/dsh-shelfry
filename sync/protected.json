@@ -3,7 +3,7 @@
   "note": "上游同步时，本清单内的文件禁止整文件覆盖；只允许人工逐块合并。",
   "files": [
     { "path": "src/regions.ts", "why": "官方目录地址 CATALOG_OFFICIAL", "merge": "manual" },
-    { "path": "src/settings.ts", "why": "设置命名空间 dsh-shelfry", "merge": "manual" },
+    { "path": "src/settings.ts", "why": "设置命名空间 dsh-crate", "merge": "manual" },
     { "path": "src/index.ts", "why": "插件入口身份 name", "merge": "manual" },
     { "path": "src/presets.ts", "why": "自识别集合 MARKET_SELF_NAMES", "merge": "manual" },
     { "path": "src/official-desktop.ts", "why": "自识别集合 SELF_NAMES", "merge": "manual" },

@@ -1,11 +1,11 @@
 MIT License
 
 Copyright (c) 2026 fkysly and dsh-market contributors
-Copyright (c) 2026 dsh-shelfry contributors
+Copyright (c) 2026 dsh-crate contributors
 
 This project is a modified derivative of dsh-market
 (https://github.com/dsh-market/dsh-market), with its catalog source
-replaced by shelfry. The original MIT notice above is retained as the
+replaced by dshcrate. The original MIT notice above is retained as the
 license requires.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

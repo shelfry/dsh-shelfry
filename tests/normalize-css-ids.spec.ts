@@ -42,9 +42,9 @@ describe('CSS virtual id normalization', () => {
   })
 
   it('still strips the absolute prefixes it was written for', () => {
-    expect(normalizeCssIds(id('/home/runner/work/dsh-shelfry/dsh-shelfry/src/client/Market.module.css.mjs'))).toBe(CANONICAL)
-    expect(normalizeCssIds(id('C:/Users/x/dsh-shelfry/src/client/Market.module.css.mjs'))).toBe(CANONICAL)
-    expect(normalizeCssIds(id('C:\\Users\\x\\dsh-shelfry\\src\\client\\Market.module.css.mjs'))).toBe(CANONICAL)
+    expect(normalizeCssIds(id('/home/runner/work/dsh-crate/dsh-crate/src/client/Market.module.css.mjs'))).toBe(CANONICAL)
+    expect(normalizeCssIds(id('C:/Users/x/dsh-crate/src/client/Market.module.css.mjs'))).toBe(CANONICAL)
+    expect(normalizeCssIds(id('C:\\Users\\x\\dsh-crate\\src\\client\\Market.module.css.mjs'))).toBe(CANONICAL)
   })
 
   it('leaves an already-canonical id exactly as it is', () => {

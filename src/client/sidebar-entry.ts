@@ -23,7 +23,7 @@ import { api } from './market-data.ts'
 import type { SectionGate } from './section-gate.ts'
 
 /** The `main` key and `sidebar.panellist` id this package registers. */
-export const SIDEBAR_PANEL_ID = 'dsh-shelfry'
+export const SIDEBAR_PANEL_ID = 'dsh-crate'
 
 /**
  * Directly below the host's Plugins row (order 0) and above Scheduled tasks
@@ -139,7 +139,7 @@ export function createSidebarEntry({ gate, fetch, hasOtherSeat }: Deps): Sidebar
     load: async () => {
       const at = epoch
       try {
-        const response = await fetch(api('/dsh-shelfry/sidebar-entry'), { cache: 'no-store' })
+        const response = await fetch(api('/dsh-crate/sidebar-entry'), { cache: 'no-store' })
         if (response.ok) {
           const body = (await response.json()) as { enabled?: unknown; chosen?: unknown }
           // A POST that finished while we were in flight already owns the row.
@@ -158,7 +158,7 @@ export function createSidebarEntry({ gate, fetch, hasOtherSeat }: Deps): Sidebar
     },
     set: async (next) => {
       const at = ++epoch
-      const response = await fetch(api('/dsh-shelfry/sidebar-entry'), {
+      const response = await fetch(api('/dsh-crate/sidebar-entry'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ enabled: next }),

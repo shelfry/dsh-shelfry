@@ -38,7 +38,7 @@ export function isDshProfileName(profile: string): boolean {
  */
 export function profileDir(profile: string, explicitDir?: string): string {
   if (explicitDir !== undefined) return explicitDir
-  if (!isDshProfileName(profile)) throw new Error(`dsh-shelfry: invalid profile name ${JSON.stringify(profile)}`)
+  if (!isDshProfileName(profile)) throw new Error(`dsh-crate: invalid profile name ${JSON.stringify(profile)}`)
   return join(resolveDshHome(), 'profiles', profile)
 }
 

@@ -4,7 +4,7 @@
  * composition-critical files are captured as a timestamped snapshot; a failed
  * or unwanted change can be rolled back in one step.
  *
- * A snapshot is a single JSON document under `<profile>/.dsh-shelfry/
+ * A snapshot is a single JSON document under `<profile>/.dsh-crate/
  * snapshots/<timestamp>-<seq>.json` describing the files that define the
  * profile's composition: package.json (dependency + bundle list),
  * cordis.patch.yml (the user patch layer) and state.json (market disable
@@ -21,9 +21,11 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { logEvent } from './log.ts'
+import { stateDir } from './state.ts'
 
-const SNAPSHOT_DIR = join('.dsh-shelfry', 'snapshots')
-const SNAPSHOT_FORMAT = 'dsh-shelfry/profile-snapshot'
+const SNAPSHOT_FORMAT = 'dsh-crate/profile-snapshot'
+/** 0.4.x 写下的快照格式标识，只用于读取旧快照。 */
+const LEGACY_SNAPSHOT_FORMAT = 'dsh-shelfry/profile-snapshot'
 const SNAPSHOT_VERSION = 2
 
 /**
@@ -39,7 +41,7 @@ function validSnapshotId(id: string): boolean {
 }
 
 /** The files a snapshot captures, relative to the profile directory. */
-const SNAPSHOT_FILES = ['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'] as const
+const SNAPSHOT_FILES = ['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'] as const
 
 interface SnapshotFile {
   path: string
@@ -104,7 +106,8 @@ function validateSnapshotDocument(value: unknown): SnapshotValidation {
   // paths remain no-ops: older capture also omitted unreadable/invalid files,
   // so absence cannot be inferred safely after the fact.
   const legacy = !hasOwn(snap, 'format') && !hasOwn(snap, 'version')
-  if (!legacy && (snap.format !== SNAPSHOT_FORMAT || snap.version !== SNAPSHOT_VERSION)) {
+  const legacyFormat = snap.format === LEGACY_SNAPSHOT_FORMAT
+  if (!legacy && !legacyFormat && (snap.format !== SNAPSHOT_FORMAT || snap.version !== SNAPSHOT_VERSION)) {
     return { ok: false, error: 'unsupported snapshot format or version / 不支持的快照格式或版本' }
   }
 
@@ -114,13 +117,16 @@ function validateSnapshotDocument(value: unknown): SnapshotValidation {
       return { ok: false, error: 'corrupt snapshot file entry / 快照文件条目损坏' }
     }
     const entry = file as { path?: unknown; json?: unknown; lines?: unknown; absent?: unknown }
-    if (typeof entry.path !== 'string'
-      || !(SNAPSHOT_FILES as readonly string[]).includes(entry.path)
-      || entry.path.includes('..')) {
-      return { ok: false, error: `unsafe snapshot path: ${String(entry.path)} / 快照路径不安全` }
+    const rawPath = entry.path
+    // 0.4.x 的快照把状态文件记在旧目录名下，读取时映射到新目录。
+    const path = rawPath === '.dsh-shelfry/state.json' ? '.dsh-crate/state.json' : rawPath
+    if (typeof path !== 'string'
+      || !(SNAPSHOT_FILES as readonly string[]).includes(path)
+      || path.includes('..')) {
+      return { ok: false, error: `unsafe snapshot path: ${String(rawPath)} / 快照路径不安全` }
     }
-    if (byPath.has(entry.path)) {
-      return { ok: false, error: `duplicate snapshot path: ${entry.path} / 快照路径重复` }
+    if (byPath.has(path)) {
+      return { ok: false, error: `duplicate snapshot path: ${path} / 快照路径重复` }
     }
     const hasJson = hasOwn(entry, 'json')
     const hasLines = hasOwn(entry, 'lines')
@@ -131,16 +137,16 @@ function validateSnapshotDocument(value: unknown): SnapshotValidation {
     if (hasLines && (!Array.isArray(entry.lines) || !entry.lines.every(line => typeof line === 'string'))) {
       return { ok: false, error: `snapshot file ${entry.path} has invalid lines / 快照文件行无效` }
     }
-    if (hasAbsent && (legacy || entry.absent !== true || entry.path === 'package.json')) {
-      return { ok: false, error: `snapshot file ${entry.path} has invalid absence marker / 快照文件缺失标记无效` }
+    if (hasAbsent && (legacy || entry.absent !== true || path === 'package.json')) {
+      return { ok: false, error: `snapshot file ${rawPath} has invalid absence marker / 快照文件缺失标记无效` }
     }
-    if ((entry.path === 'package.json' || entry.path === '.dsh-shelfry/state.json') && !hasJson && !hasAbsent) {
-      return { ok: false, error: `snapshot file ${entry.path} has the wrong representation / 快照文件表示类型错误` }
+    if ((path === 'package.json' || path === '.dsh-crate/state.json') && !hasJson && !hasAbsent) {
+      return { ok: false, error: `snapshot file ${rawPath} has the wrong representation / 快照文件表示类型错误` }
     }
-    if (entry.path === 'cordis.patch.yml' && !hasLines && !hasAbsent) {
-      return { ok: false, error: `snapshot file ${entry.path} has the wrong representation / 快照文件表示类型错误` }
+    if (path === 'cordis.patch.yml' && !hasLines && !hasAbsent) {
+      return { ok: false, error: `snapshot file ${rawPath} has the wrong representation / 快照文件表示类型错误` }
     }
-    byPath.set(entry.path, entry as SnapshotFile)
+    byPath.set(path, { ...(entry as object), path } as SnapshotFile)
   }
 
   if (!legacy && SNAPSHOT_FILES.some(path => !byPath.has(path))) {
@@ -202,7 +208,7 @@ function isTrulyAbsent(path: string, readError: unknown): boolean {
 
 /** Absolute snapshot directory for a profile. */
 function snapshotDir(profileDir: string): string {
-  return join(profileDir, SNAPSHOT_DIR)
+  return join(stateDir(profileDir), 'snapshots')
 }
 
 function snapshotFile(profileDir: string, id: string): string {
@@ -365,7 +371,7 @@ export function createProfileSnapshot(profileDir: string, maxSnapshots: number =
       }
       continue
     }
-    if (path === '.dsh-shelfry/state.json') {
+    if (path === '.dsh-crate/state.json') {
       try {
         files.push({ path, json: JSON.parse(text) })
       } catch {

@@ -80,8 +80,8 @@ describe('cleanOrphanedIgnored (#974)', () => {
     // numbered `foo_1` rename all belong there; a `.bak` leftover does not.
     const profile = join(root, 'profile')
     const ignored = join(profile, 'node_modules', '.ignored')
-    mkdirSync(join(ignored, 'dsh-shelfry_tmp_21960_12'), { recursive: true })
-    writeFileSync(join(ignored, 'dsh-shelfry_tmp_21960_12', 'package.json'), '{}')
+    mkdirSync(join(ignored, 'dsh-crate_tmp_21960_12'), { recursive: true })
+    writeFileSync(join(ignored, 'dsh-crate_tmp_21960_12', 'package.json'), '{}')
     mkdirSync(join(ignored, '@jimp', 'png'), { recursive: true })
     writeFileSync(join(ignored, '@jimp', 'png', 'package.json'), '{}')
     mkdirSync(join(ignored, 'dsh-mnemon-source-skills_1'), { recursive: true })
@@ -93,10 +93,10 @@ describe('cleanOrphanedIgnored (#974)', () => {
 
     expect(cleanOrphanedIgnored(profile).sort()).toEqual([
       '@jimp/png',
+      'dsh-crate_tmp_21960_12',
       'dsh-mnemon-source-skills_1',
-      'dsh-shelfry_tmp_21960_12',
     ])
-    expect(existsSync(join(ignored, 'dsh-shelfry_tmp_21960_12'))).toBe(false)
+    expect(existsSync(join(ignored, 'dsh-crate_tmp_21960_12'))).toBe(false)
     expect(existsSync(join(ignored, '@jimp'))).toBe(false)
     expect(existsSync(join(ignored, 'dsh-mnemon-source-skills_1'))).toBe(false)
     expect(existsSync(join(ignored, 'dsh-workbuddy-connect.bak-20261017T153851'))).toBe(true)

@@ -231,10 +231,10 @@ describe('checkUpdates — fresh-release wait (#945)', () => {
     // release restarted the age window on `/latest` and the row never offered
     // a version that was already mature. On the stable channel the resolved
     // target IS `latest`, so the fallback applies here like anywhere else.
-    const dir = npmProfile(1440, 'dsh-shelfry')
+    const dir = npmProfile(1440, 'dsh-crate')
     const now = Date.now()
     vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
-      if (String(url).endsWith('/dsh-shelfry/latest')) return new Response(JSON.stringify({ version: '1.2.0' }))
+      if (String(url).endsWith('/dsh-crate/latest')) return new Response(JSON.stringify({ version: '1.2.0' }))
       return new Response(JSON.stringify({
         'dist-tags': { latest: '1.2.0' }, versions: { '1.0.0': {}, '1.1.0': {}, '1.2.0': {} },
         time: {
@@ -246,10 +246,10 @@ describe('checkUpdates — fresh-release wait (#945)', () => {
         },
       }))
     }))
-    const channelFor = new Map([['dsh-shelfry', 'stable' as const]])
+    const channelFor = new Map([['dsh-crate', 'stable' as const]])
     const result = await checkUpdates('web', true, dir, channelFor, new Map(), new Map(), { holdYoungReleases: true })
     // Before the fix: `updateAvailable: false`, no candidate, held on 1.2.0.
-    expect(result['dsh-shelfry']).toMatchObject({
+    expect(result['dsh-crate']).toMatchObject({
       latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true, heldUpdate: { latest: '1.2.0' },
     })
   })
@@ -930,7 +930,7 @@ describe('preferBeta (release channel)', () => {
       vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(
         JSON.stringify(beta === null ? {} : { version: beta }), { status: 200 },
       ))))
-      return versionOnChannel('dsh-shelfry', 'beta', '1.14.0')
+      return versionOnChannel('dsh-crate', 'beta', '1.14.0')
     }
     await expect(answer('1.15.0-beta.1')).resolves.toBe('1.15.0-beta.1') // ahead → take it
     await expect(answer('1.14.0-beta.1')).resolves.toBe('1.14.0')        // behind → keep stable
@@ -942,9 +942,9 @@ describe('preferBeta (release channel)', () => {
     // error worth failing the whole update check over.
     const { versionOnChannel } = await import('../src/updates.ts')
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('HTTP 404'))))
-    await expect(versionOnChannel('dsh-shelfry', 'beta', '1.14.0')).resolves.toBe('1.14.0')
+    await expect(versionOnChannel('dsh-crate', 'beta', '1.14.0')).resolves.toBe('1.14.0')
     // ...and with nothing on either side it stays honest about knowing nothing.
-    await expect(versionOnChannel('dsh-shelfry', 'beta', null)).resolves.toBeNull()
+    await expect(versionOnChannel('dsh-crate', 'beta', null)).resolves.toBeNull()
   })
 
   it('the stable channel is exactly latest, which is what makes it leavable', async () => {
@@ -956,7 +956,7 @@ describe('preferBeta (release channel)', () => {
     const { versionOnChannel } = await import('../src/updates.ts')
     const fetchSpy = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ version: '9.9.9-beta.1' }), { status: 200 })))
     vi.stubGlobal('fetch', fetchSpy)
-    await expect(versionOnChannel('dsh-shelfry', 'stable', '1.13.1')).resolves.toBe('1.13.1')
+    await expect(versionOnChannel('dsh-crate', 'stable', '1.13.1')).resolves.toBe('1.13.1')
     expect(fetchSpy, 'the stable channel asked about a tag outside its own set').not.toHaveBeenCalled()
   })
 
@@ -967,12 +967,12 @@ describe('preferBeta (release channel)', () => {
       const tag = String(url).split('/').pop() ?? ''
       return Promise.resolve(new Response(JSON.stringify({ version: at[tag] }), { status: 200 }))
     }))
-    await expect(versionOnChannel('dsh-shelfry', 'dev', '1.13.1')).resolves.toBe('1.15.0-dev.20260818-abc1234')
+    await expect(versionOnChannel('dsh-crate', 'dev', '1.13.1')).resolves.toBe('1.15.0-dev.20260818-abc1234')
 
     // ...and a dev tag left behind by a merged branch must not drag anyone
     // back either — the same rule that protects beta subscribers.
     at.dev = '1.12.0-dev.20260101-0000000'
-    await expect(versionOnChannel('dsh-shelfry', 'dev', '1.13.1')).resolves.toBe('1.14.0-beta.9')
+    await expect(versionOnChannel('dsh-crate', 'dev', '1.13.1')).resolves.toBe('1.14.0-beta.9')
   })
 })
 
@@ -985,9 +985,9 @@ describe('checkUpdates — the channel is part of the cache key', () => {
     // answering for the previous channel until the TTL expired — a setting
     // that appears to do nothing, which is the hardest kind to report.
     const dir = join(mkdtempSync(join(tmpdir(), 'dshm-chan-')), 'profiles', 'web')
-    mkdirSync(join(dir, 'node_modules', 'dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-shelfry': '^1.0.0' } }))
-    writeFileSync(join(dir, 'node_modules', 'dsh-shelfry', 'package.json'), JSON.stringify({ name: 'dsh-shelfry', version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+    mkdirSync(join(dir, 'node_modules', 'dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-crate': '^1.0.0' } }))
+    writeFileSync(join(dir, 'node_modules', 'dsh-crate', 'package.json'), JSON.stringify({ name: 'dsh-crate', version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } } }))
 
     const asked: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
@@ -996,13 +996,13 @@ describe('checkUpdates — the channel is part of the cache key', () => {
     }))
 
     const stable = await checkUpdates('web', false, dir)
-    expect(stable['dsh-shelfry']?.latest).toBe('1.5.0')
+    expect(stable['dsh-crate']?.latest).toBe('1.5.0')
     expect(asked.some(url => url.endsWith('/beta'))).toBe(false)
 
     asked.length = 0
-    const beta = await checkUpdates('web', false, dir, new Map([['dsh-shelfry', 'beta' as const]]))
+    const beta = await checkUpdates('web', false, dir, new Map([['dsh-crate', 'beta' as const]]))
     expect(asked.some(url => url.endsWith('/beta')), 'served the cached stable answer to a beta subscriber').toBe(true)
-    expect(beta['dsh-shelfry']?.latest).toBe('2.0.0-beta.1')
+    expect(beta['dsh-crate']?.latest).toBe('2.0.0-beta.1')
 
     vi.unstubAllGlobals()
     rmSync(dir, { recursive: true, force: true })
@@ -1012,9 +1012,9 @@ describe('checkUpdates — the channel is part of the cache key', () => {
 describe('updateAvailable means NEWER, and only that', () => {
   const bed = (installedVersion: string, tags: Record<string, string>) => {
     const dir = join(mkdtempSync(join(tmpdir(), 'dshm-dir-')), 'profiles', 'web')
-    mkdirSync(join(dir, 'node_modules', 'dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-shelfry': '^1.0.0' } }))
-    writeFileSync(join(dir, 'node_modules', 'dsh-shelfry', 'package.json'), JSON.stringify({ name: 'dsh-shelfry', version: installedVersion, dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+    mkdirSync(join(dir, 'node_modules', 'dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-crate': '^1.0.0' } }))
+    writeFileSync(join(dir, 'node_modules', 'dsh-crate', 'package.json'), JSON.stringify({ name: 'dsh-crate', version: installedVersion, dsh: { bundle: { patch: './cordis.patch.yml' } } }))
     vi.stubGlobal('fetch', vi.fn((url: unknown) => {
       const tag = String(url).split('/').pop() ?? ''
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ version: tags[tag] }) })
@@ -1031,7 +1031,7 @@ describe('updateAvailable means NEWER, and only that', () => {
     // dev build whose own channel had nothing newer in it.
     const dir = bed('1.15.0-dev.202608181407-2fad14a', { latest: '1.13.1', beta: '1.14.0-beta.2' })
     try {
-      const row = (await checkUpdates('web', true, dir, new Map([['dsh-shelfry', 'stable' as const]])))['dsh-shelfry']
+      const row = (await checkUpdates('web', true, dir, new Map([['dsh-crate', 'stable' as const]])))['dsh-crate']
       expect(row?.updateAvailable, 'a downgrade was reported as an update').toBe(false)
       expect(row?.channelSwitch).toBe('1.13.1')
     } finally { vi.unstubAllGlobals(); rmSync(dir, { recursive: true, force: true }) }
@@ -1040,7 +1040,7 @@ describe('updateAvailable means NEWER, and only that', () => {
   it('offers no switch when the channel already points at what is installed', async () => {
     const dir = bed('1.14.0-beta.2', { latest: '1.13.1', beta: '1.14.0-beta.2' })
     try {
-      const row = (await checkUpdates('web', true, dir, new Map([['dsh-shelfry', 'beta' as const]])))['dsh-shelfry']
+      const row = (await checkUpdates('web', true, dir, new Map([['dsh-crate', 'beta' as const]])))['dsh-crate']
       expect(row?.updateAvailable).toBe(false)
       expect(row?.channelSwitch).toBeUndefined()
     } finally { vi.unstubAllGlobals(); rmSync(dir, { recursive: true, force: true }) }
@@ -1049,7 +1049,7 @@ describe('updateAvailable means NEWER, and only that', () => {
   it('still calls a genuine upgrade an update, with no switch alongside it', async () => {
     const dir = bed('1.13.1', { latest: '1.13.1', beta: '1.14.0-beta.2' })
     try {
-      const row = (await checkUpdates('web', true, dir, new Map([['dsh-shelfry', 'beta' as const]])))['dsh-shelfry']
+      const row = (await checkUpdates('web', true, dir, new Map([['dsh-crate', 'beta' as const]])))['dsh-crate']
       expect(row?.updateAvailable).toBe(true)
       expect(row?.latest).toBe('1.14.0-beta.2')
       expect(row?.channelSwitch).toBeUndefined()
@@ -1061,7 +1061,7 @@ describe('updateAvailable means NEWER, and only that', () => {
     // backwards is #64's case, and its answer is to refuse, not to offer.
     const dir = bed('2.0.0', { latest: '1.0.0' })
     try {
-      const row = (await checkUpdates('web', true, dir))['dsh-shelfry']
+      const row = (await checkUpdates('web', true, dir))['dsh-crate']
       expect(row?.updateAvailable).toBe(false)
       expect(row?.channelSwitch).toBeUndefined()
     } finally { vi.unstubAllGlobals(); rmSync(dir, { recursive: true, force: true }) }

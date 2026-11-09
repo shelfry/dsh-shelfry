@@ -69,8 +69,8 @@ const PKG = JSON.parse(readRoot('package.json')) as {
 }
 
 describe('A. 身份与升级', () => {
-  it('1. 包名是 dsh-shelfry', () => {
-    expect(PKG.name).toBe('dsh-shelfry')
+  it('1. 包名是 dsh-crate', () => {
+    expect(PKG.name).toBe('dsh-crate')
   })
 
   it('2. 版本不低于 0.4.6', () => {
@@ -81,12 +81,12 @@ describe('A. 身份与升级', () => {
     expect(PKG.icon).toBe('assets/logo.svg')
   })
 
-  it('4. 主页是 shelfry.app', () => {
-    expect(PKG.homepage).toBe('https://shelfry.app')
+  it('4. 主页是 dshcrate.com', () => {
+    expect(PKG.homepage).toBe('https://dshcrate.com')
   })
 
-  it('5. 仓库指向 shelfry/dsh-shelfry', () => {
-    expect(PKG.repository.url).toContain('github.com/shelfry/dsh-shelfry')
+  it('5. 仓库指向 crate/dsh-crate', () => {
+    expect(PKG.repository.url).toContain('github.com/dshcrate/dsh-crate')
   })
 
   it('6. 对外导出与发布清单包含客户端产物', () => {
@@ -95,26 +95,26 @@ describe('A. 身份与升级', () => {
   })
 
   it('7. 入口与客户端包名一致', () => {
-    expect(readSrc('index.ts')).toMatch(/export const name = 'dsh-shelfry'/)
-    expect(readSrc('client/index.ts')).toMatch(/const MARKET_PACKAGE_NAME = 'dsh-shelfry'/)
-    expect(readSrc('client/index.ts')).toMatch(/export const name = 'dsh-shelfry'/)
+    expect(readSrc('index.ts')).toMatch(/export const name = 'dsh-crate'/)
+    expect(readSrc('client/index.ts')).toMatch(/const MARKET_PACKAGE_NAME = 'dsh-crate'/)
+    expect(readSrc('client/index.ts')).toMatch(/export const name = 'dsh-crate'/)
   })
 
-  it('8. 设置命名空间是 dsh-shelfry', () => {
-    expect(readSrc('settings.ts')).toMatch(/MARKET_SETTINGS_NS = 'dsh-shelfry'/)
+  it('8. 设置命名空间是 dsh-crate', () => {
+    expect(readSrc('settings.ts')).toMatch(/MARKET_SETTINGS_NS = 'dsh-crate'/)
   })
 
-  it('9. 四处自识别集合只认 dsh-shelfry', () => {
-    expect(readSrc('presets.ts')).toMatch(/new Set\(\['dsh-shelfry'\]\)/)
-    expect(readSrc('official-desktop.ts')).toMatch(/new Set\(\['dsh-shelfry'\]\)/)
-    expect(readSrc('routes.ts')).toMatch(/new Set\(\['dsh-shelfry'\]\)/)
-    expect(readSrc('install.ts')).toMatch(/lockedName !== 'dsh-shelfry'/)
+  it('9. 四处自识别集合只认 dsh-crate', () => {
+    expect(readSrc('presets.ts')).toMatch(/new Set\(\['dsh-crate'\]\)/)
+    expect(readSrc('official-desktop.ts')).toMatch(/new Set\(\['dsh-crate'\]\)/)
+    expect(readSrc('routes.ts')).toMatch(/new Set\(\['dsh-crate'\]\)/)
+    expect(readSrc('install.ts')).toMatch(/lockedName !== 'dsh-crate'/)
   })
 })
 
 describe('B. 数据源', () => {
-  it('10. 官方目录只指向 shelfry.app，且没有上游目录残留', () => {
-    expect(readSrc('regions.ts')).toMatch(/const CATALOG_OFFICIAL = 'https:\/\/shelfry\.app\/data\/dsh-shelfry\.json'/)
+  it('10. 官方目录只指向 dshcrate.com，且没有上游目录残留', () => {
+    expect(readSrc('regions.ts')).toMatch(/const CATALOG_OFFICIAL = 'https:\/\/dshcrate\.com\/data\/dsh-crate\.json'/)
 
     const offenders = sourceFiles().filter(file => {
       const text = readSrc(file)
@@ -127,25 +127,25 @@ describe('B. 数据源', () => {
 describe('C. 品牌文案', () => {
   it('11. 导航名保持三语品牌', () => {
     expect(zh.nav).toBe('插件箱子')
-    expect(en.nav).toBe('Plugin Shelfry')
+    expect(en.nav).toBe('Plugin Crate')
     expect(ja.nav).toBe('プラグインボックス')
   })
 
   it('12. 设置卡片描述保持三语品牌', () => {
     expect(zh.setCardDesc).toBe('查看插件箱子版本与设置。')
-    expect(en.setCardDesc).toBe('View the Plugin Shelfry version and settings.')
+    expect(en.setCardDesc).toBe('View the Plugin Crate version and settings.')
     expect(ja.setCardDesc).toBe('プラグインボックスのバージョンと設定を確認します。')
   })
 
-  it('13. 日志导出文件名是 dsh-shelfry-log.txt', () => {
-    expect(zh.exportedLog).toContain('dsh-shelfry-log.txt')
-    expect(en.exportedLog).toContain('dsh-shelfry-log.txt')
-    expect(ja.exportedLog).toContain('dsh-shelfry-log.txt')
+  it('13. 日志导出文件名是 dsh-crate-log.txt', () => {
+    expect(zh.exportedLog).toContain('dsh-crate-log.txt')
+    expect(en.exportedLog).toContain('dsh-crate-log.txt')
+    expect(ja.exportedLog).toContain('dsh-crate-log.txt')
   })
 
   it('14. 索引源提示指向自家索引且不提官方上游目录', () => {
     for (const dictionary of [zh, en, ja]) {
-      expect(dictionary.setIndexSourceHint).toContain('https://shelfry.app/data/index.json')
+      expect(dictionary.setIndexSourceHint).toContain('https://dshcrate.com/data/index.json')
       expect(dictionary.setIndexSourceHint).not.toContain('dsh-plugin-catalog')
     }
   })
@@ -162,8 +162,8 @@ describe('C. 品牌文案', () => {
     expect(enLocale.meta.description.length).toBeGreaterThan(0)
   })
 
-  it('17. 投稿入口指向 shelfry.app', () => {
-    expect(readSrc('client/MarketSection.tsx')).toMatch(/href="https:\/\/shelfry\.app"/)
+  it('17. 投稿入口指向 dshcrate.com', () => {
+    expect(readSrc('client/MarketSection.tsx')).toMatch(/href="https:\/\/dshcrate\.com"/)
   })
 
   it('18. 品牌面文件没有上游品牌残留', () => {
@@ -178,7 +178,7 @@ describe('C. 品牌文案', () => {
 
   it('19. e2e 设置卡片断言兼容当前与历史中英文案', () => {
     const spec = readRoot('tests/web/desktop-settings.e2e.ts')
-    expect(spec).toContain('(Plugin Shelfry|plugin market)')
+    expect(spec).toContain('(Plugin Crate|plugin market)')
     expect(spec).toContain('(插件箱子的?|插件市场)')
   })
 })
@@ -203,7 +203,7 @@ describe('D. 视觉与几何', () => {
   })
 
   it('22. 设置导航图标的标记与尺寸未变', () => {
-    expect(NAV_ICON_MARKER).toBe('data-dsh-shelfry-nav-icon')
+    expect(NAV_ICON_MARKER).toBe('data-dsh-crate-nav-icon')
     expect(NAV_ICON_SIZE).toBe(16)
   })
 
@@ -247,7 +247,7 @@ describe('E. 布局与滚动定制', () => {
   it('28. 全屏模式仍固定铺满视口', () => {
     const css = readSrc('client/Market.module.css')
     expect(css).toContain(
-      '[data-dsh-shelfry-plugins-tab="true"][data-dsh-shelfry-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important',
+      '[data-dsh-crate-plugins-tab="true"][data-dsh-crate-fullscreen="true"]{position:fixed;inset:0;z-index:60;height:100vh!important',
     )
   })
 

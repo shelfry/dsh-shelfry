@@ -58,13 +58,13 @@ describe('profile backup and restore', () => {
     const dir = profileDir('web')
     mkdirSync(join(dir, 'node_modules', 'plugin'), { recursive: true })
     mkdirSync(join(dir, 'plugin-config'), { recursive: true })
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(join(dir, 'package.json'), '{"dependencies":{"plugin":"^1.0.0"}}')
     writeFileSync(join(dir, 'cordis.patch.yml'), '- config: true')
     writeFileSync(join(dir, 'plugin-config', 'settings.json'), '{"enabled":true}')
     writeFileSync(join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9')
     writeFileSync(join(dir, 'node_modules', 'plugin', 'large.bin'), 'not included')
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), '{}')
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), '{}')
 
     const backup = createProfileBackup('web')
     expect(backup.files.map(file => file.path)).toEqual(['cordis.patch.yml', 'package.json', 'plugin-config/settings.json'])
@@ -155,7 +155,7 @@ describe('profile backup and restore', () => {
 
   it('skips a non-hidden cache directory instead of calling it configuration (#1064)', () => {
     // `<profile>/cache` is written by another component, not by the market
-    // (its own cache is `.dsh-shelfry`). It is not hidden, so the #972 rule
+    // (its own cache is `.dsh-crate`). It is not hidden, so the #972 rule
     // missed it: a few multi-megabyte json files in there made the whole
     // profile unbackupable and the error blamed the profile.
     const dir = profileDir('web')
@@ -495,36 +495,36 @@ describe('pinRunningDeps', () => {
     // state the update route refuses (#608), except here the code answering
     // the request is the code being swapped out.
     expect(pinRunningDeps(
-      { dependencies: { 'dsh-shelfry': '1.73.12', 'dsh-loop': '^2.0.0' } },
-      { dependencies: { 'dsh-shelfry': '1.73.11', 'dsh-loop': '^1.0.0' } },
-      new Set(['dsh-shelfry']),
+      { dependencies: { 'dsh-crate': '1.73.12', 'dsh-loop': '^2.0.0' } },
+      { dependencies: { 'dsh-crate': '1.73.11', 'dsh-loop': '^1.0.0' } },
+      new Set(['dsh-crate']),
     )).toEqual({
-      dependencies: { 'dsh-shelfry': '1.73.11', 'dsh-loop': '^2.0.0' },
-      pinned: [{ name: 'dsh-shelfry', from: '1.73.12', to: '1.73.11' }],
+      dependencies: { 'dsh-crate': '1.73.11', 'dsh-loop': '^2.0.0' },
+      pinned: [{ name: 'dsh-crate', from: '1.73.12', to: '1.73.11' }],
     })
   })
 
   it('changes nothing when the install would leave the running package alone', () => {
     expect(pinRunningDeps(
-      { dependencies: { 'dsh-shelfry': '1.73.11' } },
-      { dependencies: { 'dsh-shelfry': '1.73.11' } },
-      new Set(['dsh-shelfry']),
-    )).toEqual({ dependencies: { 'dsh-shelfry': '1.73.11' }, pinned: [] })
+      { dependencies: { 'dsh-crate': '1.73.11' } },
+      { dependencies: { 'dsh-crate': '1.73.11' } },
+      new Set(['dsh-crate']),
+    )).toEqual({ dependencies: { 'dsh-crate': '1.73.11' }, pinned: [] })
   })
 
   it('does not invent a pin for a package the target does not have', () => {
     // Not installed here means nothing is running: the backup's spec is the
     // only one there is, and the ordinary install path applies it.
     expect(pinRunningDeps(
-      { dependencies: { 'dsh-shelfry': '1.73.12' } },
+      { dependencies: { 'dsh-crate': '1.73.12' } },
       { dependencies: {} },
-      new Set(['dsh-shelfry', 'dsh-other']),
-    )).toEqual({ dependencies: { 'dsh-shelfry': '1.73.12' }, pinned: [] })
+      new Set(['dsh-crate', 'dsh-other']),
+    )).toEqual({ dependencies: { 'dsh-crate': '1.73.12' }, pinned: [] })
   })
 
   it('is defensive about manifests a hand-edited profile can produce', () => {
-    expect(pinRunningDeps({}, {}, new Set(['dsh-shelfry']))).toEqual({ dependencies: {}, pinned: [] })
-    expect(pinRunningDeps({ dependencies: 42 } as never, { dependencies: [] } as never, new Set(['dsh-shelfry'])))
+    expect(pinRunningDeps({}, {}, new Set(['dsh-crate']))).toEqual({ dependencies: {}, pinned: [] })
+    expect(pinRunningDeps({ dependencies: 42 } as never, { dependencies: [] } as never, new Set(['dsh-crate'])))
       .toEqual({ dependencies: {}, pinned: [] })
   })
 })

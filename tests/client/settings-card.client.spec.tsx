@@ -38,7 +38,7 @@ function stubFetch(options: {
     calls.push({ path, body: init?.body === undefined ? null : JSON.parse(String(init.body)) })
     const json = (value: unknown): Promise<Response> =>
       Promise.resolve(new Response(JSON.stringify(value), { status: 200, headers: { 'content-type': 'application/json' } }))
-    if (path.endsWith('/dsh-shelfry/status')) {
+    if (path.endsWith('/dsh-crate/status')) {
       return json({
         version: options.version ?? '1.12.2',
         restart: options.restart !== false,
@@ -59,15 +59,15 @@ function stubFetch(options: {
         buildEnv: options.buildEnv ?? {},
       })
     }
-    if (path.endsWith('/dsh-shelfry/build-env')) {
+    if (path.endsWith('/dsh-crate/build-env')) {
       // The server answers with what it APPLIED — here, the same map sent
       // back, exactly like the region endpoint echoes its choice.
       return options.buildEnvError !== undefined
         ? json({ ok: false, error: options.buildEnvError })
         : json({ ok: true, buildEnv: (JSON.parse(String(init?.body)) as { buildEnv: Record<string, string> }).buildEnv })
     }
-    if (path.includes('/dsh-shelfry/updates')) {
-      return json({ updates: { 'dsh-shelfry': options.channelSwitch !== undefined
+    if (path.includes('/dsh-crate/updates')) {
+      return json({ updates: { 'dsh-crate': options.channelSwitch !== undefined
         ? { updateAvailable: false, latest: options.channelSwitch, channelSwitch: options.channelSwitch }
         : {
             // A generation (#497) names its newer release without offering it.
@@ -77,26 +77,26 @@ function stubFetch(options: {
             ...(options.kind === undefined ? {} : { kind: options.kind }),
           } } })
     }
-    if (path.endsWith('/dsh-shelfry/channel')) {
+    if (path.endsWith('/dsh-crate/channel')) {
       return options.channelError !== undefined
         ? json({ ok: false, error: options.channelError })
         : json({ ok: true, channel: (JSON.parse(String(init?.body)) as { channel: string }).channel })
     }
-    if (path.endsWith('/dsh-shelfry/region')) {
+    if (path.endsWith('/dsh-crate/region')) {
       return options.regionError !== undefined
         ? json({ ok: false, error: options.regionError })
         : json({ ok: true, region: (JSON.parse(String(init?.body)) as { region: string }).region })
     }
-    if (path.endsWith('/dsh-shelfry/github-proxy')) {
+    if (path.endsWith('/dsh-crate/github-proxy')) {
       if (options.githubProxyError !== undefined) return json({ ok: false, error: options.githubProxyError })
       const raw = (JSON.parse(String(init?.body)) as { proxy: string | null }).proxy
       githubProxyCustom = raw === null ? null : raw.replace(/\/+$/, '')
       return json({ ok: true, githubProxyCustom })
     }
-    if (path.endsWith('/dsh-shelfry/self-uninstall')) {
+    if (path.endsWith('/dsh-crate/self-uninstall')) {
       return options.removeOk === false
         ? json({ ok: false, error: options.error ?? 'boom' })
-        : json({ ok: true, removed: 'dsh-shelfry', restart: options.restart !== false })
+        : json({ ok: true, removed: 'dsh-crate', restart: options.restart !== false })
     }
     return json({ ok: true })
   }))
@@ -165,12 +165,12 @@ describe('SettingsCard', () => {
     await open()
     const button = await screen.findByRole('button', { name: t('restoreOnline') })
     fireEvent.click(button)
-    expect(calls.some(call => call.path.endsWith('/dsh-shelfry/update'))).toBe(false)
+    expect(calls.some(call => call.path.endsWith('/dsh-crate/update'))).toBe(false)
     expect(screen.getByText(t('restoreHint'))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: t('restoreContinue') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.endsWith('/dsh-shelfry/update'))?.body)
-        .toEqual({ name: 'dsh-shelfry', restore: true })
+      expect(calls.find(call => call.path.endsWith('/dsh-crate/update'))?.body)
+        .toEqual({ name: 'dsh-crate', restore: true })
     })
   })
 
@@ -361,7 +361,7 @@ describe('SettingsCard — channels', () => {
     await waitFor(() => { expect(screen.getByRole('button', { name: t('setChannelDev') })).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: t('setChannelDev') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.includes('/dsh-shelfry/channel'))?.body).toEqual({ channel: 'dev' })
+      expect(calls.find(call => call.path.includes('/dsh-crate/channel'))?.body).toEqual({ channel: 'dev' })
     })
   })
 
@@ -644,7 +644,7 @@ describe('SettingsCard — download region', () => {
     await waitFor(() => { expect(screen.getByRole('button', { name: t('setRegionChina') })).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: t('setRegionChina') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.endsWith('/dsh-shelfry/region'))?.body).toEqual({ region: 'china' })
+      expect(calls.find(call => call.path.endsWith('/dsh-crate/region'))?.body).toEqual({ region: 'china' })
     })
   })
 
@@ -676,7 +676,7 @@ describe('SettingsCard — download region', () => {
     calls.length = 0
     fireEvent.click(screen.getByRole('button', { name: t('setRegionChina') }))
     await waitFor(() => {
-      expect(calls.filter(call => call.path.endsWith('/dsh-shelfry/status'))).toHaveLength(1)
+      expect(calls.filter(call => call.path.endsWith('/dsh-crate/status'))).toHaveLength(1)
     })
   })
 })
@@ -691,7 +691,7 @@ describe('SettingsCard — GitHub escape route', () => {
     fireEvent.change(input, { target: { value: 'https://mirror.example/prefix/' } })
     fireEvent.click(screen.getByRole('button', { name: t('setGithubProxySave') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.endsWith('/dsh-shelfry/github-proxy'))?.body)
+      expect(calls.find(call => call.path.endsWith('/dsh-crate/github-proxy'))?.body)
         .toEqual({ proxy: 'https://mirror.example/prefix/' })
     })
     await waitFor(() => { expect(screen.getByText(t('setGithubProxyCustomHint'))).toBeTruthy() })
@@ -703,7 +703,7 @@ describe('SettingsCard — GitHub escape route', () => {
     await waitFor(() => { expect(screen.getByRole('button', { name: t('setGithubProxyAuto') })).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: t('setGithubProxyAuto') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.endsWith('/dsh-shelfry/github-proxy'))?.body).toEqual({ proxy: null })
+      expect(calls.find(call => call.path.endsWith('/dsh-crate/github-proxy'))?.body).toEqual({ proxy: null })
     })
   })
 
@@ -760,7 +760,7 @@ describe('SettingsCard — build environment (#336)', () => {
     fireEvent.change(editor(), { target: { value: 'CC=/usr/bin/gcc-12\nCXX=/usr/bin/g++-12' } })
     fireEvent.click(screen.getByRole('button', { name: t('setBuildEnvSave') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.endsWith('/dsh-shelfry/build-env'))?.body)
+      expect(calls.find(call => call.path.endsWith('/dsh-crate/build-env'))?.body)
         .toEqual({ buildEnv: { CC: '/usr/bin/gcc-12', CXX: '/usr/bin/g++-12' } })
     })
     // What the textarea shows afterwards is the SERVER's applied answer,
@@ -777,7 +777,7 @@ describe('SettingsCard — build environment (#336)', () => {
     fireEvent.change(editor(), { target: { value: '  \n ' } })
     fireEvent.click(screen.getByRole('button', { name: t('setBuildEnvSave') }))
     await waitFor(() => {
-      expect(calls.find(call => call.path.endsWith('/dsh-shelfry/build-env'))?.body).toEqual({ buildEnv: {} })
+      expect(calls.find(call => call.path.endsWith('/dsh-crate/build-env'))?.body).toEqual({ buildEnv: {} })
     })
   })
 

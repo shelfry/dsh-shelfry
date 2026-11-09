@@ -451,7 +451,7 @@ const sleep = (ms: number): Promise<void> => new Promise(resolvePromise => setTi
 /** Append one diagnosis line to the recovery's own log, never throwing. */
 function note(config: RecoveryConfig, line: string): void {
   try {
-    appendFileSync(`${config.logs.err}.recovery.log`, `[dsh-shelfry recovery] ${new Date().toISOString()} ${line}\n`)
+    appendFileSync(`${config.logs.err}.recovery.log`, `[dsh-crate recovery] ${new Date().toISOString()} ${line}\n`)
   } catch { /* the log is a convenience, not a contract */ }
 }
 
@@ -777,7 +777,7 @@ export function recoveryPageHtml(lang: PageLang): string {
     var deadline = Date.now() + 180000
     var tick = function () {
       if (Date.now() > deadline) return
-      fetch('/dsh-shelfry/status', { cache: 'no-store' })
+      fetch('/dsh-crate/status', { cache: 'no-store' })
         .then(function (res) { return res.ok ? res.json() : null })
         .then(function (body) { if (body !== null) location.reload(); else setTimeout(tick, 2000) })
         .catch(function () { setTimeout(tick, 2000) })
@@ -789,7 +789,7 @@ export function recoveryPageHtml(lang: PageLang): string {
     var button = document.getElementById('apply')
     button.disabled = true
     status.textContent = T.applying
-    fetch('/dsh-shelfry/recovery/apply', {
+    fetch('/dsh-crate/recovery/apply', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ enabled: desired() })
@@ -808,12 +808,12 @@ export function recoveryPageHtml(lang: PageLang): string {
   document.getElementById('release').addEventListener('click', function () {
     var button = document.getElementById('release')
     button.disabled = true
-    fetch('/dsh-shelfry/recovery/release', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    fetch('/dsh-crate/recovery/release', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       .then(function () { status.textContent = T.release })
       .catch(function () { status.textContent = T.release })
   })
 
-  fetch('/dsh-shelfry/recovery', { cache: 'no-store' })
+  fetch('/dsh-crate/recovery', { cache: 'no-store' })
     .then(function (res) { return res.json() })
     .then(function (body) { state = body; render() })
     .catch(function () { status.textContent = T.error })
@@ -914,7 +914,7 @@ export async function startRecoveryServer(
       response.end()
       return
     }
-    if (path === '/dsh-shelfry/recovery') {
+    if (path === '/dsh-crate/recovery') {
       sendJson(response, 200, recoveryPayload(config, currentFailure, options.lastErrors ?? []))
       return
     }
@@ -922,7 +922,7 @@ export async function startRecoveryServer(
     // exact path. Answering it in the host's own shape is what turns "timed
     // out waiting for DeepSeek Harness to start" into an option the user can
     // actually click.
-    if (path === '/dsh-shelfry/status') {
+    if (path === '/dsh-crate/status') {
       sendJson(response, 200, {
         ok: true,
         boot: config.bootId,
@@ -941,9 +941,9 @@ export async function startRecoveryServer(
     // The failure banner's own "export log" button fetches this path. A
     // failure nobody can attach to a bug report is half a failure, and the
     // process that holds the evidence is this one.
-    if (path === '/dsh-shelfry/logs') {
+    if (path === '/dsh-crate/logs') {
       const body = [
-        '# dsh-shelfry recovery surface',
+        '# dsh-crate recovery surface',
         `profile: ${config.profile}`,
         `market: ${config.marketVersion}`,
         `restart scheduled: ${config.scheduledAt}`,
@@ -964,13 +964,13 @@ export async function startRecoveryServer(
     // An older page bundle (or a user who clicked the pending-restart banner
     // again) would otherwise post here and be told "not found" by a server
     // that knows exactly what happened.
-    if (path === '/dsh-shelfry/restart') {
+    if (path === '/dsh-crate/restart') {
       sendJson(response, 409, {
         error: 'the host is not running: the last start failed, so there is nothing to restart — use the recovery page to adjust plugins / 宿主未在运行：上次启动失败，请用恢复页调整插件',
       })
       return
     }
-    if (path === '/dsh-shelfry/recovery/apply' || path === '/dsh-shelfry/recovery/release') {
+    if (path === '/dsh-crate/recovery/apply' || path === '/dsh-crate/recovery/release') {
       if (request.method !== 'POST') {
         response.writeHead(405, { allow: 'POST' })
         response.end()
@@ -1003,7 +1003,7 @@ export async function startRecoveryServer(
   }
 
   const port = options.port ?? config.port
-  if (port === null) throw new Error('dsh-shelfry recovery: no port to serve on')
+  if (port === null) throw new Error('dsh-crate recovery: no port to serve on')
   await new Promise<void>((resolvePromise, reject) => {
     server.once('error', reject)
     server.listen(port, '127.0.0.1', () => { resolvePromise() })
@@ -1153,7 +1153,7 @@ export async function runRecovery(
 export async function runRecoveryCli(argv: readonly string[]): Promise<void> {
   const configPath = argv.find(argument => !argument.startsWith('--'))
   if (configPath === undefined) {
-    process.stderr.write('dsh-shelfry recovery: needs a config path\n')
+    process.stderr.write('dsh-crate recovery: needs a config path\n')
     process.exitCode = 1
     return
   }
@@ -1161,7 +1161,7 @@ export async function runRecoveryCli(argv: readonly string[]): Promise<void> {
   try {
     config = JSON.parse(readFileSync(resolve(configPath), 'utf8')) as RecoveryConfig
   } catch (cause) {
-    process.stderr.write(`dsh-shelfry recovery: unreadable config ${configPath}: ${cause instanceof Error ? cause.message : String(cause)}\n`)
+    process.stderr.write(`dsh-crate recovery: unreadable config ${configPath}: ${cause instanceof Error ? cause.message : String(cause)}\n`)
     process.exitCode = 1
     return
   }

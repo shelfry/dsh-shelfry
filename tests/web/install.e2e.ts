@@ -59,7 +59,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
     })
 
   const state = async (): Promise<InstalledState> =>
-    (await scaffold.api(`/dsh-shelfry/installed`)).json() as never
+    (await scaffold.api(`/dsh-crate/installed`)).json() as never
 
   /**
    * Ground truth. The fixture writes this marker from inside its webServer
@@ -76,7 +76,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
   /** Wait out post-install work (validation, patch write, hot mount). */
   const settle = async (): Promise<void> => {
     for (let attempt = 0; attempt < 90; attempt++) {
-      const status = (await (await scaffold.api(`/dsh-shelfry/status`)).json()) as { busy?: boolean; active?: boolean }
+      const status = (await (await scaffold.api(`/dsh-crate/status`)).json()) as { busy?: boolean; active?: boolean }
       if (status.busy !== true && status.active !== true) return
       await new Promise(done => setTimeout(done, 2000))
     }
@@ -85,7 +85,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
 
   /** Install through the market's own route and report the outcome. */
   const install = async (name: string): Promise<{ status: number; body: string }> => {
-    const response = await post('/dsh-shelfry/install', { url: `https://github.com/dshm-e2e/${name}` })
+    const response = await post('/dsh-crate/install', { url: `https://github.com/dshm-e2e/${name}` })
     const body = await response.text()
     await settle()
     return { status: response.status, body }
@@ -102,16 +102,16 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
   it('refuses a client with no session and installs nothing, while a logged-in one is served (#603)', async () => {
     // The reported exposure, against the REAL host gate: a client that can
     // reach the port but holds no session. Bare `fetch` is that client.
-    const anonymous = await fetch(`${base}/dsh-shelfry/installed`)
+    const anonymous = await fetch(`${base}/dsh-crate/installed`)
     if (anonymous.status === 200) {
       // A host without the browser login (0.1.0-rc.8) has no gate to ask. Said
       // here rather than passed silently, so a green run says which it was.
-      expect(await (await scaffold.api('/dsh-shelfry/installed')).json()).toEqual(await anonymous.json())
+      expect(await (await scaffold.api('/dsh-crate/installed')).json()).toEqual(await anonymous.json())
       return
     }
     expect(anonymous.status).toBe(401)
     const before = await state()
-    const write = await fetch(`${base}/dsh-shelfry/install`, {
+    const write = await fetch(`${base}/dsh-crate/install`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: JSON.stringify({ url: `https://github.com/dshm-e2e/${A}` }),
@@ -206,15 +206,15 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
     // plugin's Config schema and serves no third-party namespace at all —
     // asserted in its own direction below, so this spec cannot pass by
     // demanding something a host cannot do, nor by asserting nothing.
-    const status = await (await scaffold.api(`/dsh-shelfry/status`)).json() as {
+    const status = await (await scaffold.api(`/dsh-crate/status`)).json() as {
       settingsNamespace?: string
     }
     expect(status.settingsNamespace, 'the market has booted and must have an answer').not.toBe('pending')
     if (status.settingsNamespace === 'registered') {
-      expect(names, `served namespaces: ${names.join(', ')}`).toContain('dsh-shelfry')
+      expect(names, `served namespaces: ${names.join(', ')}`).toContain('dsh-crate')
     } else {
       expect(status.settingsNamespace).toBe('unsupported-by-host')
-      expect(names, `served namespaces: ${names.join(', ')}`).not.toContain('dsh-shelfry')
+      expect(names, `served namespaces: ${names.join(', ')}`).not.toContain('dsh-crate')
       // The host's new model is not "less settings": the market's own
       // configuration still has a home — its Config, read by the routes —
       // and that is asserted by the running market answering this at all.
@@ -223,7 +223,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
   }, 120_000)
 
   it('refuses a source that is not in the curated registry', async () => {
-    const response = await post('/dsh-shelfry/install', { url: 'https://github.com/attacker/not-listed' })
+    const response = await post('/dsh-crate/install', { url: 'https://github.com/attacker/not-listed' })
     expect(response.status).toBe(400)
   })
 
@@ -281,7 +281,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
     // CROSS's patch REFERENCES B's entry id to tweak its config. Disabling
     // CROSS must not take B with it — the regression that shipped as 1.11.0
     // treated every id in a package's patch as its own.
-    const response = await post('/dsh-shelfry/toggle', { name: CROSS, enabled: false })
+    const response = await post('/dsh-crate/toggle', { name: CROSS, enabled: false })
     expect(response.status).toBe(200)
     await settle()
     await scaffold.restart()
@@ -296,7 +296,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
   }, 600_000)
 
   it('re-enabling brings it back without disturbing the neighbours', async () => {
-    const response = await post('/dsh-shelfry/toggle', { name: CROSS, enabled: true })
+    const response = await post('/dsh-crate/toggle', { name: CROSS, enabled: true })
     expect(response.status).toBe(200)
     await settle()
     await scaffold.restart()
@@ -316,7 +316,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
     expect(Object.keys((await state()).installed)).toContain(CARRIER)
 
     const abort = new AbortController()
-    const abandoned = scaffold.api(`/dsh-shelfry/uninstall`, {
+    const abandoned = scaffold.api(`/dsh-crate/uninstall`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: JSON.stringify({ name: CARRIER }),
@@ -334,7 +334,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real install chain', () => {
   }, 600_000)
 
   it('uninstalls cleanly — dependency and bundle registration both gone', async () => {
-    const response = await post('/dsh-shelfry/uninstall', { name: A })
+    const response = await post('/dsh-crate/uninstall', { name: A })
     expect(response.status).toBe(200)
     await settle()
     const current = await state()

@@ -92,14 +92,14 @@ export type GithubRoute = string | null
 export type GithubRoutes = Record<GithubService, GithubRoute[]>
 
 /**
- * 目录的唯一公开地址：shelfry 的 dsh-shelfry.json（插件专用全量数据包）。
+ * 目录的唯一公开地址：crate 的 dsh-crate.json（插件专用全量数据包）。
  *
- * 这份 JSON 由 shelfry 每次构建时随站点一起生成（与网页端同源数据），条目字段
- * 与内部 Registry 不同，映射放在 src/shelfry-catalog.ts；这里只负责把它放在
+ * 这份 JSON 由 crate 每次构建时随站点一起生成（与网页端同源数据），条目字段
+ * 与内部 Registry 不同，映射放在 src/crate-catalog.ts；这里只负责把它放在
  * 哪个地区的哪个地址上。
  * 它带 ETag 与 cache-control，所以 registry.ts 的 304 复用照常生效。
  */
-const CATALOG_OFFICIAL = 'https://shelfry.app/data/dsh-shelfry.json'
+const CATALOG_OFFICIAL = 'https://dshcrate.com/data/dsh-crate.json'
 
 /**
  * One place the catalog can be read from.
@@ -150,7 +150,7 @@ const ROUTES: Record<Region, RegionRoutes> = {
       git: [null, GITHUB_PROXY_CHINA, GITHUB_PROXY_CHINA_FALLBACK],
       avatar: [null, GITHUB_PROXY_CHINA, GITHUB_PROXY_CHINA_FALLBACK],
     },
-    // shelfry 没有把目录另发成 npm 包，所以两个地区都只有这一个地址：
+    // crate 没有把目录另发成 npm 包，所以两个地区都只有这一个地址：
     // 网络到不了它，就是真的拿不到目录，不做「换一个镜像」的假动作。
     catalog: [{ kind: 'url', url: CATALOG_OFFICIAL }],
   },
@@ -159,7 +159,7 @@ const ROUTES: Record<Region, RegionRoutes> = {
 /**
  * 一个地区要尝试的所有目录地址。
  *
- * shelfry 只有一份公开 JSON，没有可以退到的 npm 镜像包，所以这里的候选列表
+ * crate 只有一份公开 JSON，没有可以退到的 npm 镜像包，所以这里的候选列表
  * 就是该地区自己声明的顺序；保留这个函数是为了让「列表怎么来的」只在一个
  * 地方回答，调用方不必知道地区表的结构。
  */

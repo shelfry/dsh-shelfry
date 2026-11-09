@@ -455,7 +455,7 @@ describe('unconfigured allowRestart stays undefined so detection can decide (#22
 // Only storage is substituted: namespace resolution, describe, writes and
 // scoped disposal all run through the host's real SettingsProvider/Cordis.
 describe('host settings registration (#516)', () => {
-  const ns = 'dsh-shelfry' as SettingsNamespace
+  const ns = 'dsh-crate' as SettingsNamespace
   let root: Context
   let document: Record<string, unknown>
 
@@ -664,7 +664,7 @@ describe('the launcher install anchor reaches host detection', () => {
   // it to detection before any route mounts.
   let tmp: string
   beforeEach(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'dsh-shelfry-anchor-'))
+    tmp = mkdtempSync(join(tmpdir(), 'dsh-crate-anchor-'))
   })
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true })

@@ -36,12 +36,12 @@ describe('Issue #991 approval target and queue feedback', () => {
       const mature = timing === 'mature'
       const until = timing === 'invalid' ? 'unknown' : timing === 'missing' ? undefined : '2026-10-26T04:30:00Z'
       stubFetch({
-        '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-        '/dsh-shelfry/updates': { updates: { 'dsh-loop': {
+        '/dsh-crate/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+        '/dsh-crate/updates': { updates: { 'dsh-loop': {
           kind: 'npm', current: '1.0.0', latest: mature ? '1.1.0' : '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true,
           ...(!mature ? { heldUpdate: { latest: '1.2.0', until, ...(timing === 'estimated' ? { estimated: true } : {}) } } : {}),
         } } },
-        '/dsh-shelfry/update': { ok: true },
+        '/dsh-crate/update': { ok: true },
       })
       render(<MarketSection {...localizedProps()} />)
       fireEvent.click(await screen.findByRole('button', { name: new RegExp(dict.tabInstalled) }))
@@ -60,7 +60,7 @@ describe('Issue #991 approval target and queue feedback', () => {
         if (timing !== 'known') expect(explanation.textContent).not.toMatch(/\d+\s*(?:hours?|小时)/)
       }
       fireEvent.click(button)
-      await waitFor(() => expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update').map(call => call.body))
+      await waitFor(() => expect(fetchCalls.filter(call => call.path === '/dsh-crate/update').map(call => call.body))
         .toEqual([{ name: 'dsh-loop', eligibleVersion: '1.1.0' }]))
     })
 
@@ -69,16 +69,16 @@ describe('Issue #991 approval target and queue feedback', () => {
         { kind: 'update', name: 'dsh-loop', updateOptions: { eligibleVersion: '1.1.0' } },
       ]))
       stubFetch({
-        '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-        '/dsh-shelfry/updates': { updates: { 'dsh-loop': {
+        '/dsh-crate/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+        '/dsh-crate/updates': { updates: { 'dsh-loop': {
           kind: 'npm', current: '1.0.0', latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true,
           heldUpdate: { latest: '1.2.0', until: '2026-10-27T00:00:00Z' },
         } } },
-        '/dsh-shelfry/update': { ok: true },
+        '/dsh-crate/update': { ok: true },
       })
       render(<MarketSection {...localizedProps()} />)
       if (entry === 'batch') fireEvent.click(await screen.findByRole('button', { name: new RegExp(dict.updateAll) }))
-      await waitFor(() => expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update').map(call => call.body))
+      await waitFor(() => expect(fetchCalls.filter(call => call.path === '/dsh-crate/update').map(call => call.body))
         .toEqual([{ name: 'dsh-loop', eligibleVersion: '1.1.0' }]), { timeout: 8000 })
     })
   })
@@ -88,11 +88,11 @@ describe('Issue #991 approval target and queue feedback', () => {
     let attempts = 0
     let staleReplies = 0
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': () => ({ updates: { 'dsh-loop': {
+      '/dsh-crate/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': () => ({ updates: { 'dsh-loop': {
         kind: 'npm', current: '1.0.0', latest: '1.3.0', eligibleVersion, updateAvailable: true,
       } } }),
-      '/dsh-shelfry/update': (body: unknown) => {
+      '/dsh-crate/update': (body: unknown) => {
         if (++attempts === 1) return { ok: false, ignoredBuilds: ['node-pty'], error: 'blocked by pnpm', __status: 502 }
         if ((body as { eligibleVersion?: string }).eligibleVersion !== eligibleVersion) {
           staleReplies++
@@ -100,7 +100,7 @@ describe('Issue #991 approval target and queue feedback', () => {
         }
         return { ok: true }
       },
-      '/dsh-shelfry/approve-builds': { ok: true },
+      '/dsh-crate/approve-builds': { ok: true },
     })
     const view = render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
@@ -119,7 +119,7 @@ describe('Issue #991 approval target and queue feedback', () => {
     }
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
     await screen.findByRole('button', { name: 'Update v1.2.0' })
-    const refreshes = fetchCalls.filter(call => call.path === '/dsh-shelfry/updates').length
+    const refreshes = fetchCalls.filter(call => call.path === '/dsh-crate/updates').length
     if (entry === 'banner') {
       const banner = screen.getByText(re(en.buildsSkipped)).parentElement!
       fireEvent.click(within(banner).getByRole('button', { name: en.approveBuilds }))
@@ -129,11 +129,11 @@ describe('Issue #991 approval target and queue feedback', () => {
       fireEvent.click(within(panel).getByRole('button', { name: en.approveBuilds }))
     }
     await waitFor(() => {
-      const requests = fetchCalls.filter(call => call.path === '/dsh-shelfry/update')
+      const requests = fetchCalls.filter(call => call.path === '/dsh-crate/update')
       expect(requests).toHaveLength(2)
       expect(requests[1].body).toEqual({ name: 'dsh-loop', eligibleVersion: '1.1.0' })
       expect(staleReplies).toBe(1)
-      expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/updates').length).toBeGreaterThan(refreshes)
+      expect(fetchCalls.filter(call => call.path === '/dsh-crate/updates').length).toBeGreaterThan(refreshes)
       expect(JSON.parse(localStorage.getItem('dshm-settled-v1') ?? '[]').at(-1)).toMatchObject({ state: 'failed' })
     })
     expect(screen.getAllByText('The eligible update target changed. Refresh and choose again.').length).toBeGreaterThan(0)
@@ -145,8 +145,8 @@ describe('Issue #991 approval target and queue feedback', () => {
       kind: 'update', name: 'dsh-loop', updateOptions: { eligibleVersion: '1.1.0' },
     }]))
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', eligibleVersion: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', eligibleVersion: '1.2.0', updateAvailable: true } } },
     })
     const dict = lang === 'zh' ? zh : en
     const localeSnapshot = { active: lang }
@@ -155,7 +155,7 @@ describe('Issue #991 approval target and queue feedback', () => {
     const message = lang === 'zh' ? '更新目标已变化，已跳过。请重新选择更新。' : 'The update target changed, so this task was skipped. Choose the update again.'
     expect(await screen.findByText(message)).toBeTruthy()
     expect(screen.queryByText(dict.agentQueueStaleNoUpdate)).toBeNull()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(false)
   })
 })
 
@@ -183,21 +183,21 @@ function stubFetch(overrides: Record<string, unknown> = {}, mountPath = '') {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
     fetchCalls.push({ path, method, body })
     const payload =
-      route === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' }
-      : route === '/dsh-shelfry/discovery-compatibility' ? {
+      route === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' }
+      : route === '/dsh-crate/discovery-compatibility' ? {
           hostVersion: '0.1.2-alpha.2',
           plugins: Object.fromEntries(((body as { packages?: string[] } | undefined)?.packages ?? []).map(name => [name, {
             status: 'unknown', basis: 'undeclared', requirement: null, declarations: [],
           }])),
         }
-      : route === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] }
-      : route === '/dsh-shelfry/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} }
-      : route === '/dsh-shelfry/updates' ? { updates: {} }
-      : route === '/dsh-shelfry/toggle' ? { ok: true, disabled: [], live: [], activation: {} }
-      : route === '/dsh-shelfry/groups' ? { ok: true, groups: {}, groupOrder: [], disabled: [] }
-      : route === '/dsh-shelfry/favorite' ? { ok: true, favorites: [] }
-      : route === '/dsh-shelfry/block' ? { ok: true, blocked: [] }
-      : route === '/dsh-shelfry/dismiss-broken' ? { ok: true, brokenPlugins: {} }
+      : route === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] }
+      : route === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} }
+      : route === '/dsh-crate/updates' ? { updates: {} }
+      : route === '/dsh-crate/toggle' ? { ok: true, disabled: [], live: [], activation: {} }
+      : route === '/dsh-crate/groups' ? { ok: true, groups: {}, groupOrder: [], disabled: [] }
+      : route === '/dsh-crate/favorite' ? { ok: true, favorites: [] }
+      : route === '/dsh-crate/block' ? { ok: true, blocked: [] }
+      : route === '/dsh-crate/dismiss-broken' ? { ok: true, brokenPlugins: {} }
       : null
     const merged = overrides[path] ?? overrides[route] ?? payload
     if (merged === null) return Promise.reject(new Error(`unstubbed fetch: ${String(input)}`))
@@ -307,7 +307,7 @@ describe('WebDAV daily backup (#868)', () => {
   const day = 24 * 60 * 60 * 1000
   const now = 1_800_000_000_000
   const config = { url: 'https://dav.example/dsh/backup.json', username: 'alice', auto: true }
-  const requests = () => fetchCalls.filter(call => call.path === '/dsh-shelfry/webdav')
+  const requests = () => fetchCalls.filter(call => call.path === '/dsh-crate/webdav')
 
   beforeEach(() => { vi.spyOn(Date, 'now').mockReturnValue(now) })
   afterEach(() => { vi.restoreAllMocks() })
@@ -323,7 +323,7 @@ describe('WebDAV daily backup (#868)', () => {
     ['password', en.webdavPassword, 'session-secret'],
   ])('editing the %s after a failed daily backup does not retry it', async (_field, placeholder, value) => {
     localStorage.setItem('dshm-webdav', JSON.stringify(config))
-    stubFetch({ '/dsh-shelfry/webdav': { __status: 500, error: 'daily backup failed' } })
+    stubFetch({ '/dsh-crate/webdav': { __status: 500, error: 'daily backup failed' } })
     const view = render(<MarketSection {...props()} />)
     await openBackup()
     await screen.findByText('Error: daily backup failed')
@@ -346,7 +346,7 @@ describe('WebDAV daily backup (#868)', () => {
     // with an empty field and the server answers 401. The reporter met this
     // as an `HTTP 401` banner on every market open, with nothing saying why.
     localStorage.setItem('dshm-webdav', JSON.stringify(config))
-    stubFetch({ '/dsh-shelfry/webdav': { __status: 401, error: 'WebDAV upload failed: HTTP 401' } })
+    stubFetch({ '/dsh-crate/webdav': { __status: 401, error: 'WebDAV upload failed: HTTP 401' } })
     render(<MarketSection {...props()} />)
     await openBackup()
 
@@ -364,7 +364,7 @@ describe('WebDAV daily backup (#868)', () => {
     // nothing else, so the shape (file, name included) and the reason the name
     // cannot float were both left to trial and error.
     localStorage.setItem('dshm-webdav', JSON.stringify(config))
-    stubFetch({ '/dsh-shelfry/webdav': { ok: true } })
+    stubFetch({ '/dsh-crate/webdav': { ok: true } })
     render(<MarketSection {...props()} />)
     await openBackup()
     expect(await screen.findByText(new RegExp(en.webdavPathHint))).toBeTruthy()
@@ -379,7 +379,7 @@ describe('WebDAV daily backup (#868)', () => {
   ])('checks the original daily threshold on mount: %s', async (_label, last, due) => {
     localStorage.setItem('dshm-webdav', JSON.stringify(config))
     if (last !== null) localStorage.setItem('dshm-webdav-last', String(last))
-    stubFetch({ '/dsh-shelfry/webdav': { ok: true } })
+    stubFetch({ '/dsh-crate/webdav': { ok: true } })
     render(<MarketSection {...props()} />)
     await openBackup()
     expect(requests()).toHaveLength(due ? 1 : 0)
@@ -392,7 +392,7 @@ describe('WebDAV daily backup (#868)', () => {
     let finish!: (response: Response) => void
     const pending = new Promise<Response>(resolve => { finish = resolve })
     vi.stubGlobal('fetch', (input: unknown, init?: RequestInit) => {
-      if (String(input) !== '/dsh-shelfry/webdav') return fallback(input, init)
+      if (String(input) !== '/dsh-crate/webdav') return fallback(input, init)
       fetchCalls.push({ path: String(input), method: init!.method!, body: JSON.parse(String(init!.body)) })
       return pending
     })
@@ -416,7 +416,7 @@ describe('WebDAV daily backup (#868)', () => {
 
   it('does not start a backup when an enabled but empty URL is filled in', async () => {
     localStorage.setItem('dshm-webdav', JSON.stringify({ ...config, url: '' }))
-    stubFetch({ '/dsh-shelfry/webdav': { ok: true } })
+    stubFetch({ '/dsh-crate/webdav': { ok: true } })
     const view = render(<MarketSection {...props()} />)
     await openBackup()
     expect(requests()).toHaveLength(0)
@@ -438,7 +438,7 @@ describe('WebDAV daily backup (#868)', () => {
       format: 'dsh-profile-backup', version: 0.2,
       files: [{ path: 'package.json', json: { dependencies: { 'webdav-plugin': '^1.0.0' } } }],
     }
-    stubFetch({ '/dsh-shelfry/webdav': { ok: true, backup }, '/dsh-shelfry/restore': { ok: true } })
+    stubFetch({ '/dsh-crate/webdav': { ok: true, backup }, '/dsh-crate/restore': { ok: true } })
     render(<MarketSection {...props()} />)
     await openBackup()
     expect((screen.getByPlaceholderText(en.webdavPassword) as HTMLInputElement).value).toBe('')
@@ -460,11 +460,11 @@ describe('WebDAV daily backup (#868)', () => {
     await screen.findByText('webdav-plugin')
     expect(requests().at(-1)?.body).toEqual({ ...body, action: 'restore' })
     expect(screen.getByRole('button', { name: en.restoreStart })).toBeTruthy()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/restore')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/restore')).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: en.restoreStart }))
     fireEvent.click(await screen.findByRole('button', { name: en.confirm, exact: true }))
     await screen.findByText(en.restoreDone)
-    expect(fetchCalls.find(call => call.path === '/dsh-shelfry/restore')?.body).toEqual({ backup })
+    expect(fetchCalls.find(call => call.path === '/dsh-crate/restore')?.body).toEqual({ backup })
     expect(localStorage.getItem('dshm-webdav')).not.toContain('secret')
   })
 })
@@ -486,7 +486,7 @@ describe('search input scheduling', () => {
 
 describe('api() base resolution (#345)', () => {
   /** Behind a reverse proxy that mounts dsh under a prefix, a root-absolute
-   * `/dsh-shelfry/...` resolves against the ORIGIN and misses the prefix rule,
+   * `/dsh-crate/...` resolves against the ORIGIN and misses the prefix rule,
    * so the panel rendered and every request in it 404'd. Anchoring on the
    * document directory fixes that WITHOUT changing anything at the root,
    * which is where nearly everyone runs. */
@@ -496,7 +496,7 @@ describe('api() base resolution (#345)', () => {
 
   it('is unchanged at the root, which must not regress', async () => {
     const { api } = await import('../../src/client/market-data.ts')
-    expect(api('/dsh-shelfry/installed')).toBe('/dsh-shelfry/installed')
+    expect(api('/dsh-crate/installed')).toBe('/dsh-crate/installed')
   })
 
   it('follows the prefix the page is served under', async () => {
@@ -504,10 +504,10 @@ describe('api() base resolution (#345)', () => {
     const tag = document.createElement('base')
     tag.setAttribute('href', 'http://host.example/app/my-dsh/')
     document.head.appendChild(tag)
-    expect(api('/dsh-shelfry/installed')).toBe('/app/my-dsh/dsh-shelfry/installed')
+    expect(api('/dsh-crate/installed')).toBe('/app/my-dsh/dsh-crate/installed')
     // Arbitrary depth, and a leading slash in the argument is not special.
     tag.setAttribute('href', 'http://host.example/user/a/b/')
-    expect(api('dsh-shelfry/status')).toBe('/user/a/b/dsh-shelfry/status')
+    expect(api('dsh-crate/status')).toBe('/user/a/b/dsh-crate/status')
   })
 
   it('keeps newer changelog and note requests under that prefix too', async () => {
@@ -515,27 +515,27 @@ describe('api() base resolution (#345)', () => {
     tag.setAttribute('href', 'http://host.example/app/my-dsh/')
     document.head.appendChild(tag)
     const fetchMock = stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: ['dsh-loop'],
         disabled: [],
         notes: {},
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true,
           },
         },
       },
-      '/dsh-shelfry/changelog': {
+      '/dsh-crate/changelog': {
         kind: 'release',
         release: {
           tag: 'v1.2.0', name: 'Subpath release', publishedAt: null, url: null, body: 'Subpath release notes',
         },
       },
-      '/dsh-shelfry/note': (body: any) => ({
+      '/dsh-crate/note': (body: any) => ({
         ok: true,
         notes: { [body.name]: String(body.text).trim() },
       }),
@@ -554,32 +554,32 @@ describe('api() base resolution (#345)', () => {
     expect(await screen.findByText('Subpath release notes')).toBeTruthy()
 
     expect(fetchCalls).toContainEqual({
-      path: '/app/my-dsh/dsh-shelfry/note',
+      path: '/app/my-dsh/dsh-crate/note',
       method: 'POST',
       body: { name: 'dsh-loop', text: 'for project A' },
     })
     expect(fetchCalls).toContainEqual({
-      path: '/app/my-dsh/dsh-shelfry/changelog',
+      path: '/app/my-dsh/dsh-crate/changelog',
       method: 'GET',
       body: undefined,
     })
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/note')).toBe(false)
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/changelog')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/note')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/changelog')).toBe(false)
     expect(fetchMock.mock.calls.some(([url]) =>
-      url === '/app/my-dsh/dsh-shelfry/changelog?name=dsh-loop')).toBe(true)
+      url === '/app/my-dsh/dsh-crate/changelog?name=dsh-loop')).toBe(true)
   })
 
   describe('notes the market does not hold (#819)', () => {
     const ZH_LOCALE = { active: 'zh' }
     function openNotes(changelog: object, dict: Record<string, string> = en): Promise<HTMLElement> {
       stubFetch({
-        '/dsh-shelfry/installed': {
+        '/dsh-crate/installed': {
           profile: 'web', installed: { 'dsh-codearts-auth': 'git+https://gitee.com/o/r.git' }, live: [], disabled: [], notes: {},
         },
-        '/dsh-shelfry/updates': {
+        '/dsh-crate/updates': {
           updates: { 'dsh-codearts-auth': { kind: 'github', current: 'a'.repeat(40), latest: 'b'.repeat(40), updateAvailable: true } },
         },
-        '/dsh-shelfry/changelog': changelog,
+        '/dsh-crate/changelog': changelog,
       })
       const localized = dict === en ? {} : {
         t: (key: string) => dict[key] ?? key,
@@ -643,7 +643,7 @@ describe('api() base resolution (#345)', () => {
   it('leaves no root-absolute endpoint anywhere in the client source', () => {
     // #345 has now been fixed twice. The first fix converted every endpoint
     // that existed; changelog and personal notes were written afterwards, as
-    // ordinary-looking `fetch('/dsh-shelfry/…')` calls, and escaped to the
+    // ordinary-looking `fetch('/dsh-crate/…')` calls, and escaped to the
     // origin root again (#407). Nothing about writing that line looks wrong,
     // and nothing fails until someone is behind a path-prefixed proxy — the
     // one population that cannot see this test, or fix it.
@@ -663,7 +663,7 @@ describe('api() base resolution (#345)', () => {
         // whole point of the helper — so remove those before looking at what
         // is left. What is left is a path the browser would resolve itself.
         const bare = code.replace(/\bapi\(\s*(['"`])\/?[^'"`]*\1\s*\)/g, 'api(…)')
-        if (/['"`]\/dsh-shelfry\//.test(bare)) offenders.push(`${file}:${index + 1}: ${code}`)
+        if (/['"`]\/dsh-crate\//.test(bare)) offenders.push(`${file}:${index + 1}: ${code}`)
       })
     }
     expect(
@@ -676,14 +676,14 @@ describe('api() base resolution (#345)', () => {
 describe('MarketSection (jsdom)', () => {
   it('offers the top update-all button when exactly one plugin is updatable (#555)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: ['dsh-loop'],
         disabled: [],
         notes: {},
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true,
@@ -709,7 +709,7 @@ describe('MarketSection (jsdom)', () => {
     // opt-in, so the default list was mostly entries that cannot be
     // installed, with nothing at list level saying so.
     stubFetch({
-      '/dsh-shelfry/discovery-compatibility': {
+      '/dsh-crate/discovery-compatibility': {
         hostVersion: '0.1.2-alpha.2',
         plugins: {
           'dsh-loop': { status: 'incompatible', basis: 'manifest', requirement: '^0.9.0', declarations: ['^0.9.0'] },
@@ -737,7 +737,7 @@ describe('MarketSection (jsdom)', () => {
 
   it('reuses host-compatibility results across remounts so the sidebar page does not rescan (#846)', async () => {
     stubFetch({
-      '/dsh-shelfry/discovery-compatibility': {
+      '/dsh-crate/discovery-compatibility': {
         hostVersion: '0.1.2-alpha.2',
         plugins: {
           'dsh-loop': { status: 'incompatible', basis: 'manifest', requirement: '^0.9.0', declarations: ['^0.9.0'] },
@@ -762,14 +762,14 @@ describe('MarketSection (jsdom)', () => {
 
   it('keeps update badges painted across remounts so the sidebar entry matches settings (#846)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: ['dsh-loop'],
         disabled: [],
         notes: {},
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true,
@@ -781,13 +781,13 @@ describe('MarketSection (jsdom)', () => {
     expect(await screen.findByRole('button', { name: /Update all \(1\)/ })).toBeTruthy()
     unmount()
     // No network yet — the button must still come from the shared cache, not
-    // wait on /dsh-shelfry/updates the way an empty remount used to.
+    // wait on /dsh-crate/updates the way an empty remount used to.
     render(<MarketSection {...props()} />)
     expect(screen.getByRole('button', { name: /Update all \(1\)/ })).toBeTruthy()
   })
 
   it('keeps the header package version across remounts (#846)', async () => {
-    stubFetch({ '/dsh-shelfry/status': { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, version: '1.66.28' } })
+    stubFetch({ '/dsh-crate/status': { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, version: '1.66.28' } })
     const { unmount } = render(<MarketSection {...props()} />)
     expect(await screen.findByText('v1.66.28')).toBeTruthy()
     unmount()
@@ -797,8 +797,8 @@ describe('MarketSection (jsdom)', () => {
 
   it('drops host-compatibility results when the host version changes (#846)', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' },
-      '/dsh-shelfry/discovery-compatibility': {
+      '/dsh-crate/registry': { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' },
+      '/dsh-crate/discovery-compatibility': {
         hostVersion: '0.1.2-alpha.2',
         plugins: {
           'dsh-loop': { status: 'incompatible', basis: 'manifest', requirement: '^0.9.0', declarations: ['^0.9.0'] },
@@ -811,8 +811,8 @@ describe('MarketSection (jsdom)', () => {
     const compatBefore = fetchCalls.filter(call => call.path.includes('discovery-compatibility')).length
     unmount()
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', registry: REGISTRY, hostVersion: '0.2.0-rc.2' },
-      '/dsh-shelfry/discovery-compatibility': {
+      '/dsh-crate/registry': { source: 'live', registry: REGISTRY, hostVersion: '0.2.0-rc.2' },
+      '/dsh-crate/discovery-compatibility': {
         hostVersion: '0.2.0-rc.2',
         plugins: {
           'dsh-loop': { status: 'compatible', basis: 'manifest', requirement: '*', declarations: ['*'] },
@@ -840,7 +840,7 @@ describe('MarketSection (jsdom)', () => {
       },
     }
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live', hostVersion: '0.1.2-alpha.2',
         registry: {
           ...REGISTRY,
@@ -855,7 +855,7 @@ describe('MarketSection (jsdom)', () => {
     const baseFetch = globalThis.fetch
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input).split('?')[0] ?? ''
-      if (path.endsWith('/dsh-shelfry/discovery-compatibility')) {
+      if (path.endsWith('/dsh-crate/discovery-compatibility')) {
         calls += 1
         if (calls === 1) await gate
         return new Response(JSON.stringify(compatBody), { status: 200 })
@@ -883,7 +883,7 @@ describe('MarketSection (jsdom)', () => {
 
   it('opens Installed with the host-provided plugin query', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'dsh-notify': '^1.0.0' },
         live: ['dsh-loop', 'dsh-notify'],
@@ -959,8 +959,8 @@ describe('MarketSection (jsdom)', () => {
       description: { en: 'Installed-plugin compatibility checks' }, install: '', added: '2026-10-17',
     }
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', registry: { ...REGISTRY, plugins: [plugin] } },
-      '/dsh-shelfry/install': { cancelled: true },
+      '/dsh-crate/registry': { source: 'live', registry: { ...REGISTRY, plugins: [plugin] } },
+      '/dsh-crate/install': { cancelled: true },
     })
     render(<MarketSection {...props()} />)
     const links = await screen.findAllByRole('link', { name: `${plugin.name} — ${en.repoLink}` })
@@ -972,7 +972,7 @@ describe('MarketSection (jsdom)', () => {
     fireEvent.click(screen.getAllByRole('button', { name: en.install, exact: true })[0]!)
     expect(await screen.findByRole('dialog', { name: `${en.confirmTitle} dsh-plugin-compat-check?` })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.confirmInstall }))
-    await waitFor(() => expect(fetchCalls.find(call => call.path === '/dsh-shelfry/install')?.body).toEqual({
+    await waitFor(() => expect(fetchCalls.find(call => call.path === '/dsh-crate/install')?.body).toEqual({
       url: 'https://github.com/lcy0121/dsh-plugin-compat-check/tree/main/plugin',
     }))
   })
@@ -1007,7 +1007,7 @@ describe('MarketSection (jsdom)', () => {
     // kettly1260 saw "Error: HTTP 500" and could not tell what to do. The route
     // had answered with the reason; the download dropped it.
     stubFetch({
-      '/dsh-shelfry/backup': { __status: 500, error: '这个 profile 的配置文件超过 256 个，整份备份放不下。可以只导出选中的插件。' },
+      '/dsh-crate/backup': { __status: 500, error: '这个 profile 的配置文件超过 256 个，整份备份放不下。可以只导出选中的插件。' },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -1043,7 +1043,7 @@ describe('MarketSection (jsdom)', () => {
   it('scrolls the shared body back to the top when switching tabs', async () => {
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
-    const scroller = container.querySelector('[data-dsh-shelfry-root] > [class*="body"]') as HTMLElement
+    const scroller = container.querySelector('[data-dsh-crate-root] > [class*="body"]') as HTMLElement
     expect(scroller).toBeTruthy()
 
     scroller.scrollTop = 800
@@ -1066,7 +1066,7 @@ describe('MarketSection (jsdom)', () => {
   it('scrolls the shared body back to the top when switching Discover categories', async () => {
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
-    const scroller = container.querySelector('[data-dsh-shelfry-root] > [class*="body"]') as HTMLElement
+    const scroller = container.querySelector('[data-dsh-crate-root] > [class*="body"]') as HTMLElement
     expect(scroller).toBeTruthy()
 
     scroller.scrollTop = 800
@@ -1081,12 +1081,12 @@ describe('MarketSection (jsdom)', () => {
 
   it('closes an open card menu when the list scrolls, instead of letting it ride out over the sticky header', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: {} },
     })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
-    const scroller = container.querySelector('[data-dsh-shelfry-root] > [class*="body"]') as HTMLElement
+    const scroller = container.querySelector('[data-dsh-crate-root] > [class*="body"]') as HTMLElement
 
     const card = screen.getByText('Loop task runner').closest('[class*="card"]') as HTMLElement
     fireEvent.click(within(card).getByRole('button', { name: en.groupMore }))
@@ -1109,11 +1109,11 @@ describe('MarketSection (jsdom)', () => {
       { name: 'dsh-vision-bridge', owner: 'GXX182', url: 'https://github.com/GXX182/dsh-vision-bridge', category: 'tools', npm: null, description: { en: 'Local bridge' }, install: '' },
     ]
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'snapshot',
         registry: { updated: '', count: 2, categories: REGISTRY.categories, plugins },
       },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-vision-bridge': 'link:D:/pro/dsh/dsh-vision-bridge' },
         repoIdentities: { 'dsh-vision-bridge': ['gxx182/dsh-vision-bridge'] },
@@ -1144,12 +1144,12 @@ describe('MarketSection (jsdom)', () => {
       },
     }))
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-excel-chat': '^0.33.0' },
         live: [],
         diagnostics: {
-          schema: 'dsh-shelfry/diagnostics/v1',
+          schema: 'dsh-crate/diagnostics/v1',
           findings: [
             ...findings,
             {
@@ -1260,11 +1260,11 @@ describe('MarketSection (jsdom)', () => {
     const url = 'https://github.com/owner/whale/tree/master/packages/host'
     const range = '0.2.1-rc.2 || 0.2.1-rc.3'
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         hostVersion: '0.2.1-rc.4',
         registry: { ...REGISTRY, count: 1, plugins: [{ ...REGISTRY.plugins[0], name: 'WhaleMaid', npm: null, url }] },
       },
-      '/dsh-shelfry/discovery-compatibility': {
+      '/dsh-crate/discovery-compatibility': {
         hostVersion: '0.2.1-rc.4',
         plugins: { [url]: { status: 'incompatible', basis: 'manifest', requirement: range,
           declarations: [{ kind: 'engine', range }] } },
@@ -1274,7 +1274,7 @@ describe('MarketSection (jsdom)', () => {
     await screen.findByText('WhaleMaid')
     const badge = await screen.findByText(en.hostRequirement.replace('{0}', range))
     expect(badge.getAttribute('data-status')).toBe('incompatible')
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/discovery-compatibility'
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/discovery-compatibility'
       && (call.body as { entries?: string[] }).entries?.includes(url))).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: en.filter }))
     fireEvent.click(screen.getByRole('menuitem', { name: en.hostCompatible.replace('{0}', '0.2.1-rc.4') }))
@@ -1289,12 +1289,12 @@ describe('MarketSection (jsdom)', () => {
       { ...REGISTRY.plugins[0], name: 'github-only', npm: null, url: 'https://github.com/a/github-only' },
     ]
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         hostVersion: '0.1.2-alpha.2',
         registry: { ...REGISTRY, count: plugins.length, plugins },
       },
-      '/dsh-shelfry/discovery-compatibility': (body: any) => ({
+      '/dsh-crate/discovery-compatibility': (body: any) => ({
         hostVersion: '0.1.2-alpha.2',
         plugins: Object.fromEntries(body.packages.map((name: string) => [name, name === 'undeclared'
           ? { status: 'unknown', basis: 'undeclared', requirement: null, declarations: [] }
@@ -1323,15 +1323,15 @@ describe('MarketSection (jsdom)', () => {
       expect(screen.getByText('undeclared')).toBeTruthy()
       expect(screen.getByText('github-only')).toBeTruthy()
     })
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/discovery-compatibility'
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/discovery-compatibility'
       && call.method === 'POST'
       && Array.isArray((call.body as { packages?: unknown })?.packages))).toBe(true)
   })
 
   it('reports an unknown host version and does not enable a pretend compatibility filter', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', hostVersion: null, registry: REGISTRY },
-      '/dsh-shelfry/discovery-compatibility': (body: any) => ({
+      '/dsh-crate/registry': { source: 'live', hostVersion: null, registry: REGISTRY },
+      '/dsh-crate/discovery-compatibility': (body: any) => ({
         hostVersion: null,
         plugins: Object.fromEntries(body.packages.map((name: string) => [name, {
           status: 'unknown',
@@ -1369,7 +1369,7 @@ describe('MarketSection (jsdom)', () => {
     }
     const tip = downloadStatsText(plugin, key => en[key])!
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         hostVersion: '0.1.2-alpha.2',
         registry: { ...REGISTRY, count: 1, plugins: [plugin] },
@@ -1412,7 +1412,7 @@ describe('MarketSection (jsdom)', () => {
   })
 
   const stubTerminalPlugin = () => stubFetch({
-    '/dsh-shelfry/registry': {
+    '/dsh-crate/registry': {
       source: 'live',
       hostVersion: '0.1.2-alpha.2',
       registry: {
@@ -1448,7 +1448,7 @@ describe('MarketSection (jsdom)', () => {
     // so the evidence is now a phrase that asserts THIS plugin's surface —
     // here "CLI-only" instead of the old bare "Supports a CLI flag".
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         hostVersion: '0.1.2-alpha.2',
         registry: {
@@ -1574,7 +1574,7 @@ describe('MarketSection (jsdom)', () => {
   it('offers the release a hold kept back, and installs it when asked (#635)', async () => {
     let installs = 0
     stubFetch({
-      '/dsh-shelfry/install': () => {
+      '/dsh-crate/install': () => {
         installs += 1
         return installs === 1
           ? { ok: true, hot: false, heldRelease: { latest: '2.0.0', installed: '1.0.0', because: 'minimumReleaseAge' } }
@@ -1586,7 +1586,7 @@ describe('MarketSection (jsdom)', () => {
     fireEvent.click(screen.getAllByRole('button', { name: en.install })[0])
     fireEvent.click(await screen.findByRole('button', { name: en.confirmInstall }))
 
-    await waitFor(() => expect(fetchCalls.filter(c => c.path === '/dsh-shelfry/install').length).toBe(1))
+    await waitFor(() => expect(fetchCalls.filter(c => c.path === '/dsh-crate/install').length).toBe(1))
     // Open the Tasks panel: that is where a record lives once it settles.
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(en.opTitle) }))
 
@@ -1601,7 +1601,7 @@ describe('MarketSection (jsdom)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: en.heldReleaseAction.replace('{0}', '2.0.0') }))
     await waitFor(() => {
-      const posts = fetchCalls.filter(call => call.path === '/dsh-shelfry/install')
+      const posts = fetchCalls.filter(call => call.path === '/dsh-crate/install')
       expect(posts.length).toBe(2)
       // The click is what carries the intent the server refuses to assume.
       expect(posts[1]?.body).toMatchObject({ force: true })
@@ -1611,13 +1611,13 @@ describe('MarketSection (jsdom)', () => {
   it('offers the newest release this host supports, and installs THAT one (#581)', async () => {
     let installs = 0
     stubFetch({
-      '/dsh-shelfry/install': () => {
+      '/dsh-crate/install': () => {
         installs += 1
         return installs === 1
           ? { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } }
           : { ok: true, hot: false }
       },
-      '/dsh-shelfry/find-compatible': { compatibleVersion: '1.2.0', upgradeOnly: false },
+      '/dsh-crate/find-compatible': { compatibleVersion: '1.2.0', upgradeOnly: false },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -1633,7 +1633,7 @@ describe('MarketSection (jsdom)', () => {
     fireEvent.click(screen.getByRole('button', { name: en.hostIncompatibleInstallCompat.replace('{version}', '1.2.0') }))
 
     await waitFor(() => {
-      const posts = fetchCalls.filter(call => call.path === '/dsh-shelfry/install')
+      const posts = fetchCalls.filter(call => call.path === '/dsh-crate/install')
       expect(posts.length).toBe(2)
       // Pinned to the version that was found, and NOT forced: the user took
       // the safe road, and the route judges the release it is given.
@@ -1644,8 +1644,8 @@ describe('MarketSection (jsdom)', () => {
 
   it('says so when nothing declares this host, instead of offering a dead end (#581)', async () => {
     stubFetch({
-      '/dsh-shelfry/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
-      '/dsh-shelfry/find-compatible': { compatibleVersion: null, upgradeOnly: false },
+      '/dsh-crate/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
+      '/dsh-crate/find-compatible': { compatibleVersion: null, upgradeOnly: false },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -1658,7 +1658,7 @@ describe('MarketSection (jsdom)', () => {
   })
 
   it('export log is a real button with visible feedback (#84)', async () => {
-    stubFetch({ '/dsh-shelfry/logs': 'log-lines' })
+    stubFetch({ '/dsh-crate/logs': 'log-lines' })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
     const exportButton = screen.getByRole('button', { name: en.exportLog })
@@ -1684,7 +1684,7 @@ describe('MarketSection (jsdom)', () => {
     URL.createObjectURL = (blob: Blob) => { void blob.text().then((text) => { saved = text }); return 'blob:stub' }
     URL.revokeObjectURL = () => {}
     try {
-      stubFetch({ '/dsh-shelfry/logs': 'log-lines' })
+      stubFetch({ '/dsh-crate/logs': 'log-lines' })
       render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
       fireEvent.click(screen.getByRole('button', { name: en.exportLog }))
@@ -1706,10 +1706,10 @@ describe('MarketSection (jsdom)', () => {
     registry.plugins[0].screenshots = [CURATED, 'https://evil.example/track.png']
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       const path = String(url).split('?')[0]
-      if (path === '/dsh-shelfry/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry }), { status: 200 }))
-      if (path === '/dsh-shelfry/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
-      if (path === '/dsh-shelfry/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', installed: {} }), { status: 200 }))
-      if (path === '/dsh-shelfry/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
+      if (path === '/dsh-crate/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry }), { status: 200 }))
+      if (path === '/dsh-crate/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
+      if (path === '/dsh-crate/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', installed: {} }), { status: 200 }))
+      if (path === '/dsh-crate/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
       // README fallback for dsh-notify (no curated screenshots).
       if (path === 'https://raw.githubusercontent.com/bob/dsh-notify/HEAD/README.md') {
         return Promise.resolve(new Response('# dsh-notify\n![shot](assets/notify.png)', { status: 200 }))
@@ -1763,10 +1763,10 @@ describe('MarketSection (jsdom)', () => {
     registry.plugins[0].screenshots = [GIF, PNG]
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       const path = String(url).split('?')[0]
-      if (path === '/dsh-shelfry/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry }), { status: 200 }))
-      if (path === '/dsh-shelfry/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
-      if (path === '/dsh-shelfry/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', installed: {} }), { status: 200 }))
-      if (path === '/dsh-shelfry/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
+      if (path === '/dsh-crate/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry }), { status: 200 }))
+      if (path === '/dsh-crate/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
+      if (path === '/dsh-crate/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', installed: {} }), { status: 200 }))
+      if (path === '/dsh-crate/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
       return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
     }))
     render(<MarketSection {...props()} />)
@@ -1817,7 +1817,7 @@ describe('MarketSection (jsdom)', () => {
     let readmeCalls = 0
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       const path = String(url).split('?')[0]
-      if (path === '/dsh-shelfry/registry') {
+      if (path === '/dsh-crate/registry') {
         registryCalls += 1
         const registry = JSON.parse(JSON.stringify(REGISTRY))
         const sameGeneration = registryCalls <= 2
@@ -1836,9 +1836,9 @@ describe('MarketSection (jsdom)', () => {
         return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry }), { status: 200 }))
       }
       const payload =
-        path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [], disabled: [] }
-        : path === '/dsh-shelfry/status' ? { active: false, pnpm: true, boot: 'boot-1', installed: {} }
-        : path === '/dsh-shelfry/updates' ? { updates: {} }
+        path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [], disabled: [] }
+        : path === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', installed: {} }
+        : path === '/dsh-crate/updates' ? { updates: {} }
         : null
       if (payload !== null) return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
       if (path === readmeUrl) {
@@ -2045,7 +2045,7 @@ describe('MarketSection (jsdom)', () => {
 
   it('imports a backup as a grey installed-list preview without restoring it', async () => {
     const fetchMock = stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'already-here': '^1.0.0', 'ghost-dependency': '^1.0.0' }, present: ['already-here'], live: [],
       },
     })
@@ -2066,7 +2066,7 @@ describe('MarketSection (jsdom)', () => {
     expect(screen.getByText('ghost-dependency').closest('[class*="irowMissing"]')).toBeTruthy()
     expect(screen.getByText('already-here').closest('[class*="irowMissing"]')).toBeNull()
     expect(screen.getByRole('button', { name: en.restoreStart })).toBeTruthy()
-    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-shelfry/restore')).toBe(false)
+    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-crate/restore')).toBe(false)
   })
 
   it('keeps the Tasks entry wrapped so opening the panel does not shift the tab row', async () => {
@@ -2087,9 +2087,9 @@ describe('MarketSection (jsdom)', () => {
     // panel was written — only the enqueue was missing, so "update all" left
     // the panel empty while several plugins were mid-flight.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: true, activation: {} },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: true, activation: {} },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -2111,8 +2111,8 @@ describe('MarketSection (jsdom)', () => {
     // row says when it opens instead.
     const until = new Date(Date.now() + 5 * 3_600_000).toISOString()
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0',
@@ -2135,8 +2135,8 @@ describe('MarketSection (jsdom)', () => {
     // window it cannot know.
     const until = new Date(Date.now() + 25 * 60_000).toISOString()
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0',
@@ -2161,8 +2161,8 @@ describe('MarketSection (jsdom)', () => {
     // name. "Up to date" is true against the tag and false for them, so the
     // card says which build their line published and leaves the click to them.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '0.2.1-alpha.2' }, live: [] },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '0.2.1-alpha.2' }, live: [] },
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'npm', version: '0.2.1-alpha.2', current: '0.2.1-alpha.2',
@@ -2170,7 +2170,7 @@ describe('MarketSection (jsdom)', () => {
           },
         },
       },
-      '/dsh-shelfry/update': { ok: true, activation: {} },
+      '/dsh-crate/update': { ok: true, activation: {} },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -2179,7 +2179,7 @@ describe('MarketSection (jsdom)', () => {
     expect(screen.queryByText(en.upToDate)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.install }))
     await waitFor(() => {
-      const update = fetchCalls.find(call => call.path === '/dsh-shelfry/update')
+      const update = fetchCalls.find(call => call.path === '/dsh-crate/update')
       expect(update, 'the install never asked the update route').toBeTruthy()
       expect(update!.body).toMatchObject({ name: 'dsh-loop', compatVersion: '0.2.1-alpha.4' })
     })
@@ -2196,16 +2196,16 @@ describe('MarketSection (jsdom)', () => {
 
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
-        if (path === '/dsh-shelfry/update') {
+        if (path === '/dsh-crate/update') {
           operationStarted = true
           return updateResponse
         }
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? {
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? {
               profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [],
             }
-          : path === '/dsh-shelfry/status' ? (() => {
+          : path === '/dsh-crate/status' ? (() => {
               const busy = operationStarted && !updateSettled
               if (busy) busyStatusObserved = true
               return {
@@ -2213,7 +2213,7 @@ describe('MarketSection (jsdom)', () => {
                 installed: { 'dsh-loop': '^1.0.0' },
               }
             })()
-          : path === '/dsh-shelfry/updates' ? {
+          : path === '/dsh-crate/updates' ? {
               updates: {
                 'dsh-loop': {
                   kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true,
@@ -2255,7 +2255,7 @@ describe('MarketSection (jsdom)', () => {
 
   it('labels a plugin loaded by the user\'s own setup as such, not as inactive (#813)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [],
         activation: { 'dsh-loop': { state: 'inert', loadedByProfile: true, hot: false, bundle: true, reasons: ['loaded by your setup'] } },
       },
@@ -2275,7 +2275,7 @@ describe('MarketSection (jsdom)', () => {
     // node_modules because other plugins need them, and the installed list
     // rendered each one as a card whose uninstall button really removes it.
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-loop': '^1.0.0', zustand: '^5.0.15' }, live: [], disabled: [],
         activation: {
           'dsh-loop': { state: 'live', hot: true, bundle: true, reasons: ['live via its bundle patch'] },
@@ -2294,9 +2294,9 @@ describe('MarketSection (jsdom)', () => {
 
   it('a stale update response arms the Update-now button (#22 flow)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: false, stale: true, error: 'too fresh — wait or update now' },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: false, stale: true, error: 'too fresh — wait or update now' },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -2313,9 +2313,9 @@ describe('MarketSection (jsdom)', () => {
     // pressed update again. Whatever else happens, a failure has to be
     // visible on the surface the user is looking at.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: false, error: 'ERR_PNPM_PREPARE_PACKAGE: the build script failed' },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: false, error: 'ERR_PNPM_PREPARE_PACKAGE: the build script failed' },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -2342,9 +2342,9 @@ describe('MarketSection (jsdom)', () => {
     // clip it: shorten the fixture and this test stops testing anything.
     expect(message.length).toBeGreaterThan(600)
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: false, error: message, stderr: 'ERR_PNPM_UNUSED_PATCH\n    at resolveDependencies2 (pnpm.mjs:177458:5)' },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: false, error: message, stderr: 'ERR_PNPM_UNUSED_PATCH\n    at resolveDependencies2 (pnpm.mjs:177458:5)' },
     })
     render(<MarketSection {...props()} locale={{ subscribe: () => () => {}, getSnapshot: () => ZH }} />)
     await screen.findByText('dsh-loop')
@@ -2363,9 +2363,9 @@ describe('MarketSection (jsdom)', () => {
     // runs when agents go idle — the old "names the agent in a failure" copy
     // is replaced by the queue copy.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': {
         ok: false,
         agentsBusy: true,
         runningAgents: ['main'],
@@ -2374,9 +2374,9 @@ describe('MarketSection (jsdom)', () => {
       },
     })
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': {
         ok: false,
         agentsBusy: true,
         runningAgents: ['main'],
@@ -2402,11 +2402,11 @@ describe('MarketSection (jsdom)', () => {
   it.each(['update', 'uninstall'] as const)('confirms a queued %s only after the risk modal, without leaking consent (#779)', async kind => {
     for (const wording of ['会话', '中途报错', '取消']) expect(zh.agentsRunningRisk).toContain(wording)
     for (const wording of ['sessions', 'fail mid-turn', 'Cancel']) expect(en.agentsRunningRisk).toContain(wording)
-    const path = `/dsh-shelfry/${kind}`
+    const path = `/dsh-crate/${kind}`
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, runningAgents: ['main'] },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, runningAgents: ['main'] },
       [path]: { ok: false, agentsBusy: true, runningAgents: ['main'], __status: 409 },
     })
     render(<MarketSection {...props()} />)
@@ -2450,10 +2450,10 @@ describe('MarketSection (jsdom)', () => {
     const updateOptions = { force: true, restore: true, compatVersion: '1.1.0' }
     localStorage.setItem('dshm-queue-v1', JSON.stringify([{ kind: 'update', name: 'dsh-loop', updateOptions }]))
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'linked', updateAvailable: false } } },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, runningAgents: ['main'] },
-      '/dsh-shelfry/update': { ok: true, activation: {} },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'linked', updateAvailable: false } } },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, runningAgents: ['main'] },
+      '/dsh-crate/update': { ok: true, activation: {} },
     })
     render(<MarketSection {...props()} />)
     await screen.findAllByText('dsh-loop')
@@ -2464,10 +2464,10 @@ describe('MarketSection (jsdom)', () => {
     expect(localStorage.getItem('dshm-queue-v1')).not.toContain('confirmAgentsRunning')
     fireEvent.click(runNow)
     const dialog = await screen.findByRole('dialog', { name: re(en.agentsRunningConfirm) })
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update')).toHaveLength(0)
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/update')).toHaveLength(0)
     fireEvent.click(within(dialog).getByRole('button', { name: en.opUpdateNow }))
     await waitFor(() => expect(fetchCalls).toContainEqual({
-      path: '/dsh-shelfry/update', method: 'POST',
+      path: '/dsh-crate/update', method: 'POST',
       body: { name: 'dsh-loop', ...updateOptions, confirmAgentsRunning: true },
     }))
   })
@@ -2477,7 +2477,7 @@ describe('MarketSection (jsdom)', () => {
     // record the drain runs once agents go idle, and the card shows the
     // queued badge rather than the clash/failure marker.
     stubFetch({
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         ok: false,
         agentsBusy: true,
         runningAgents: ['main'],
@@ -2511,7 +2511,7 @@ describe('MarketSection (jsdom)', () => {
     // a contradiction the reader cannot resolve: nothing is installing, and
     // the guard will not let it start until the running work ends.
     stubFetch({
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         ok: false,
         agentsBusy: true,
         runningAgents: ['session-a', 'session-b', 'session-c'],
@@ -2540,22 +2540,22 @@ describe('MarketSection (jsdom)', () => {
     const fetchMock = vi.fn((input: unknown, init?: RequestInit) => {
       const path = String(input).split('?')[0]
       const method = (init?.method ?? 'GET').toUpperCase()
-      if (path === '/dsh-shelfry/registry') {
+      if (path === '/dsh-crate/registry') {
         return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry: REGISTRY }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/installed') {
+      if (path === '/dsh-crate/installed') {
         return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/updates') {
+      if (path === '/dsh-crate/updates') {
         return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/status') {
+      if (path === '/dsh-crate/status') {
         return Promise.resolve(new Response(JSON.stringify({
           active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {},
           runningAgents: ['session-a', 'session-b'],
         }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/install' && method === 'POST') {
+      if (path === '/dsh-crate/install' && method === 'POST') {
         return Promise.resolve(new Response(JSON.stringify({
           ok: false, agentsBusy: true, runningAgents: ['session-a', 'session-b'], error: 'agents are running',
         }), { status: 409 }))
@@ -2572,13 +2572,13 @@ describe('MarketSection (jsdom)', () => {
       fireEvent.click(await screen.findByRole('button', { name: en.confirmInstall }))
       const runNow = await screen.findByRole('button', { name: en.opRunNow })
       const before = fetchMock.mock.calls.filter(([url, init]) =>
-        String(url).endsWith('/dsh-shelfry/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
+        String(url).endsWith('/dsh-crate/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
       ).length
 
       fireEvent.click(runNow)
 
       await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) =>
-        String(url).endsWith('/dsh-shelfry/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
+        String(url).endsWith('/dsh-crate/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
       )).toHaveLength(before + 1))
       expect(screen.queryByRole('dialog', { name: re(en.agentsRunningConfirm) })).toBeNull()
       expect(screen.queryByText(en.queuedRunBlocked.replace('{0}', '2'))).toBeNull()
@@ -2602,10 +2602,10 @@ describe('MarketSection (jsdom)', () => {
       const path = String(input).split('?')[0]
       const method = (init?.method ?? 'GET').toUpperCase()
       const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }))
-      if (path === '/dsh-shelfry/registry') return json({ source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' })
-      if (path === '/dsh-shelfry/installed') return json({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] })
-      if (path === '/dsh-shelfry/updates') return json({ updates: {} })
-      if (path === '/dsh-shelfry/status') {
+      if (path === '/dsh-crate/registry') return json({ source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' })
+      if (path === '/dsh-crate/installed') return json({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] })
+      if (path === '/dsh-crate/updates') return json({ updates: {} })
+      if (path === '/dsh-crate/status') {
         statusCalls += 1
         // The only sample that ever lands is the one taken WHILE the install
         // runs. Everything after that hangs, so nothing can quietly refresh
@@ -2614,7 +2614,7 @@ describe('MarketSection (jsdom)', () => {
           ? json({ active: true, busy: true, pnpm: true, boot: 'boot-1', restart: true, installed: {} })
           : new Promise<Response>(() => { /* no further sample */ })
       }
-      if (path === '/dsh-shelfry/install' && method === 'POST') {
+      if (path === '/dsh-crate/install' && method === 'POST') {
         installPosts += 1
         if (installPosts === 1) {
           // Slow enough that the 2 s progress poll samples it, then it settles
@@ -2667,17 +2667,17 @@ describe('MarketSection (jsdom)', () => {
     // queue, but the banner belongs to a user action that was refused for a
     // reason — repeating it every 2s made the panel unusable (#1140).
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': {
+      '/dsh-crate/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': {
         kind: 'npm', current: '1.0.0', latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true,
       } } },
-      '/dsh-shelfry/update': { ok: false, busy: true, error: 'another plugin operation is running', __status: 409 },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', installed: {} },
+      '/dsh-crate/update': { ok: false, busy: true, error: 'another plugin operation is running', __status: 409 },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', installed: {} },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Update v1.1.0' }))
-    await waitFor(() => expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(true))
+    await waitFor(() => expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(true))
     expect(screen.queryByText(en.queuedRunBusy)).toBeNull()
     // The row is queued rather than failed: the durable queue keeps it.
     await waitFor(() => expect(JSON.parse(localStorage.getItem('dshm-queue-v1') ?? '[]'))
@@ -2705,15 +2705,15 @@ describe('MarketSection (jsdom)', () => {
       const path = String(input).split('?')[0]
       const method = (init?.method ?? 'GET').toUpperCase()
       const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }))
-      if (path === '/dsh-shelfry/registry') {
+      if (path === '/dsh-crate/registry') {
         return json({ source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' })
       }
-      if (path === '/dsh-shelfry/installed') {
+      if (path === '/dsh-crate/installed') {
         return json({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] })
       }
-      if (path === '/dsh-shelfry/updates') return json({ updates: {} })
-      if (path === '/dsh-shelfry/status') return new Promise<Response>(() => { /* see above */ })
-      if (path === '/dsh-shelfry/install' && method === 'POST') {
+      if (path === '/dsh-crate/updates') return json({ updates: {} })
+      if (path === '/dsh-crate/status') return new Promise<Response>(() => { /* see above */ })
+      if (path === '/dsh-crate/install' && method === 'POST') {
         // The host's mutation lock: one operation at a time, and a second
         // request is refused immediately instead of queueing (routes.ts
         // withMutationLock). The first install never returns — it is still
@@ -2753,7 +2753,7 @@ describe('MarketSection (jsdom)', () => {
       // #752's rule, applied to the other guard. Sending it is what produced
       // the three "another install is still running" rows in the report.
       expect(fetchMock.mock.calls.filter(([url, init]) =>
-        String(url).endsWith('/dsh-shelfry/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
+        String(url).endsWith('/dsh-crate/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
       )).toHaveLength(1)
 
       // The second row is still the user's pending work…
@@ -2781,17 +2781,17 @@ describe('MarketSection (jsdom)', () => {
       const path = String(input).split('?')[0]
       const method = (init?.method ?? 'GET').toUpperCase()
       const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }))
-      if (path === '/dsh-shelfry/registry') {
+      if (path === '/dsh-crate/registry') {
         return json({ source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' })
       }
-      if (path === '/dsh-shelfry/installed') {
+      if (path === '/dsh-crate/installed') {
         return json({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] })
       }
-      if (path === '/dsh-shelfry/updates') return json({ updates: {} })
-      if (path === '/dsh-shelfry/status') {
+      if (path === '/dsh-crate/updates') return json({ updates: {} })
+      if (path === '/dsh-crate/status') {
         return json({ active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {}, runningAgents: [] })
       }
-      if (path === '/dsh-shelfry/install' && method === 'POST') {
+      if (path === '/dsh-crate/install' && method === 'POST') {
         attempts += 1
         if (attempts === 1) return json({ error: 'another install is already running' }, 409)
         return json({ ok: true, hot: false })
@@ -2826,24 +2826,24 @@ describe('MarketSection (jsdom)', () => {
     const fetchMock = vi.fn((input: unknown, init?: RequestInit) => {
       const path = String(input).split('?')[0]
       const method = (init?.method ?? 'GET').toUpperCase()
-      if (path === '/dsh-shelfry/registry') {
+      if (path === '/dsh-crate/registry') {
         return Promise.resolve(new Response(JSON.stringify({ source: 'live', registry: REGISTRY }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/installed') {
+      if (path === '/dsh-crate/installed') {
         return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [] }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/updates') {
+      if (path === '/dsh-crate/updates') {
         return Promise.resolve(new Response(JSON.stringify({ updates: {} }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/status') {
+      if (path === '/dsh-crate/status') {
         return Promise.resolve(new Response(JSON.stringify({
           active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {},
           runningAgents: ['main'],
         }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/install' && method === 'POST') {
+      if (path === '/dsh-crate/install' && method === 'POST') {
         const count = fetchMock.mock.calls.filter(([url, init]) =>
-          String(url).endsWith('/dsh-shelfry/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
+          String(url).endsWith('/dsh-crate/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
         ).length
         // A legacy host can still refuse; the drain retries the install even
         // while /status continues reporting the running agent.
@@ -2875,7 +2875,7 @@ describe('MarketSection (jsdom)', () => {
       // "Installed · refresh the page to apply", not "Done".)
       await waitFor(() => {
         expect(fetchMock.mock.calls.filter(([url, init]) =>
-          String(url).endsWith('/dsh-shelfry/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
+          String(url).endsWith('/dsh-crate/install') && (init?.method ?? 'GET').toUpperCase() === 'POST',
         )).toHaveLength(2)
       }, { timeout: 8000 })
       await waitFor(() => {
@@ -2899,7 +2899,7 @@ describe('MarketSection (jsdom)', () => {
     localStorage.clear()
     render(<MarketSection {...props()} />)
     await screen.findAllByText('dsh-loop')
-    const statusCalls = () => fetchCalls.filter(call => call.path === '/dsh-shelfry/status').length
+    const statusCalls = () => fetchCalls.filter(call => call.path === '/dsh-crate/status').length
     // Let the mount settle before sampling, so a late first load cannot be
     // mistaken for a tick of the drain.
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -2911,7 +2911,7 @@ describe('MarketSection (jsdom)', () => {
 
   it('keeps a queued install across remounts via localStorage', async () => {
     stubFetch({
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         ok: false,
         agentsBusy: true,
         runningAgents: ['main'],
@@ -2970,8 +2970,8 @@ describe('MarketSection (jsdom)', () => {
     it('restores a failed install row with its way out after a reload', async () => {
       localStorage.setItem('dshm-settled-v1', JSON.stringify([failedInstall]))
       stubFetch({
-        '/dsh-shelfry/install': { ok: true, hot: false },
-        '/dsh-shelfry/approve-builds': { ok: true, approved: ['node-pty'] },
+        '/dsh-crate/install': { ok: true, hot: false },
+        '/dsh-crate/approve-builds': { ok: true, approved: ['node-pty'] },
       })
       render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
@@ -2986,8 +2986,8 @@ describe('MarketSection (jsdom)', () => {
       // The way out travels with the record: one click approves and retries.
       fireEvent.click(within(panel as HTMLElement).getByRole('button', { name: en.approveBuilds }))
       await waitFor(() => {
-        expect(fetchCalls.some(call => call.path === '/dsh-shelfry/approve-builds')).toBe(true)
-        expect(fetchCalls.some(call => call.path === '/dsh-shelfry/install' && call.method === 'POST')).toBe(true)
+        expect(fetchCalls.some(call => call.path === '/dsh-crate/approve-builds')).toBe(true)
+        expect(fetchCalls.some(call => call.path === '/dsh-crate/install' && call.method === 'POST')).toBe(true)
       })
     })
 
@@ -3019,7 +3019,7 @@ describe('MarketSection (jsdom)', () => {
 
     it('persists a row that finishes now, and clearing it empties the stored copy', async () => {
       stubFetch({
-        '/dsh-shelfry/install': {
+        '/dsh-crate/install': {
           ok: false, ignoredBuilds: ['node-pty'], error: 'blocked by pnpm', __status: 502,
         },
       })
@@ -3043,9 +3043,9 @@ describe('MarketSection (jsdom)', () => {
 
   it('shows a compatibility-risk banner after an update and rolls back on demand (#195)', async () => {
     const fetchMock = stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': {
         ok: true,
         activation: { 'dsh-loop': { state: 'restart', hot: false, bundle: true, reasons: ['restart to apply'] } },
         compatibility: {
@@ -3054,7 +3054,7 @@ describe('MarketSection (jsdom)', () => {
           rollbackId: 'rollback-1',
         },
       },
-      '/dsh-shelfry/rollback': { ok: true, rolledBack: true },
+      '/dsh-crate/rollback': { ok: true, rolledBack: true },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3064,7 +3064,7 @@ describe('MarketSection (jsdom)', () => {
     expect(await screen.findByText(en.compatRiskBanner)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.rollbackNow }))
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-shelfry/rollback')).toBe(true)
+      expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-crate/rollback')).toBe(true)
     })
     expect(screen.queryByText(en.compatRiskBanner)).toBeNull()
   })
@@ -3074,9 +3074,9 @@ describe('MarketSection (jsdom)', () => {
     // plugin name from a bundle patch. Both rows can load, so the banner must
     // not promise that one wins, and nothing is armed for rollback.
     const fetchMock = stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': {
         ok: true,
         activation: { 'dsh-loop': { state: 'restart', hot: false, bundle: true, reasons: ['restart to apply'] } },
         compatibility: {
@@ -3096,16 +3096,16 @@ describe('MarketSection (jsdom)', () => {
     expect(en.shadowNameBanner).not.toContain('only one will load')
     expect(screen.queryByRole('button', { name: en.rollbackNow })).toBeNull()
     expect(screen.queryByText(en.rollbackUnavailable)).toBeNull()
-    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-shelfry/rollback')).toBe(false)
+    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-crate/rollback')).toBe(false)
   })
 
   it('does not offer a rollback action when the server could not capture an exact source', async () => {
     const rollbackUnavailable = '更新前版本为 v1.0.0，但无法确认精确来源。 / The previous version was v1.0.0, but its exact source could not be verified.'
     const englishHalf = 'The previous version was v1.0.0, but its exact source could not be verified.'
     const fetchMock = stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': {
         ok: true,
         activation: { 'dsh-loop': { state: 'restart', hot: false, bundle: true, reasons: ['restart to apply'] } },
         compatibility: {
@@ -3125,14 +3125,14 @@ describe('MarketSection (jsdom)', () => {
     expect(screen.queryByText(rollbackUnavailable)).toBeNull()
     expect(screen.queryByText(en.rollbackUnavailable)).toBeNull()
     expect(screen.queryByRole('button', { name: en.rollbackNow })).toBeNull()
-    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-shelfry/rollback')).toBe(false)
+    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-crate/rollback')).toBe(false)
   })
 
   it('falls back to the generic rollback explanation for an older server', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': {
         ok: true,
         activation: { 'dsh-loop': { state: 'restart', hot: false, bundle: true, reasons: ['restart to apply'] } },
         compatibility: {
@@ -3163,7 +3163,7 @@ describe('MarketSection (jsdom)', () => {
       install: '',
     }))
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'snapshot',
         registry: { updated: '', count: 30, categories: { tools: { en: 'Tools', zh: '工具' } }, plugins },
       },
@@ -3196,7 +3196,7 @@ describe('MarketSection (jsdom)', () => {
       install: '',
     }))
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'snapshot',
         registry: { updated: '', count: 30, categories: { tools: { en: 'Tools', zh: '工具' } }, plugins },
       },
@@ -3233,7 +3233,7 @@ describe('MarketSection (jsdom)', () => {
       { name: 'dsh-stale', owner: 'b', url: 'https://github.com/b/dsh-stale', category: 'tools', npm: null, stars: 20, added: daysAgo(60), description: { en: 'Stale' }, install: '' },
     ]
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'snapshot',
         registry: { updated: '', count: 2, categories: { tools: { en: 'Tools', zh: '工具' } }, plugins },
       },
@@ -3286,13 +3286,13 @@ describe('lost install progress (config page reopened)', () => {
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [] }
-          : path === '/dsh-shelfry/status' ? {
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [] }
+          : path === '/dsh-crate/status' ? {
               active: !settled, busy: !settled, pnpm: true, boot: 'boot-1', restart: true,
               installed: settled ? { 'dsh-loop': '^1.0.0' } : {},
             }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
+          : path === '/dsh-crate/updates' ? { updates: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -3328,14 +3328,14 @@ describe('lost update progress (config page reopened)', () => {
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [] }
-          : path === '/dsh-shelfry/status' ? {
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [] }
+          : path === '/dsh-crate/status' ? {
               active: !settled, busy: !settled, pnpm: true, boot: 'boot-1', restart: true,
               installed: { 'dsh-loop': '^1.0.0' },
               phase: settled ? null : 'downloading', currentPackage: settled ? null : 'is-odd@3.0.1', done: settled ? 0 : 3,
             }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
+          : path === '/dsh-crate/updates' ? { updates: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -3372,7 +3372,7 @@ describe('P1-6 structured progress', () => {
       // A previous page load started an install whose response was lost.
       sessionStorage.setItem('dshm-pending', JSON.stringify({ url: 'https://github.com/alice/dsh-loop' }))
       stubFetch({
-        '/dsh-shelfry/status': {
+        '/dsh-crate/status': {
           active: true, phase: 'downloading', done: 3, currentPackage: 'is-odd@3.0.1',
           size: 1000, downloaded: 400, cancelling: true, installed: {},
           pnpm: true, boot: 'boot-1', restart: true,
@@ -3396,7 +3396,7 @@ describe('an install with no structured phase (the desktop manager)', () => {
   /** The status the desktop manager reports: one fixed line, no phase. */
   function runningFor(seconds: number): void {
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: true, seconds, lastLine: '桌面端的插件管理器正在处理 / The desktop app\'s plugin manager is working on it',
         installed: {}, pnpm: true, boot: 'boot-1', restart: true,
       },
@@ -3431,7 +3431,7 @@ describe('an install with no structured phase (the desktop manager)', () => {
 describe('P0-2 activation states in the Installed tab', () => {
   it('chips only the states the switch does not already show', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'whale-skin': '^1.0.0' },
         live: ['whale-skin'],
@@ -3440,7 +3440,7 @@ describe('P0-2 activation states in the Installed tab', () => {
           'whale-skin': { state: 'live', reasons: ['live via its bundle patch'], bundle: true, hot: true },
         },
       },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/updates': { updates: {} },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3459,7 +3459,7 @@ describe('P0-2 activation states in the Installed tab', () => {
 describe('the installed row states a version once', () => {
   it('drops a plain range beside the resolved version, keeps a source spec', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'dsh-notify': 'github:bob/dsh-notify' },
         live: ['dsh-loop', 'dsh-notify'],
@@ -3468,7 +3468,7 @@ describe('the installed row states a version once', () => {
           'dsh-notify': { state: 'live', reasons: [], bundle: true, hot: true },
         },
       },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { version: '1.0.0', kind: 'npm', updateAvailable: false } } },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { version: '1.0.0', kind: 'npm', updateAvailable: false } } },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3485,7 +3485,7 @@ describe('the installed row states a version once', () => {
 describe('#60 enable/disable switches in the Installed tab', () => {
   function installedStub(overrides: Record<string, unknown>): void {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: [],
@@ -3509,7 +3509,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
     expect(sw.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(sw)
     await waitFor(() => {
-      const toggle = fetchCalls.find(c => c.path === '/dsh-shelfry/toggle')
+      const toggle = fetchCalls.find(c => c.path === '/dsh-crate/toggle')
       expect(toggle?.body).toEqual({ name: 'dsh-loop', enabled: false })
     })
   })
@@ -3557,7 +3557,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
 
   it('omits switches for inert and broken plugins', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'whale-skin': '^1.0.0' },
         live: [],
@@ -3580,15 +3580,15 @@ describe('#60 enable/disable switches in the Installed tab', () => {
 
   it('shows a declared library as shared code, keeps updates, and explains uninstall consequences (#995)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-shared': '^0.1.7' }, live: [], disabled: ['dsh-shared'],
         groups: {}, groupOrder: [],
         activation: {
           'dsh-shared': { state: 'inert', library: true, reasons: ['供其他插件使用，无需启用 / for other plugins to use; no need to enable it'], bundle: false, hot: false },
         },
       },
-      '/dsh-shelfry/updates': { updates: { 'dsh-shared': { kind: 'npm', version: '0.1.7', current: '0.1.7', latest: '0.1.8', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: true, activation: { 'dsh-shared': { state: 'inert', library: true, reasons: ['for other plugins to use'], bundle: false, hot: false } } },
+      '/dsh-crate/updates': { updates: { 'dsh-shared': { kind: 'npm', version: '0.1.7', current: '0.1.7', latest: '0.1.8', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: true, activation: { 'dsh-shared': { state: 'inert', library: true, reasons: ['for other plugins to use'], bundle: false, hot: false } } },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
@@ -3609,15 +3609,15 @@ describe('#60 enable/disable switches in the Installed tab', () => {
 
   it('never lists the market itself in the Installed tab — it manages itself from its own settings card', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
-        installed: { 'dsh-shelfry': '^1.5.0', 'dsh-loop': '^1.0.0' },
-        live: ['dsh-shelfry', 'dsh-loop'],
+        installed: { 'dsh-crate': '^1.5.0', 'dsh-loop': '^1.0.0' },
+        live: ['dsh-crate', 'dsh-loop'],
         disabled: [],
         groups: {},
         groupOrder: [],
         activation: {
-          'dsh-shelfry': { state: 'live', reasons: [], bundle: true, hot: true },
+          'dsh-crate': { state: 'live', reasons: [], bundle: true, hot: true },
           'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true },
         },
       },
@@ -3627,36 +3627,36 @@ describe('#60 enable/disable switches in the Installed tab', () => {
     // A real plugin is installed alongside the market — its row shows,
     // proving the list isn't just empty, but the market's own row does not.
     await screen.findByText('dsh-loop')
-    // 我们品牌下包名和仓库名都是 dsh-shelfry，页头那个「回仓库」链接也会命中；
+    // 我们品牌下包名和仓库名都是 dsh-crate，页头那个「回仓库」链接也会命中；
     // 所以只允许它一个，安装列表里再多出一条就意味着自身没被过滤掉。
-    expect(screen.getAllByText('dsh-shelfry')).toHaveLength(1)
+    expect(screen.getAllByText('dsh-crate')).toHaveLength(1)
     // The tab's own count badge counts the one real plugin, not the market too.
     expect(screen.getByRole('button', { name: /^Installed \(1\)/ })).toBeTruthy()
   })
 
   it('shows the Installed empty state when the market is the only thing "installed"', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
-        installed: { 'dsh-shelfry': '^1.5.0' },
-        live: ['dsh-shelfry'],
+        installed: { 'dsh-crate': '^1.5.0' },
+        live: ['dsh-crate'],
         disabled: [],
         groups: {},
         groupOrder: [],
-        activation: { 'dsh-shelfry': { state: 'live', reasons: [], bundle: true, hot: true } },
+        activation: { 'dsh-crate': { state: 'live', reasons: [], bundle: true, hot: true } },
       },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
     expect(await screen.findByText(en.installedEmpty)).toBeTruthy()
     // 同上：页头的仓库链接始终存在，这里只要求它一个。
-    expect(screen.getAllByText('dsh-shelfry')).toHaveLength(1)
+    expect(screen.getAllByText('dsh-crate')).toHaveLength(1)
     expect(screen.queryByRole('button', { name: /^Installed \(\d/ })).toBeNull()
   })
 
   it('shows the pending-restart banner when a toggle needs a boot to apply', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: ['dsh-loop'],
@@ -3665,7 +3665,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
         groupOrder: [],
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       },
-      '/dsh-shelfry/toggle': () => ({
+      '/dsh-crate/toggle': () => ({
         ok: true,
         name: 'dsh-loop',
         enabled: false,
@@ -3691,7 +3691,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
 
   it('shows the refresh banner when a client-part toggle needs a reload', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: ['dsh-loop'],
@@ -3700,7 +3700,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
         groupOrder: [],
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       },
-      '/dsh-shelfry/toggle': () => ({
+      '/dsh-crate/toggle': () => ({
         ok: true,
         name: 'dsh-loop',
         enabled: false,
@@ -3725,7 +3725,7 @@ describe('#60 enable/disable switches in the Installed tab', () => {
 
   it('merges a hot install and a toggle-refresh into ONE banner instead of stacking two ("三个状态横幅")', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-notify': '^1.0.0' },
         live: ['dsh-notify'],
@@ -3734,13 +3734,13 @@ describe('#60 enable/disable switches in the Installed tab', () => {
         groupOrder: [],
         activation: { 'dsh-notify': { state: 'live', reasons: [], bundle: true, hot: true } },
       },
-      '/dsh-shelfry/install': () => ({
+      '/dsh-crate/install': () => ({
         ok: true,
         hot: true,
         installed: { 'dsh-notify': '^1.0.0', 'dsh-loop': '^1.0.0' },
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       }),
-      '/dsh-shelfry/toggle': () => ({
+      '/dsh-crate/toggle': () => ({
         ok: true,
         name: 'dsh-notify',
         enabled: false,
@@ -3789,7 +3789,7 @@ describe("the host's own page for a plugin (dsh 0.2.1+)", () => {
   /** One installed plugin, live, with the host offering its navigation service. */
   function renderInstalled(navigation?: { openBundle: (name: string) => void }) {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0' },
         live: ['dsh-loop'],
@@ -3843,15 +3843,15 @@ describe('refresh banner falls back when the change is undone (#340)', () => {
   it('stops asking after the installed plugin is uninstalled again', async () => {
     let present: Record<string, string> = {}
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: present, live: Object.keys(present), disabled: [],
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       }),
-      '/dsh-shelfry/install': () => {
+      '/dsh-crate/install': () => {
         present = { 'dsh-loop': '^1.0.0' }
         return { ok: true, hot: true, installed: present }
       },
-      '/dsh-shelfry/uninstall': () => { present = {}; return { ok: true, hot: true } },
+      '/dsh-crate/uninstall': () => { present = {}; return { ok: true, hot: true } },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3881,15 +3881,15 @@ describe('refresh banner falls back when the change is undone (#340)', () => {
     // get it, and after the uninstall there is nothing to reload for.
     let present: Record<string, string> = {}
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: present, live: Object.keys(present), disabled: [],
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       }),
-      '/dsh-shelfry/install': () => {
+      '/dsh-crate/install': () => {
         present = { 'dsh-loop': '^1.0.0' }
         return { ok: true, hot: true, installed: present }
       },
-      '/dsh-shelfry/uninstall': () => { present = {}; return { ok: true, hot: true, refresh: true } },
+      '/dsh-crate/uninstall': () => { present = {}; return { ok: true, hot: true, refresh: true } },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3914,11 +3914,11 @@ describe('refresh banner falls back when the change is undone (#340)', () => {
     // still on screen after the package is gone. Exactly one banner, and it
     // is the refresh one: a hot uninstall needs no host restart.
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [],
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       }),
-      '/dsh-shelfry/uninstall': () => ({ ok: true, hot: true, refresh: true }),
+      '/dsh-crate/uninstall': () => ({ ok: true, hot: true, refresh: true }),
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3937,11 +3937,11 @@ describe('refresh banner falls back when the change is undone (#340)', () => {
     // user to restart, and a restart reloads the page. Adding a reload banner
     // beside it asks twice for one action.
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [],
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: false } },
       }),
-      '/dsh-shelfry/uninstall': () => ({ ok: true, hot: false }),
+      '/dsh-crate/uninstall': () => ({ ok: true, hot: false }),
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -3957,11 +3957,11 @@ describe('refresh banner falls back when the change is undone (#340)', () => {
   it('stops asking when a switch is put back where the page found it', async () => {
     let disabled: string[] = []
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled,
         activation: { 'dsh-loop': { state: 'live', reasons: [], bundle: true, hot: true } },
       }),
-      '/dsh-shelfry/toggle': (body: any) => {
+      '/dsh-crate/toggle': (body: any) => {
         disabled = body.enabled ? [] : ['dsh-loop']
         return { ok: true, disabled, live: body.enabled ? ['dsh-loop'] : [], refresh: true }
       },
@@ -3987,7 +3987,7 @@ describe('long installed names stay readable (#342, #343)', () => {
 
   it('does not truncate, and names itself on hover either way', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { [LONG]: '^1.0.0' }, live: [LONG], disabled: [],
       },
     })
@@ -4025,7 +4025,7 @@ describe('card hover does not cover footer actions (#1021)', () => {
 
     fireEvent.click(within(card).getByRole('button', { name: en.favoriteAdd }))
     await waitFor(() => {
-      const call = fetchCalls.find(c => c.path === '/dsh-shelfry/favorite')
+      const call = fetchCalls.find(c => c.path === '/dsh-crate/favorite')
       expect(call?.body).toEqual({ url: 'https://github.com/alice/dsh-loop', favorited: true })
     })
     fireEvent.click(within(card).getByRole('button', { name: en.comments }))
@@ -4038,7 +4038,7 @@ describe('discover card download count stays compact', () => {
     const plugin = { ...REGISTRY.plugins[0]!, npm: null, downloads: null, version: '1.3.0',
       githubReleaseDownloads: 7000, githubReleaseDownloadsCheckedAt: '2026-10-31T08:35:00.000Z',
       stars: 45, starsCheckedAt: '2026-10-31T08:35:00.000Z' }
-    stubFetch({ '/dsh-shelfry/registry': { hostVersion: '0.2.1-rc.5', registry: { ...REGISTRY, count: 1, plugins: [plugin] } } })
+    stubFetch({ '/dsh-crate/registry': { hostVersion: '0.2.1-rc.5', registry: { ...REGISTRY, count: 1, plugins: [plugin] } } })
     render(<MarketSection {...props()} />)
     const card = (await screen.findByText('dsh-loop')).closest('[class*="card"]') as HTMLElement
     expect(within(card).getByText('· GitHub ↓ 7k')).toBeTruthy()
@@ -4059,7 +4059,7 @@ describe('discover card download count stays compact', () => {
       downloadsCheckedAt: '2026-10-01',
     }
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         hostVersion: '0.1.2-alpha.2',
         registry: { ...REGISTRY, count: 1, plugins: [plugin] },
@@ -4109,10 +4109,10 @@ describe('favorites (#414)', () => {
   function favoritesStub(initial: string[] = [], installed: Record<string, string> = {}) {
     const state = { favorites: [...initial] }
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed, live: Object.keys(installed), disabled: [], groups: {}, groupOrder: [], favorites: [...state.favorites],
       }),
-      '/dsh-shelfry/favorite': (body: any) => {
+      '/dsh-crate/favorite': (body: any) => {
         const url = String(body.url)
         if (body.favorited === true) {
           if (!state.favorites.includes(url)) state.favorites.push(url)
@@ -4132,7 +4132,7 @@ describe('favorites (#414)', () => {
     const card = screen.getByText('Loop task runner').closest('[class*="card"]') as HTMLElement
     fireEvent.click(within(card).getByRole('button', { name: en.favoriteAdd }))
     await waitFor(() => {
-      const call = fetchCalls.find(c => c.path === '/dsh-shelfry/favorite')
+      const call = fetchCalls.find(c => c.path === '/dsh-crate/favorite')
       expect(call?.body).toEqual({ url: 'https://github.com/alice/dsh-loop', favorited: true })
     })
     expect(screen.getByRole('button', { name: en.favoriteRemove })).toBeTruthy()
@@ -4152,7 +4152,7 @@ describe('favorites (#414)', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: en.favoriteAdd }))
 
     await waitFor(() => {
-      const call = fetchCalls.find(c => c.path === '/dsh-shelfry/favorite')
+      const call = fetchCalls.find(c => c.path === '/dsh-crate/favorite')
       expect(call?.body).toEqual({ url: 'https://github.com/alice/dsh-loop', favorited: true })
     })
     // The row now offers the way back, and the Favorites tab has it.
@@ -4208,16 +4208,16 @@ describe('favorites (#414)', () => {
     }
     const plugins = [...fillers, favorite]
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         hostVersion: '0.1.2-alpha.2',
         registry: { ...REGISTRY, count: plugins.length, plugins },
       },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [],
         favorites: [favorite.url],
       },
-      '/dsh-shelfry/discovery-compatibility': (body: any) => ({
+      '/dsh-crate/discovery-compatibility': (body: any) => ({
         hostVersion: '0.1.2-alpha.2',
         plugins: Object.fromEntries(body.packages.map((name: string) => [name, {
           status: 'compatible',
@@ -4234,7 +4234,7 @@ describe('favorites (#414)', () => {
     await screen.findByText('fav-only')
     await waitFor(() => {
       expect(fetchCalls.some(call =>
-        call.path === '/dsh-shelfry/discovery-compatibility'
+        call.path === '/dsh-crate/discovery-compatibility'
         && call.method === 'POST'
         && Array.isArray((call.body as { packages?: unknown })?.packages)
         && ((call.body as { packages: string[] }).packages).includes('fav-only'))).toBe(true)
@@ -4282,11 +4282,11 @@ describe('blocked plugins (#657)', () => {
   function blockedStub(initial: string[] = []) {
     const state = { blocked: [...initial] }
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [],
         favorites: [], blocked: [...state.blocked],
       }),
-      '/dsh-shelfry/block': (body: any) => {
+      '/dsh-crate/block': (body: any) => {
         const name = String(body.name)
         if (body.blocked === true) {
           if (!state.blocked.includes(name)) state.blocked.push(name)
@@ -4308,7 +4308,7 @@ describe('blocked plugins (#657)', () => {
     fireEvent.click(within(card).getByRole('button', { name: en.groupMore }))
     fireEvent.click(screen.getByRole('menuitem', { name: en.blockAdd }))
     await waitFor(() => {
-      const call = fetchCalls.find(c => c.path === '/dsh-shelfry/block')
+      const call = fetchCalls.find(c => c.path === '/dsh-crate/block')
       expect(call?.body).toEqual({ name: 'dsh-loop', blocked: true })
     })
     await waitFor(() => expect(screen.queryByText('Loop task runner')).toBeNull())
@@ -4324,28 +4324,28 @@ describe('blocked plugins (#657)', () => {
 
   it('skips a hidden plugin from Update all, and still offers it on its own row', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'dsh-notify': '^1.0.0', 'dsh-third': '^1.0.0' },
         live: [],
         disabled: [],
         blocked: ['dsh-third'],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
           'dsh-notify': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
           'dsh-third': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
         },
       },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Update all \(2\)/ }))
     await waitFor(() => {
-      expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update')).toHaveLength(2)
+      expect(fetchCalls.filter(call => call.path === '/dsh-crate/update')).toHaveLength(2)
     })
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update').map(call => call.body?.name).sort())
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/update').map(call => call.body?.name).sort())
       .toEqual(['dsh-loop', 'dsh-notify'])
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
     let row: HTMLElement | null = await screen.findByText('dsh-third')
@@ -4360,11 +4360,11 @@ describe('blocked plugins (#657)', () => {
     }
     const state = { blocked: ['dsh-loop-pkg'] }
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         registry: { ...REGISTRY, plugins: [...REGISTRY.plugins, fork] },
       },
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web',
         installed: { 'my-loop': 'link:../my-loop', 'dsh-notify': '^1.0.0' },
         live: [],
@@ -4372,13 +4372,13 @@ describe('blocked plugins (#657)', () => {
         blocked: [...state.blocked],
         repoIdentities: { 'my-loop': ['alice/loop-repo'] },
       }),
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'my-loop': { kind: 'linked', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
           'dsh-notify': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
         },
       },
-      '/dsh-shelfry/block': (body: any) => {
+      '/dsh-crate/block': (body: any) => {
         const name = String(body.name)
         if (body.blocked === true) {
           if (!state.blocked.includes(name)) state.blocked.push(name)
@@ -4387,7 +4387,7 @@ describe('blocked plugins (#657)', () => {
         }
         return { ok: true, blocked: [...state.blocked] }
       },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -4396,7 +4396,7 @@ describe('blocked plugins (#657)', () => {
     expect(await screen.findByText(en.blockedFilteredEmpty)).toBeTruthy()
     fireEvent.click(await screen.findByRole('button', { name: /Update all \(1\)/ }))
     await waitFor(() => {
-      expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update').map(call => call.body?.name)).toEqual(['dsh-notify'])
+      expect(fetchCalls.filter(call => call.path === '/dsh-crate/update').map(call => call.body?.name)).toEqual(['dsh-notify'])
     })
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
     let row: HTMLElement | null = await screen.findByText('my-loop')
@@ -4404,7 +4404,7 @@ describe('blocked plugins (#657)', () => {
     fireEvent.click(within(row!).getByRole('button', { name: en.groupMore }))
     fireEvent.click(screen.getByRole('menuitem', { name: en.blockRemove }))
     await waitFor(() => {
-      const call = fetchCalls.find(c => c.path === '/dsh-shelfry/block')
+      const call = fetchCalls.find(c => c.path === '/dsh-crate/block')
       expect(call?.body).toEqual({ name: 'dsh-loop-pkg', blocked: false })
     })
   })
@@ -4415,10 +4415,10 @@ describe('blocked plugins (#657)', () => {
  * did I install this", which is what someone with forty plugins is asking. */
 describe('plugin notes (#347)', () => {
   const installedStub = (notes: Record<string, string> = {}) => stubFetch({
-    '/dsh-shelfry/installed': () => ({
+    '/dsh-crate/installed': () => ({
       profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [], notes,
     }),
-    '/dsh-shelfry/note': (body: any) => ({
+    '/dsh-crate/note': (body: any) => ({
       ok: true,
       // Mirrors the route: trimmed, and empty clears rather than storing blank.
       notes: String(body.text).trim() === '' ? {} : { [body.name]: String(body.text).trim() },
@@ -4456,11 +4456,11 @@ describe('plugin notes (#347)', () => {
     fireEvent.change(input, { target: { value: 'xiangmu' } })
     // Enter here picks the pinyin candidate; the note is not finished.
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/note')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/note')).toBe(false)
     expect(screen.getByPlaceholderText(en.notePlaceholder)).toBeTruthy()
 
     fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => expect(fetchCalls.some(call => call.path === '/dsh-shelfry/note')).toBe(true))
+    await waitFor(() => expect(fetchCalls.some(call => call.path === '/dsh-crate/note')).toBe(true))
   })
 
   it('keeps the original one click away, and puts it back', async () => {
@@ -4491,7 +4491,7 @@ describe('plugin notes (#347)', () => {
 
   it('shows add-note even when the plugin has no catalog description (#458)', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'snapshot',
         registry: {
           updated: '', count: 1,
@@ -4501,10 +4501,10 @@ describe('plugin notes (#347)', () => {
           ],
         },
       },
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web', installed: { 'dsh-local': 'link:../dsh-local' }, live: ['dsh-local'], disabled: [], notes: {},
       }),
-      '/dsh-shelfry/note': (body: any) => ({
+      '/dsh-crate/note': (body: any) => ({
         ok: true,
         notes: String(body.text).trim() === '' ? {} : { [body.name]: String(body.text).trim() },
       }),
@@ -4537,7 +4537,7 @@ describe('#60 catalog deprecation', () => {
   const contains = (text: string) => (content: string) => content.includes(text)
 
   it('shows the deprecated badge on the discover card and warns in the install dialog', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'snapshot', registry: DEPRECATED_REGISTRY } })
+    stubFetch({ '/dsh-crate/registry': { source: 'snapshot', registry: DEPRECATED_REGISTRY } })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-old')
     expect(screen.getByText(en.deprecatedBadge)).toBeTruthy()
@@ -4559,8 +4559,8 @@ describe('#60 catalog deprecation', () => {
 
   it('installed rows warn and offer view/install replacement entries', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'snapshot', registry: DEPRECATED_REGISTRY },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/registry': { source: 'snapshot', registry: DEPRECATED_REGISTRY },
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-old': '^1.0.0' },
         live: ['dsh-old'],
@@ -4583,8 +4583,8 @@ describe('#60 catalog deprecation', () => {
 
   it('install replacement opens the confirm dialog for the new plugin', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'snapshot', registry: DEPRECATED_REGISTRY },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/registry': { source: 'snapshot', registry: DEPRECATED_REGISTRY },
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-old': '^1.0.0' },
         live: ['dsh-old'],
@@ -4607,7 +4607,7 @@ describe('#60 catalog deprecation', () => {
 describe('#60 groups view', () => {
   it('labels an ungrouped declared library as a library (#995)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-shared': '^0.1.7' }, live: [], disabled: [],
         groups: {}, groupOrder: [],
         activation: {
@@ -4629,7 +4629,7 @@ describe('#60 groups view', () => {
     // came back only when the plugin was taken out again. The user's own note
     // wins over the catalog text, as it does in "Ungrouped".
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-unlisted': '^1.0.0', 'dsh-notify': '^1.0.0' },
         live: ['dsh-unlisted', 'dsh-notify'], disabled: [], notes: { 'dsh-notify': 'my own reminder' },
         groups: { work: ['dsh-unlisted', 'dsh-notify'] }, groupOrder: ['work'],
@@ -4652,7 +4652,7 @@ describe('#60 groups view', () => {
 
   it('does not offer library switches in a group (#995)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-loop': '^1.0.0', 'dsh-shared': '^0.1.7' },
         live: ['dsh-loop'], disabled: [], groups: { work: ['dsh-loop', 'dsh-shared'] }, groupOrder: ['work'],
         activation: {
@@ -4680,7 +4680,7 @@ describe('#60 groups view', () => {
     }
     if (activationOverride !== undefined) Object.assign(activation, activationOverride)
     stubFetch({
-      '/dsh-shelfry/installed': () => ({
+      '/dsh-crate/installed': () => ({
         profile: 'web',
         installed,
         live: [],
@@ -4689,13 +4689,13 @@ describe('#60 groups view', () => {
         groupOrder: [...state.groupOrder],
         activation,
       }),
-      '/dsh-shelfry/toggle': (body: any) => {
+      '/dsh-crate/toggle': (body: any) => {
         const index = state.disabled.indexOf(body.name)
         if (body.enabled === true && index !== -1) state.disabled.splice(index, 1)
         if (body.enabled === false && index === -1) state.disabled.push(body.name)
         return { ok: true, disabled: [...state.disabled], live: [], activation: {} }
       },
-      '/dsh-shelfry/groups': (body: any) => {
+      '/dsh-crate/groups': (body: any) => {
         if (body.action === 'create') { state.groups[body.name] = []; state.groupOrder.push(body.name) }
         if (body.action === 'rename') {
           state.groups[body.newName] = state.groups[body.name] ?? []
@@ -4708,7 +4708,7 @@ describe('#60 groups view', () => {
           state.groupOrder = state.groupOrder.filter(g => g !== body.name)
         }
         if (body.action === 'set-members') {
-          state.groups[body.name] = body.members.filter((m: string) => installed[m] !== undefined && m !== 'dsh-shelfry')
+          state.groups[body.name] = body.members.filter((m: string) => installed[m] !== undefined && m !== 'dsh-crate')
         }
         if (body.action === 'toggle') {
           for (const member of state.groups[body.name] ?? []) {
@@ -4799,7 +4799,7 @@ describe('#60 groups view', () => {
     fireEvent.click(screen.getByRole('button', { name: en.tabList }))
     fireEvent.click(await screen.findByRole('switch', { name: en.disable + ' dsh-loop' }))
     await waitFor(() => {
-      const toggle = fetchCalls.find(c => c.path === '/dsh-shelfry/toggle')
+      const toggle = fetchCalls.find(c => c.path === '/dsh-crate/toggle')
       expect(toggle?.body).toEqual({ name: 'dsh-loop', enabled: false })
     })
     fireEvent.click(screen.getByRole('button', { name: en.tabGroups }))
@@ -4838,7 +4838,7 @@ describe('#60 groups view', () => {
     expect(memberSwitch.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(memberSwitch)
     await waitFor(() => {
-      const toggle = fetchCalls.find(c => c.path === '/dsh-shelfry/toggle' && c.body?.name === 'dsh-loop')
+      const toggle = fetchCalls.find(c => c.path === '/dsh-crate/toggle' && c.body?.name === 'dsh-loop')
       expect(toggle?.body).toEqual({ name: 'dsh-loop', enabled: false })
     })
     // The stateful fake persists the choice; the member row flips to off.
@@ -4862,7 +4862,7 @@ describe('#60 groups view', () => {
     fireEvent.click(within(addDialog).getByRole('checkbox', { name: /dsh-notify/ }))
     fireEvent.click(within(addDialog).getByRole('button', { name: en.groupAddConfirm.replace('{0}', '1') }))
     await waitFor(() => {
-      const set = fetchCalls.find(c => c.path === '/dsh-shelfry/groups' && c.body?.action === 'set-members')
+      const set = fetchCalls.find(c => c.path === '/dsh-crate/groups' && c.body?.action === 'set-members')
       expect(set?.body).toEqual({ action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-notify'] })
     })
     // The added plugin now renders inside the group's member list.
@@ -4898,7 +4898,7 @@ describe('#60 groups view', () => {
     fireEvent.click(within(themeDialog).getByRole('radio', { name: /whale-skin/ }))
     fireEvent.click(within(themeDialog).getByRole('button', { name: en.groupThemeUse }))
     await waitFor(() => {
-      const set = fetchCalls.find(c => c.path === '/dsh-shelfry/groups' && c.body?.action === 'set-members')
+      const set = fetchCalls.find(c => c.path === '/dsh-crate/groups' && c.body?.action === 'set-members')
       expect(set?.body).toEqual({ action: 'set-members', name: 'looks', members: ['dsh-loop', 'whale-skin'] })
     })
     fireEvent.click(await screen.findByRole('button', { name: en.groupChangeTheme }))
@@ -4906,7 +4906,7 @@ describe('#60 groups view', () => {
     expect(within(again).getByText(en.groupThemeCurrent)).toBeTruthy()
     fireEvent.click(within(again).getByRole('button', { name: en.groupThemeRemove }))
     await waitFor(() => {
-      const set = fetchCalls.filter(c => c.path === '/dsh-shelfry/groups' && c.body?.action === 'set-members')
+      const set = fetchCalls.filter(c => c.path === '/dsh-crate/groups' && c.body?.action === 'set-members')
       expect(set.at(-1)?.body).toEqual({ action: 'set-members', name: 'looks', members: ['dsh-loop'] })
     })
   })
@@ -4962,12 +4962,12 @@ describe('status-poll / install-response race (#73)', () => {
       vi.stubGlobal('fetch', (url: string) => {
         const path = String(url).split('?')[0]
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [] }
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [] }
           // Poll recovery precondition: host idle AND dsh-loop already installed.
-          : path === '/dsh-shelfry/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
-          : path === '/dsh-shelfry/install' ? installGate
+          : path === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } }
+          : path === '/dsh-crate/updates' ? { updates: {} }
+          : path === '/dsh-crate/install' ? installGate
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         if (payload instanceof Promise) return payload
@@ -5029,11 +5029,11 @@ describe('status-poll / install-response race (#73)', () => {
 describe('incompatible install (#758)', () => {
   it('does not ask for a restart when the installed plugin cannot run on this dsh', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: {}, live: [] },
+      '/dsh-crate/installed': { profile: 'web', installed: {}, live: [] },
       // Keep the host-side pending-restart fallback out of the assertion.
-      '/dsh-shelfry/status': { active: false, pnpm: true, boot: 'boot-1', restart: false, installed: {} },
-      '/dsh-shelfry/updates': { updates: {} },
-      '/dsh-shelfry/install': {
+      '/dsh-crate/status': { active: false, pnpm: true, boot: 'boot-1', restart: false, installed: {} },
+      '/dsh-crate/updates': { updates: {} },
+      '/dsh-crate/install': {
         ok: true,
         hot: false,
         installed: { 'dsh-loop': '^1.0.0' },
@@ -5060,7 +5060,7 @@ describe('incompatible install (#758)', () => {
     await vi.waitFor(() => {
       expect(screen.getAllByText(re(en.stateIncompatible)).length).toBeGreaterThan(0)
     })
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/install')).toBe(true)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/install')).toBe(true)
     // The install succeeded, but no restart can make this plugin run —
     // the banner would promise a fix that never comes.
     expect(screen.queryAllByText(re(en.restartBanner)).length).toBe(0)
@@ -5074,9 +5074,9 @@ describe('landing tab after an install (#825)', () => {
     // reloading, so it waited in sessionStorage and the NEXT visit to the
     // market landed on Installed. Only a reload hands a tab over.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: {}, live: [] },
-      '/dsh-shelfry/updates': { updates: {} },
-      '/dsh-shelfry/install': {
+      '/dsh-crate/installed': { profile: 'web', installed: {}, live: [] },
+      '/dsh-crate/updates': { updates: {} },
+      '/dsh-crate/install': {
         ok: true,
         hot: true,
         installed: { 'dsh-loop': '^1.0.0' },
@@ -5094,7 +5094,7 @@ describe('landing tab after an install (#825)', () => {
     await vi.waitFor(() => { screen.getByRole('button', { name: en.confirmInstall }) })
     fireEvent.click(screen.getByRole('button', { name: en.confirmInstall }))
     await vi.waitFor(() => {
-      expect(fetchCalls.some(call => call.path === '/dsh-shelfry/install')).toBe(true)
+      expect(fetchCalls.some(call => call.path === '/dsh-crate/install')).toBe(true)
       expect(screen.getAllByText(re(en.refreshBanner)).length).toBeGreaterThan(0)
     })
     expect(sessionStorage.getItem('dshm-tab')).toBeNull()
@@ -5103,8 +5103,8 @@ describe('landing tab after an install (#825)', () => {
 
 describe('uninstall confirmation Modal', () => {
   const installedFixture = {
-    '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-    '/dsh-shelfry/updates': { updates: {} },
+    '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+    '/dsh-crate/updates': { updates: {} },
   }
 
   it('cancel does not call the uninstall API', async () => {
@@ -5117,7 +5117,7 @@ describe('uninstall confirmation Modal', () => {
     expect(await screen.findByText(re(en.uninstallConfirmDesc))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.cancel }))
     await waitFor(() => expect(screen.queryByText(re(en.uninstallConfirmDesc))).toBeNull())
-    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-shelfry/uninstall')).toBe(false)
+    expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-crate/uninstall')).toBe(false)
   })
 
   it('confirming in the Modal calls the uninstall API', async () => {
@@ -5128,19 +5128,19 @@ describe('uninstall confirmation Modal', () => {
     await openCardUninstall()
     const dialog = await screen.findByRole('dialog', { name: re(en.uninstall + ' dsh-loop?') })
     fireEvent.click(within(dialog).getByRole('button', { name: en.uninstall }))
-    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-shelfry/uninstall')).toBe(true))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === '/dsh-crate/uninstall')).toBe(true))
   })
 })
 
 describe('installed masonry layout (#273)', () => {
   it('packs installed rows into independent masonry columns (#273)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { alpha: '^1.0.0', beta: '^1.0.0', gamma: '^1.0.0', delta: '^1.0.0' },
         live: [],
       },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/updates': { updates: {} },
     })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -5170,12 +5170,12 @@ describe('installed masonry layout (#273)', () => {
     }
     vi.stubGlobal('matchMedia', vi.fn(() => media))
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { alpha: '^1.0.0', beta: '^1.0.0', gamma: '^1.0.0', delta: '^1.0.0' },
         live: [],
       },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/updates': { updates: {} },
     })
 
     const { container } = render(<MarketSection {...props()} />)
@@ -5205,12 +5205,12 @@ describe('installed masonry layout (#273)', () => {
     }
     vi.stubGlobal('matchMedia', vi.fn(() => media))
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { alpha: '^1.0.0', beta: '^1.0.0', gamma: '^1.0.0', delta: '^1.0.0' },
         live: [],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           gamma: { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '2.0.0', updateAvailable: true },
         },
@@ -5239,13 +5239,13 @@ describe('installed masonry layout (#273)', () => {
     }
     vi.stubGlobal('matchMedia', vi.fn(() => media))
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { alpha: '^1.0.0', beta: '^1.0.0', gamma: '^1.0.0', delta: '^1.0.0' },
         live: [],
         disabled: ['beta'],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           // A pending update on a DISABLED row must not lift it over any
           // enabled one: it sorts inside the group it lands in.
@@ -5284,7 +5284,7 @@ describe('installed masonry layout (#273)', () => {
     // the first updates request stays pending until the test releases it.
     const installedMapFixture = { alpha: '^1.0.0', beta: '^1.0.0', gamma: '^1.0.0', delta: '^1.0.0' }
     const baseFetch = stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: installedMapFixture,
         live: [],
@@ -5293,14 +5293,14 @@ describe('installed masonry layout (#273)', () => {
       // poll calls refreshInstalled(), which hands `installed` a fresh
       // identity and re-runs the ordering memo for a reason that has nothing
       // to do with this behaviour — masking the very freeze under test.
-      '/dsh-shelfry/status': { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: installedMapFixture },
+      '/dsh-crate/status': { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: installedMapFixture },
     })
     let releaseUpdates: () => void = () => {}
     const updatesGate = new Promise<void>(resolve => { releaseUpdates = resolve })
     let firstUpdates = true
     vi.stubGlobal('fetch', vi.fn((input: unknown, init?: RequestInit) => {
       const path = String(input).split('?')[0]
-      if (path === '/dsh-shelfry/updates' && firstUpdates) {
+      if (path === '/dsh-crate/updates' && firstUpdates) {
         firstUpdates = false
         return updatesGate.then(() => new Response(JSON.stringify({
           updates: { gamma: { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '2.0.0', updateAvailable: true } },
@@ -5360,7 +5360,7 @@ describe('a plugin whose settings read a name nothing serves (#810)', () => {
   }
 
   it('names the mistake and the value to write instead', async () => {
-    stubFetch({ '/dsh-shelfry/installed': installed })
+    stubFetch({ '/dsh-crate/installed': installed })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
 
@@ -5377,7 +5377,7 @@ describe('a plugin whose settings read a name nothing serves (#810)', () => {
 
   it('says nothing at all when no plugin has the problem', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { ...installed, configNamespaces: undefined },
+      '/dsh-crate/installed': { ...installed, configNamespaces: undefined },
     })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
@@ -5401,7 +5401,7 @@ describe('a plugin the market had to stop declaring (#663)', () => {
     // locked wording ("the running DSH blocked the update") would state a
     // cause that was never observed.
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         ...brokenInstalled,
         brokenPlugins: { 'dsh-pet': { spec: '^1.4.0', reason: 'incomplete-build-cancelled', at: '2026-10-08T00:00:00.000Z' } },
       },
@@ -5415,7 +5415,7 @@ describe('a plugin the market had to stop declaring (#663)', () => {
   })
 
   it('says what happened instead of leaving the plugin silently gone', async () => {
-    stubFetch({ '/dsh-shelfry/installed': brokenInstalled })
+    stubFetch({ '/dsh-crate/installed': brokenInstalled })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
 
@@ -5428,7 +5428,7 @@ describe('a plugin the market had to stop declaring (#663)', () => {
   })
 
   it('leads to the catalog entry, where installing it again is one click', async () => {
-    stubFetch({ '/dsh-shelfry/installed': brokenInstalled })
+    stubFetch({ '/dsh-crate/installed': brokenInstalled })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
     const action = await screen.findByRole('button', { name: en.brokenPluginAction })
@@ -5449,7 +5449,7 @@ describe('a plugin the market had to stop declaring (#663)', () => {
       { ...brokenInstalled, installed: { 'dsh-pet': '^1.4.0' }, brokenPlugins: {} },
     ]
     let call = 0
-    stubFetch({ '/dsh-shelfry/installed': () => answered[Math.min(call++, answered.length - 1)] })
+    stubFetch({ '/dsh-crate/installed': () => answered[Math.min(call++, answered.length - 1)] })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
     await screen.findByText(en.brokenPluginTitle.replace('{0}', 'dsh-pet'))
@@ -5495,7 +5495,7 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
   }
 
   it('offers the way out next to the existing search, and keeps the search', async () => {
-    stubFetch({ '/dsh-shelfry/installed': brokenInstalled })
+    stubFetch({ '/dsh-crate/installed': brokenInstalled })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
     await screen.findByText(en.brokenPluginTitle.replace('{0}', 'dsh-pet'))
@@ -5519,8 +5519,8 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     const answered = [twoBroken, { ...twoBroken, brokenPlugins: { 'dsh-ours': twoBroken.brokenPlugins['dsh-ours'] } }]
     let call = 0
     stubFetch({
-      '/dsh-shelfry/installed': () => answered[Math.min(call++, answered.length - 1)],
-      '/dsh-shelfry/dismiss-broken': { ok: true, brokenPlugins: { 'dsh-ours': twoBroken.brokenPlugins['dsh-ours'] } },
+      '/dsh-crate/installed': () => answered[Math.min(call++, answered.length - 1)],
+      '/dsh-crate/dismiss-broken': { ok: true, brokenPlugins: { 'dsh-ours': twoBroken.brokenPlugins['dsh-ours'] } },
     })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
@@ -5539,7 +5539,7 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     // is no longer worth telling.
     expect(screen.getByText(en.brokenPluginTitle.replace('{0}', 'dsh-ours'))).toBeTruthy()
     expect(fetchCalls).toContainEqual(
-      expect.objectContaining({ path: '/dsh-shelfry/dismiss-broken', method: 'POST', body: { name: 'dsh-pet' } }),
+      expect.objectContaining({ path: '/dsh-crate/dismiss-broken', method: 'POST', body: { name: 'dsh-pet' } }),
     )
   })
 
@@ -5547,8 +5547,8 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     // A dismissal that silently did nothing is worse than no button at all: the
     // user would believe they had been told the truth about their own profile.
     stubFetch({
-      '/dsh-shelfry/installed': brokenInstalled,
-      '/dsh-shelfry/dismiss-broken': { __status: 500, error: 'state.json is locked' },
+      '/dsh-crate/installed': brokenInstalled,
+      '/dsh-crate/dismiss-broken': { __status: 500, error: 'state.json is locked' },
     })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
@@ -5575,12 +5575,12 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     // hidden in the panel while the server still has it. The user is then told
     // nothing is wrong and has to reload to find out.
     const pet = twoBroken.brokenPlugins['dsh-pet']
-    const base = stubFetch({ '/dsh-shelfry/installed': twoBroken })
+    const base = stubFetch({ '/dsh-crate/installed': twoBroken })
     let releaseA = (): void => {}
     const aPending = new Promise<void>((resolve) => { releaseA = resolve })
     let calls = 0
     vi.stubGlobal('fetch', (input: unknown, init?: RequestInit) => {
-      if (!String(input).endsWith('/dsh-shelfry/dismiss-broken')) return base(input, init)
+      if (!String(input).endsWith('/dsh-crate/dismiss-broken')) return base(input, init)
       calls += 1
       const name = (init?.body !== undefined ? JSON.parse(String(init.body)) as { name: string } : { name: '' }).name
       if (name === 'dsh-pet') {
@@ -5625,11 +5625,11 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
       ...twoBroken,
       brokenPlugins: { ...twoBroken.brokenPlugins, 'dsh-newcomer': { spec: '^2.0.0', reason: 'incomplete-build-locked', at: '2026-09-29T00:00:00.000Z' } },
     }
-    const base = stubFetch({ '/dsh-shelfry/installed': withNewcomer })
+    const base = stubFetch({ '/dsh-crate/installed': withNewcomer })
     let release = (): void => {}
     const pending = new Promise<void>((resolve) => { release = resolve })
     vi.stubGlobal('fetch', (input: unknown, init?: RequestInit) => {
-      if (!String(input).endsWith('/dsh-shelfry/dismiss-broken')) return base(input, init)
+      if (!String(input).endsWith('/dsh-crate/dismiss-broken')) return base(input, init)
       return pending.then(() => new Response(
         // A reply from before `dsh-newcomer` was ever recorded.
         JSON.stringify({ ok: true, brokenPlugins: { 'dsh-ours': twoBroken.brokenPlugins['dsh-ours'] } }), { status: 200 },
@@ -5666,9 +5666,9 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
       brokenPlugins: { 'dsh-pet': { spec: '^1.4.0', reason: 'incomplete-build-locked', at: '2026-09-24T00:00:00.000Z' } },
     }
     const base = stubFetch({
-      '/dsh-shelfry/installed': listing,
-      '/dsh-shelfry/updates': { updates: { 'dsh-ours': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/installed': listing,
+      '/dsh-crate/updates': { updates: { 'dsh-ours': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: true },
     })
     let releaseDismiss = (): void => {}
     const dismissPending = new Promise<void>((resolve) => { releaseDismiss = resolve })
@@ -5677,10 +5677,10 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     let installedCalls = 0
     vi.stubGlobal('fetch', (input: unknown, init?: RequestInit) => {
       const path = String(input).split('?')[0]
-      if (path === '/dsh-shelfry/dismiss-broken') {
+      if (path === '/dsh-crate/dismiss-broken') {
         return dismissPending.then(() => new Response(JSON.stringify({ ok: true, brokenPlugins: {} }), { status: 200 }))
       }
-      if (path === '/dsh-shelfry/installed') {
+      if (path === '/dsh-crate/installed') {
         installedCalls += 1
         if (installedCalls === 1) return base(input, init)
         // The read the update kicked off: it started before the dismissal, so
@@ -5723,12 +5723,12 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     // second notice had not been dismissed yet. Applying a whole-map reply from
     // after the second click would put back a row the user just put away.
     const ours = twoBroken.brokenPlugins['dsh-ours']
-    const base = stubFetch({ '/dsh-shelfry/installed': twoBroken })
+    const base = stubFetch({ '/dsh-crate/installed': twoBroken })
     let releaseFirst = (): void => {}
     const firstPending = new Promise<void>((resolve) => { releaseFirst = resolve })
     let dismisses = 0
     vi.stubGlobal('fetch', (input: unknown, init?: RequestInit) => {
-      if (!String(input).endsWith('/dsh-shelfry/dismiss-broken')) return base(input, init)
+      if (!String(input).endsWith('/dsh-crate/dismiss-broken')) return base(input, init)
       dismisses += 1
       const isFirst = dismisses === 1
       const body = isFirst ? { 'dsh-ours': ours } : {}
@@ -5764,11 +5764,11 @@ describe('a removed-declaration notice the user can put away (#763)', () => {
     // would also pass on a panel that rendered nothing at all, which is the
     // version of the test that proved nothing.
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-pet': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [],
         brokenPlugins: {},
       },
-      '/dsh-shelfry/updates': { updates: { 'dsh-pet': { kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/updates': { updates: { 'dsh-pet': { kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
     })
 
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
@@ -5800,7 +5800,7 @@ describe('browser page translation (#293)', () => {
     // unreproduced in #286 and #241.
     stubFetch({})
     render(<MarketSection {...props()} />)
-    const root = document.querySelector('[data-dsh-shelfry-root]')
+    const root = document.querySelector('[data-dsh-crate-root]')
     expect(root).toBeTruthy()
     expect(root?.getAttribute('translate')).toBe('no')
     // `notranslate` says the same thing to engines older than the attribute.
@@ -5821,7 +5821,7 @@ describe('local-dev restore', () => {
 
   it('confirms before switching a catalog-matched local package to its online source', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         registry: {
           ...REGISTRY,
@@ -5836,10 +5836,10 @@ describe('local-dev restore', () => {
           ],
         },
       },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-better-sidebar': 'file:/plugins/dsh-better-sidebar-0.16.1.tgz' }, live: [],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-better-sidebar': {
             kind: 'linked', version: '0.16.1', current: '0.16.1', latest: '0.17.1',
@@ -5847,18 +5847,18 @@ describe('local-dev restore', () => {
           },
         },
       },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
     fireEvent.click(screen.getByRole('button', { name: /Installed/ }))
     fireEvent.click(await screen.findByRole('button', { name: en.restoreOnline }))
     expect(await screen.findByText((content: string) => content.includes(en.restoreNameOnlyHint.slice(0, 40)))).toBeTruthy()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: en.restoreProceed }))
     await waitFor(() => {
       expect(fetchCalls.some(call =>
-        call.path === '/dsh-shelfry/update'
+        call.path === '/dsh-crate/update'
         && call.body?.name === 'dsh-better-sidebar'
         && call.body?.restore === true,
       )).toBe(true)
@@ -5869,10 +5869,10 @@ describe('local-dev restore', () => {
     // It has a release feed (restoreRequired + updateAvailable) and so counts
     // toward reminders; hiding the saved exemption would leave no way out.
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-better-sidebar': 'file:/plugins/dsh-better-sidebar-0.16.1.tgz' }, live: [],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-better-sidebar': {
             kind: 'linked', version: '0.16.1', current: '0.16.1', latest: '0.17.1',
@@ -5893,7 +5893,7 @@ describe('local-dev restore', () => {
 
   it('leaves source switches out of Update all', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: {
           'dsh-loop': '^1.0.0',
@@ -5902,7 +5902,7 @@ describe('local-dev restore', () => {
         },
         live: [],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
           'dsh-notify': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
@@ -5912,42 +5912,42 @@ describe('local-dev restore', () => {
           },
         },
       },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Update all \(2\)/ }))
     await waitFor(() => {
-      expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update')).toHaveLength(2)
+      expect(fetchCalls.filter(call => call.path === '/dsh-crate/update')).toHaveLength(2)
     })
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update').map(call => call.body?.name).sort())
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/update').map(call => call.body?.name).sort())
       .toEqual(['dsh-loop', 'dsh-notify'])
     expect(fetchCalls.some(call => call.body?.restore === true)).toBe(false)
   })
 
   it('skips disabled plugins from Update all', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'dsh-notify': '^1.0.0', 'dsh-third': '^1.0.0' },
         live: [],
         disabled: ['dsh-third'],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
           'dsh-notify': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
           'dsh-third': { kind: 'npm', version: '1.0.0', latest: '1.1.0', updateAvailable: true },
         },
       },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
 
     fireEvent.click(await screen.findByRole('button', { name: /Update all \(2\)/ }))
     await waitFor(() => {
-      expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update')).toHaveLength(2)
+      expect(fetchCalls.filter(call => call.path === '/dsh-crate/update')).toHaveLength(2)
     })
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/update').map(call => call.body?.name).sort())
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/update').map(call => call.body?.name).sort())
       .toEqual(['dsh-loop', 'dsh-notify'])
   })
 
@@ -5957,7 +5957,7 @@ describe('local-dev restore', () => {
     // Presenting that as "restore to your online source" is how @liuwenji007's
     // fork was offered a different author's plugin of the same name.
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         registry: {
           ...REGISTRY,
@@ -5971,11 +5971,11 @@ describe('local-dev restore', () => {
           ],
         },
       },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed: { 'dsh-humanizer': 'link:/Users/me/dsh-humanizer' }, live: [],
       },
-      '/dsh-shelfry/updates': { updates: { 'dsh-humanizer': { kind: 'linked', version: '0.1.0', updateAvailable: false } } },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/updates': { updates: { 'dsh-humanizer': { kind: 'linked', version: '0.1.0', updateAvailable: false } } },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     // Wait for the CATALOG, not just the installed list: the restore dialog
@@ -5994,9 +5994,9 @@ describe('local-dev restore', () => {
 
   it('asks in a modal before swapping a linked plugin to the catalog', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'linked', version: '1.0.0', updateAvailable: false } } },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'linked', version: '1.0.0', updateAvailable: false } } },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -6012,11 +6012,11 @@ describe('local-dev restore', () => {
     fireEvent.click(screen.getAllByRole('button', { name: en.groupMore })[0]!)
     await chooseRestoreRelease()
     expect(await screen.findByText((content: string) => content.includes(en.restoreNameOnlyHint.slice(0, 40)))).toBeTruthy()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: en.restoreProceed }))
     await waitFor(() => {
       expect(fetchCalls.some(call =>
-        call.path === '/dsh-shelfry/update' && call.body?.name === 'dsh-loop' && call.body?.restore === true,
+        call.path === '/dsh-crate/update' && call.body?.name === 'dsh-loop' && call.body?.restore === true,
       )).toBe(true)
     })
   })
@@ -6027,8 +6027,8 @@ describe('local-dev restore', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     try {
       stubFetch({
-        '/dsh-shelfry/installed': { profile: 'web', installed: { 'mystery-plug': 'link:/Users/me/work/plugins/mystery-plug' }, live: [] },
-        '/dsh-shelfry/updates': { updates: { 'mystery-plug': { kind: 'linked', version: '0.1.14', updateAvailable: false } } },
+        '/dsh-crate/installed': { profile: 'web', installed: { 'mystery-plug': 'link:/Users/me/work/plugins/mystery-plug' }, live: [] },
+        '/dsh-crate/updates': { updates: { 'mystery-plug': { kind: 'linked', version: '0.1.14', updateAvailable: false } } },
       })
       render(<MarketSection {...props()} />)
       fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
@@ -6051,8 +6051,8 @@ describe('local-dev restore', () => {
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 54 })
     try {
       stubFetch({
-        '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-        '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', updateAvailable: false } } },
+        '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+        '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', updateAvailable: false } } },
       })
       const { container } = render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
@@ -6073,12 +6073,12 @@ describe('local-dev restore', () => {
 
   it('names a newer release for a host-installed generation without a button (#497)', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': 'link:../.generations/live/dsh-loop+1.0.0+7aba605c3145/node_modules/dsh-loop' },
         live: [],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: { 'dsh-loop': { kind: 'generation', version: '1.0.0', current: '1.0.0', latest: '1.1.0', updateAvailable: false } },
       },
     })
@@ -6098,8 +6098,8 @@ describe('local-dev restore', () => {
 
   it('does not offer restore when the linked plugin is not in the catalog', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'mystery-plug': 'link:../mystery' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'mystery-plug': { kind: 'linked', updateAvailable: false } } },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'mystery-plug': 'link:../mystery' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'mystery-plug': { kind: 'linked', updateAvailable: false } } },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
@@ -6107,7 +6107,7 @@ describe('local-dev restore', () => {
     await chooseRestoreRelease()
     expect(await screen.findByText(en.restoreNoCatalog)).toBeTruthy()
     expect(screen.queryByRole('button', { name: en.restoreProceed })).toBeNull()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: en.gotIt }))
     expect(screen.queryByText(en.restoreNoCatalog)).toBeNull()
     fireEvent.click(screen.getAllByRole('button', { name: en.groupMore })[0]!)
@@ -6116,7 +6116,7 @@ describe('local-dev restore', () => {
 
   it('does not offer restore when the linked fork disagrees with the only same-named catalog entry', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'snapshot',
         registry: {
           updated: '', count: 1,
@@ -6131,28 +6131,28 @@ describe('local-dev restore', () => {
           ],
         },
       },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-humanizer': 'link:../dsh-humanizer' },
         live: [],
         repoIdentities: { 'dsh-humanizer': ['handsomeliu/dsh-humanizer'] },
       },
-      '/dsh-shelfry/updates': { updates: { 'dsh-humanizer': { kind: 'linked', updateAvailable: false } } },
+      '/dsh-crate/updates': { updates: { 'dsh-humanizer': { kind: 'linked', updateAvailable: false } } },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
     await chooseRestoreRelease()
     expect(await screen.findByText(en.restoreNoMatch)).toBeTruthy()
     expect(screen.queryByRole('button', { name: en.restoreProceed })).toBeNull()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(false)
     expect(screen.queryByText('Catalog copy')).toBeNull()
   })
 
   it('dismissing the restore modal does not call update', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'linked', updateAvailable: false } } },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'linked', updateAvailable: false } } },
+      '/dsh-crate/update': { ok: true },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
@@ -6160,7 +6160,7 @@ describe('local-dev restore', () => {
     expect(await screen.findByText((content: string) => content.includes(en.restoreNameOnlyHint.slice(0, 40)))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.cancel }))
     expect(screen.queryByText((content: string) => content.includes(en.restoreNameOnlyHint.slice(0, 40)))).toBeNull()
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/update')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/update')).toBe(false)
   })
 
   it('deprecated installed rows still show replacement actions, with restore in the menu', async () => {
@@ -6173,9 +6173,9 @@ describe('local-dev restore', () => {
       ],
     }
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'snapshot', registry: DEPRECATED_WITH_REPLACEMENT },
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-old': 'link:../dsh-old' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-old': { kind: 'linked', updateAvailable: false } } },
+      '/dsh-crate/registry': { source: 'snapshot', registry: DEPRECATED_WITH_REPLACEMENT },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-old': 'link:../dsh-old' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-old': { kind: 'linked', updateAvailable: false } } },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
@@ -6192,13 +6192,13 @@ describe('local-dev restore', () => {
    * carries the approval itself. */
   it('puts the build approval on the failed record, not only in a banner', async () => {
     stubFetch({
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         ok: false,
         ignoredBuilds: ['node-pty'],
         error: 'blocked by pnpm',
         __status: 502,
       },
-      '/dsh-shelfry/approve-builds': { ok: true, approved: ['node-pty'] },
+      '/dsh-crate/approve-builds': { ok: true, approved: ['node-pty'] },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -6216,22 +6216,22 @@ describe('local-dev restore', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: en.approveBuilds }).at(-1)!)
     await waitFor(() => {
-      expect(fetchCalls.some(call => call.path === '/dsh-shelfry/approve-builds')).toBe(true)
-      expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/install').length).toBeGreaterThanOrEqual(2)
+      expect(fetchCalls.some(call => call.path === '/dsh-crate/approve-builds')).toBe(true)
+      expect(fetchCalls.filter(call => call.path === '/dsh-crate/install').length).toBeGreaterThanOrEqual(2)
     })
   })
 
   it('retries a blocked restore with restore:true after approving builds', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'linked', updateAvailable: false } } },
-      '/dsh-shelfry/update': {
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': 'link:../dsh-loop' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'linked', updateAvailable: false } } },
+      '/dsh-crate/update': {
         ok: false,
         ignoredBuilds: ['dsh-cowork'],
         error: 'not in the allowBuilds allowlist',
         __status: 502,
       },
-      '/dsh-shelfry/approve-builds': { ok: true, approved: ['dsh-cowork'] },
+      '/dsh-crate/approve-builds': { ok: true, approved: ['dsh-cowork'] },
     })
     render(<MarketSection {...props()} />)
     fireEvent.click(await screen.findByRole('button', { name: /Installed/ }))
@@ -6240,7 +6240,7 @@ describe('local-dev restore', () => {
     expect(await screen.findByText(re(en.buildsSkipped))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.approveBuilds }))
     await waitFor(() => {
-      const retries = fetchCalls.filter(call => call.path === '/dsh-shelfry/update')
+      const retries = fetchCalls.filter(call => call.path === '/dsh-crate/update')
       expect(retries.length).toBeGreaterThanOrEqual(2)
       expect(retries.at(-1)?.body).toMatchObject({ name: 'dsh-loop', restore: true })
     })
@@ -6262,7 +6262,7 @@ describe('search clear controls (#524)', () => {
 
   function searchTabProps() {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': '^1.0.0', 'dsh-notify': '^1.0.0', 'whale-skin': '^1.0.0' },
         live: [], disabled: [], groups: {}, groupOrder: [],
@@ -6417,13 +6417,13 @@ describe('a queued operation only runs while it still applies (#523)', () => {
     // rather than for a unique match.
     await screen.findAllByText('dsh-loop')
     await waitFor(() => expect(panelText()).toContain(en.agentQueueStaleGone))
-    expect(postsTo(fetchMock, '/dsh-shelfry/uninstall')).toBe(0)
+    expect(postsTo(fetchMock, '/dsh-crate/uninstall')).toBe(0)
   })
 
   it('does not update what has no update any more, and says why', async () => {
     const fetchMock = stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] },
+      '/dsh-crate/updates': { updates: {} },
     })
     seedQueue([{ kind: 'update', name: 'dsh-loop' }])
     render(<MarketSection {...props()} />)
@@ -6437,7 +6437,7 @@ describe('a queued operation only runs while it still applies (#523)', () => {
     // left in the queue fires on it, and asserting earlier would miss exactly
     // the bug this test pins.
     await new Promise(resolve => setTimeout(resolve, 2_600))
-    expect(postsTo(fetchMock, '/dsh-shelfry/update')).toBe(0)
+    expect(postsTo(fetchMock, '/dsh-crate/update')).toBe(0)
     expect(localStorage.getItem('dshm-queue-v1')).toBeNull()
   })
 
@@ -6446,8 +6446,8 @@ describe('a queued operation only runs while it still applies (#523)', () => {
     // still true, or the queue would quietly stop working for the case it was
     // built for.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] },
-      '/dsh-shelfry/uninstall': { ok: true, agentsBusy: true, runningAgents: ['main'], error: 'agents are running', __status: 409 },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] },
+      '/dsh-crate/uninstall': { ok: true, agentsBusy: true, runningAgents: ['main'], error: 'agents are running', __status: 409 },
     })
     seedQueue([{ kind: 'uninstall', name: 'dsh-loop' }])
     render(<MarketSection {...props()} />)
@@ -6480,7 +6480,7 @@ describe('capability disclosure (#401)', () => {
   function withEntry(extra: Record<string, unknown>): void {
     const plugins = [{ ...base, ...extra }]
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', hostVersion: '0.1.2-alpha.2', registry: { ...REGISTRY, count: plugins.length, plugins } },
+      '/dsh-crate/registry': { source: 'live', hostVersion: '0.1.2-alpha.2', registry: { ...REGISTRY, count: plugins.length, plugins } },
     })
   }
 
@@ -6764,8 +6764,8 @@ describe('capability disclosure (#401)', () => {
 describe('per-tab search boxes', () => {
   it('the installed tab has its own search that narrows the list', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0', 'whale-skin': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0', 'whale-skin': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: {} },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -6803,7 +6803,7 @@ describe('per-tab search boxes', () => {
     const shotB = 'https://raw.githubusercontent.com/carol/whale-skin/main/assets/dark.png'
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[2].screenshots = [shotA, shotB]
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     const { container } = render(<MarketSection {...{
       ...props(),
@@ -6832,7 +6832,7 @@ describe('per-tab search boxes', () => {
     const shotA = 'https://raw.githubusercontent.com/carol/whale-skin/main/assets/light.png'
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[2].screenshots = [shotA]
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     render(<MarketSection {...{
       ...props(),
@@ -6857,7 +6857,7 @@ describe('per-tab search boxes', () => {
     const shotA = 'https://raw.githubusercontent.com/carol/whale-skin/main/assets/cover.gif'
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[2].screenshots = [shotA]
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     render(<MarketSection {...{
       ...props(),
@@ -6877,7 +6877,7 @@ describe('per-tab search boxes', () => {
     const shotA = 'https://github.com/user-attachments/assets/d732b30f-2649-4758-bc7a-c57a1cac6e14'
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[2].screenshots = [shotA]
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     render(<MarketSection {...{
       ...props(),
@@ -6918,10 +6918,10 @@ describe('per-tab search boxes', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       const path = String(url).split('?')[0]
       const payload =
-        path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-        : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [], disabled: [] }
-        : path === '/dsh-shelfry/status' ? { active: false, pnpm: true, boot: 'boot-1', installed: {} }
-        : path === '/dsh-shelfry/updates' ? { updates: {} }
+        path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+        : path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [], disabled: [] }
+        : path === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', installed: {} }
+        : path === '/dsh-crate/updates' ? { updates: {} }
         : null
       if (payload !== null) return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
       if (path === readmeUrl) return Promise.resolve(new Response(readme, { status: 200 }))
@@ -6990,10 +6990,10 @@ describe('per-tab search boxes', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       const path = String(url).split('?')[0]
       const payload =
-        path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-        : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [], disabled: [] }
-        : path === '/dsh-shelfry/status' ? { active: false, pnpm: true, boot: 'boot-1', installed: {} }
-        : path === '/dsh-shelfry/updates' ? { updates: {} }
+        path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+        : path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [], disabled: [] }
+        : path === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', installed: {} }
+        : path === '/dsh-crate/updates' ? { updates: {} }
         : null
       if (payload !== null) return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
       if (path === readmeUrl) return Promise.resolve(new Response(readme, { status: 200 }))
@@ -7046,14 +7046,14 @@ describe('per-tab search boxes', () => {
     fireEvent.click(screen.getAllByRole('button', { name: en.tabThemes })[0])
     await screen.findByText('whale-skin')
 
-    const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
-    expect(root.getAttribute('data-dsh-shelfry-fullscreen')).toBeNull()
+    const root = container.querySelector('[data-dsh-crate-root]') as HTMLElement
+    expect(root.getAttribute('data-dsh-crate-fullscreen')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.themeFullscreen }))
-    expect(root.getAttribute('data-dsh-shelfry-fullscreen')).toBe('true')
+    expect(root.getAttribute('data-dsh-crate-fullscreen')).toBe('true')
     expect(screen.getByRole('button', { name: en.themeExitFullscreen })).toBeTruthy()
 
     fireEvent.keyDown(window, { key: 'Escape' })
-    await waitFor(() => expect(root.getAttribute('data-dsh-shelfry-fullscreen')).toBeNull())
+    await waitFor(() => expect(root.getAttribute('data-dsh-crate-fullscreen')).toBeNull())
   })
 
   it('the themes tab sorts through the same filter menu as Discover, on its own independent state', async () => {
@@ -7070,7 +7070,7 @@ describe('per-tab search boxes', () => {
       { name: 'theme-a', owner: 'x', url: 'https://github.com/x/theme-a', category: 'theme', npm: 'theme-a', stars: 5, downloads: 900, added: '2026-08-01', description: { en: 'A', zh: 'A' }, install: '' },
       { name: 'theme-b', owner: 'y', url: 'https://github.com/y/theme-b', category: 'theme', npm: 'theme-b', stars: 500, downloads: 10, added: '2026-08-02', description: { en: 'B', zh: 'B' }, install: '' },
     ]
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     const { container } = render(<MarketSection {...{
       ...props(),
@@ -7115,7 +7115,7 @@ describe('per-tab search boxes', () => {
       stars: 0, downloads: 1000 - i, added: '2026-08-01',
       description: { en: 'T', zh: 'T' }, install: '',
     }))
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     const { container } = render(<MarketSection {...{
       ...props(),
@@ -7149,8 +7149,8 @@ describe('per-tab search boxes', () => {
     // Stateful fake: mirrors the server-side toggle semantics for one theme.
     const state = { installed: { 'whale-skin': 'github:carol/whale-skin' }, live: ['whale-skin'], disabled: [] as string[] }
     stubFetch({
-      '/dsh-shelfry/installed': () => ({ profile: 'web', installed: state.installed, live: state.live, disabled: state.disabled, groups: {}, groupOrder: [] }),
-      '/dsh-shelfry/toggle': (body: any) => {
+      '/dsh-crate/installed': () => ({ profile: 'web', installed: state.installed, live: state.live, disabled: state.disabled, groups: {}, groupOrder: [] }),
+      '/dsh-crate/toggle': (body: any) => {
         if (body?.enabled === false) state.disabled.push(String(body.name))
         else state.disabled = state.disabled.filter(n => n !== body?.name)
         state.live = state.disabled.includes('whale-skin') ? [] : ['whale-skin']
@@ -7169,7 +7169,7 @@ describe('per-tab search boxes', () => {
     expect(screen.getByText(en.themeActive)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.themeDeactivate }))
     await waitFor(() => {
-      const toggle = fetchCalls.find(c => c.path === '/dsh-shelfry/toggle')
+      const toggle = fetchCalls.find(c => c.path === '/dsh-crate/toggle')
       expect(toggle?.body).toEqual({ name: 'whale-skin', enabled: false })
     })
     // The response flips the card to the disabled state: no Active badge,
@@ -7189,7 +7189,7 @@ describe('per-tab search boxes', () => {
     // Boot manifest still lists the theme (bundle-layer entries persist),
     // but the disabled set must win — the stale-badge regression case.
     stubFetch({
-      '/dsh-shelfry/installed': () => ({ profile: 'web', installed: { 'whale-skin': 'github:carol/whale-skin' }, live: [], disabled: ['whale-skin'], groups: {}, groupOrder: [] }),
+      '/dsh-crate/installed': () => ({ profile: 'web', installed: { 'whale-skin': 'github:carol/whale-skin' }, live: [], disabled: ['whale-skin'], groups: {}, groupOrder: [] }),
     })
     const THEME_SNAPSHOT = { preference: 'light', themes: [] as Array<{ id: string }> }
     render(<MarketSection {...{
@@ -7215,12 +7215,12 @@ describe('lost install response (#100)', () => {
       let installedNow: Record<string, string> = {}
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
-        if (path === '/dsh-shelfry/install') return Promise.reject(new TypeError('network connection was lost'))
+        if (path === '/dsh-crate/install') return Promise.reject(new TypeError('network connection was lost'))
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: installedNow, live: [] }
-          : path === '/dsh-shelfry/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: installedNow }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: installedNow, live: [] }
+          : path === '/dsh-crate/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: installedNow }
+          : path === '/dsh-crate/updates' ? { updates: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -7268,12 +7268,12 @@ describe('lost install response (#100)', () => {
       let installedNow: Record<string, string> = {}
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
-        if (path === '/dsh-shelfry/install') return Promise.reject(new TypeError('network connection was lost'))
+        if (path === '/dsh-crate/install') return Promise.reject(new TypeError('network connection was lost'))
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: installedNow, live: [] }
-          : path === '/dsh-shelfry/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: installedNow }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: installedNow, live: [] }
+          : path === '/dsh-crate/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: installedNow }
+          : path === '/dsh-crate/updates' ? { updates: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -7314,12 +7314,12 @@ describe('lost install response (#100)', () => {
     try {
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
-        if (path === '/dsh-shelfry/install') return Promise.reject(new TypeError('network connection was lost'))
+        if (path === '/dsh-crate/install') return Promise.reject(new TypeError('network connection was lost'))
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [] }
-          : path === '/dsh-shelfry/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [] }
+          : path === '/dsh-crate/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} }
+          : path === '/dsh-crate/updates' ? { updates: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -7358,14 +7358,14 @@ describe('standing restart notice for host-reported pending plugins', () => {
       const path = String(url).split('?')[0]
       const installed = { 'dsh-loop': '^1.0.0' }
       const payload =
-        path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-        : path === '/dsh-shelfry/installed' ? {
+        path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+        : path === '/dsh-crate/installed' ? {
             profile: 'web', installed, live: [],
             // The host says: installed, will activate on restart.
             activation: { 'dsh-loop': { state: 'restart', reasons: ['in the bundle layer'], bundle: true, hot: false } },
           }
-        : path === '/dsh-shelfry/status' ? { active: false, busy: false, pnpm: true, boot, restart: true, installed }
-        : path === '/dsh-shelfry/updates' ? { updates: {} }
+        : path === '/dsh-crate/status' ? { active: false, busy: false, pnpm: true, boot, restart: true, installed }
+        : path === '/dsh-crate/updates' ? { updates: {} }
         : null
       if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
       return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -7405,13 +7405,13 @@ describe('standing restart notice for host-reported pending plugins', () => {
       const path = String(url).split('?')[0]
       const installed = { 'dsh-loop': '^1.0.0' }
       const payload =
-        path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-        : path === '/dsh-shelfry/installed' ? {
+        path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+        : path === '/dsh-crate/installed' ? {
             profile: 'web', installed, live: [],
             activation: { 'dsh-loop': { state: 'restart', reasons: ['in the bundle layer'], bundle: true, hot: false } },
           }
-        : path === '/dsh-shelfry/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, debugger: 'inspector', installed }
-        : path === '/dsh-shelfry/updates' ? { updates: {} }
+        : path === '/dsh-crate/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, debugger: 'inspector', installed }
+        : path === '/dsh-crate/updates' ? { updates: {} }
         : null
       if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
       return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -7462,13 +7462,13 @@ describe('standing restart notice for host-reported pending plugins', () => {
         const path = String(url).split('?')[0]
         const installed = { 'dsh-loop': '^1.0.0' }
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY }
-          : path === '/dsh-shelfry/installed' ? {
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY }
+          : path === '/dsh-crate/installed' ? {
               profile: 'web', installed, live: [],
               activation: { 'dsh-loop': { state: 'restart', reasons: ['in the bundle layer'], bundle: true, hot: false } },
             }
-          : path === '/dsh-shelfry/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed, ...extra }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
+          : path === '/dsh-crate/status' ? { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed, ...extra }
+          : path === '/dsh-crate/updates' ? { updates: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -7512,12 +7512,12 @@ describe('a shell that runs the host as its child process owns the restart', () 
   function stubStatus(extra: Record<string, unknown> = {}) {
     const installed = { 'dsh-loop': '^1.0.0' }
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed, live: [],
         activation: { 'dsh-loop': { state: 'restart', reasons: ['in the bundle layer'], bundle: true, hot: false } },
       },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed, ...extra },
-      '/dsh-shelfry/updates': { updates: {} },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed, ...extra },
+      '/dsh-crate/updates': { updates: {} },
     })
   }
 
@@ -7533,7 +7533,7 @@ describe('a shell that runs the host as its child process owns the restart', () 
     fireEvent.click(screen.getByRole('button', { name: en.restartNow }))
 
     await waitFor(() => { expect(shellRestart).toHaveBeenCalledTimes(1) })
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/restart')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/restart')).toBe(false)
   })
 
   it('falls back to the host route when the shell bridge is absent', async () => {
@@ -7544,7 +7544,7 @@ describe('a shell that runs the host as its child process owns the restart', () 
     fireEvent.click(screen.getByRole('button', { name: en.restartNow }))
 
     await waitFor(() => {
-      expect(fetchCalls.some(call => call.path === '/dsh-shelfry/restart' && call.method === 'POST')).toBe(true)
+      expect(fetchCalls.some(call => call.path === '/dsh-crate/restart' && call.method === 'POST')).toBe(true)
     })
   })
 
@@ -7559,28 +7559,28 @@ describe('a shell that runs the host as its child process owns the restart', () 
     fireEvent.click(screen.getByRole('button', { name: en.restartNow }))
 
     await waitFor(() => {
-      expect(fetchCalls.some(call => call.path === '/dsh-shelfry/restart' && call.method === 'POST')).toBe(true)
+      expect(fetchCalls.some(call => call.path === '/dsh-crate/restart' && call.method === 'POST')).toBe(true)
     })
   })
 })
 
 describe('boot-scoped update reminder dismissals (#419)', () => {
   const installed = {
-    'dsh-shelfry': '^1.38.0',
+    'dsh-crate': '^1.38.0',
     'dsh-loop': '^1.0.0',
     'dsh-notify': '^1.0.0',
   }
   const updateStatuses = {
-    'dsh-shelfry': { kind: 'npm', current: '1.38.0', latest: '1.39.0', updateAvailable: true },
+    'dsh-crate': { kind: 'npm', current: '1.38.0', latest: '1.39.0', updateAvailable: true },
     'dsh-loop': { kind: 'npm', current: '1.0.0', latest: '1.1.0', updateAvailable: true },
     'dsh-notify': { kind: 'npm', current: '1.0.0', latest: '1.1.0', updateAvailable: true },
   }
 
   function stubUpdateReminders(boot = 'boot-1') {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed, live: Object.keys(installed) },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot, restart: true, installed },
-      '/dsh-shelfry/updates': { updates: updateStatuses },
+      '/dsh-crate/installed': { profile: 'web', installed, live: Object.keys(installed) },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot, restart: true, installed },
+      '/dsh-crate/updates': { updates: updateStatuses },
     })
   }
 
@@ -7619,7 +7619,7 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
       expect(updateDot()).toBeNull()
     })
     expect(new Set(JSON.parse(sessionStorage.getItem('dshm-updates-ignored')!).names))
-      .toEqual(new Set(['dsh-shelfry', 'dsh-loop', 'dsh-notify']))
+      .toEqual(new Set(['dsh-crate', 'dsh-loop', 'dsh-notify']))
 
     fireEvent.click(installedTab())
     expect(await screen.findAllByText(en.updateNoticeIgnored)).toHaveLength(2)
@@ -7646,7 +7646,7 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
 
   it('invalidates an old dismissal after the host boot changes', async () => {
     sessionStorage.setItem('dshm-updates-ignored', JSON.stringify({
-      boot: 'boot-1', names: ['dsh-shelfry', 'dsh-loop', 'dsh-notify'],
+      boot: 'boot-1', names: ['dsh-crate', 'dsh-loop', 'dsh-notify'],
     }))
     stubUpdateReminders('boot-2')
     render(<MarketSection {...props()} />)
@@ -7660,12 +7660,12 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
 
   it('a saved do-not-remind list quiets prompts without hiding the update', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed, live: Object.keys(installed),
         updateExempt: ['dsh-loop'],
       },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
-      '/dsh-shelfry/updates': { updates: updateStatuses },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
+      '/dsh-crate/updates': { updates: updateStatuses },
     })
     render(<MarketSection {...props()} />)
 
@@ -7707,9 +7707,9 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
     // offers no update, and "Up to date" was the wrong fact — the install IS
     // behind, it is just behind an unreleased commit.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed, live: Object.keys(installed) },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/installed': { profile: 'web', installed, live: Object.keys(installed) },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': { kind: 'github', version: '1.0.0', current: 'aaaaaaa', latest: 'bbbbbbb7c1d2e3f40516', updateAvailable: false, unreleasedCommit: 'bbbbbbb7c1d2e3f40516' },
           'dsh-notify': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.0.0', updateAvailable: false },
@@ -7726,12 +7726,12 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
 
   it('keeps the saved mark on an up-to-date row, and adds no status line to other up-to-date rows', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web', installed, live: Object.keys(installed),
         updateExempt: ['dsh-loop'],
       },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.0.0', updateAvailable: false },
           'dsh-notify': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.0.0', updateAvailable: false },
@@ -7749,10 +7749,10 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
 
   it('saves the choice from the row menu and says the new version stays listed', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed, live: Object.keys(installed) },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
-      '/dsh-shelfry/updates': { updates: updateStatuses },
-      '/dsh-shelfry/update-exempt': (body: any) => ({
+      '/dsh-crate/installed': { profile: 'web', installed, live: Object.keys(installed) },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed },
+      '/dsh-crate/updates': { updates: updateStatuses },
+      '/dsh-crate/update-exempt': (body: any) => ({
         ok: true,
         updateExempt: body?.exempt === true ? [body.name] : [],
       }),
@@ -7765,7 +7765,7 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: en.updateExemptAdd }))
 
     await waitFor(() => {
-      const call = fetchCalls.find(entry => entry.path === '/dsh-shelfry/update-exempt')
+      const call = fetchCalls.find(entry => entry.path === '/dsh-crate/update-exempt')
       expect(call?.body).toEqual({ name: 'dsh-loop', exempt: true })
     })
     expect(await screen.findByText(en.updateExemptOn)).toBeTruthy()
@@ -7774,7 +7774,7 @@ describe('boot-scoped update reminder dismissals (#419)', () => {
 
     fireEvent.click(mark)
     await waitFor(() => {
-      const calls = fetchCalls.filter(entry => entry.path === '/dsh-shelfry/update-exempt')
+      const calls = fetchCalls.filter(entry => entry.path === '/dsh-crate/update-exempt')
       expect(calls.at(-1)?.body).toEqual({ name: 'dsh-loop', exempt: false })
     })
     await waitFor(() => {
@@ -7809,14 +7809,14 @@ describe('pnpm setup banner', () => {
   const notReady = { active: false, pnpm: false, boot: 'boot-1', restart: true, installed: {} }
 
   it('offers the one-click fix while setup is still worth trying', async () => {
-    stubFetch({ '/dsh-shelfry/status': notReady })
+    stubFetch({ '/dsh-crate/status': notReady })
     render(<MarketSection {...props()} />)
     await waitFor(() => expect(screen.getByText(re(en.envMissing))).toBeTruthy())
     expect(screen.getByRole('button', { name: re(en.envFix) })).toBeTruthy()
   })
 
   it('after a failed setup, explains and stops offering the button', async () => {
-    stubFetch({ '/dsh-shelfry/status': notReady, '/dsh-shelfry/setup-pnpm': { ok: false, error: 'no Node found' } })
+    stubFetch({ '/dsh-crate/status': notReady, '/dsh-crate/setup-pnpm': { ok: false, error: 'no Node found' } })
     render(<MarketSection {...props()} />)
     await waitFor(() => expect(screen.getByText(re(en.envMissing))).toBeTruthy())
 
@@ -7828,7 +7828,7 @@ describe('pnpm setup banner', () => {
   })
 
   it('clears the banner when setup succeeds', async () => {
-    stubFetch({ '/dsh-shelfry/status': notReady, '/dsh-shelfry/setup-pnpm': { ok: true } })
+    stubFetch({ '/dsh-crate/status': notReady, '/dsh-crate/setup-pnpm': { ok: true } })
     render(<MarketSection {...props()} />)
     await waitFor(() => expect(screen.getByText(re(en.envMissing))).toBeTruthy())
 
@@ -7857,7 +7857,7 @@ describe('a failed install releases the UI and says why', () => {
   }
 
   it('stops the spinner and surfaces the host error', async () => {
-    stubFetch({ '/dsh-shelfry/install': failure })
+    stubFetch({ '/dsh-crate/install': failure })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -7899,7 +7899,7 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
   }
 
   it('names the clashing plugin, and keeps entry ids out of the decision', async () => {
-    stubFetch({ '/dsh-shelfry/install': clash })
+    stubFetch({ '/dsh-crate/install': clash })
     await installFirstCard()
 
     expect(screen.getByText('dsh-tui-core')).toBeTruthy()
@@ -7922,7 +7922,7 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
   })
 
   it('lists one row per owner when a candidate clashes with several at once', async () => {
-    stubFetch({ '/dsh-shelfry/install': { ok: false, conflictGroups: [
+    stubFetch({ '/dsh-crate/install': { ok: false, conflictGroups: [
       { owner: 'dsh-tui-core', ids: ['storage'] },
       { owner: 'dsh-panel-kit', ids: ['panel'] },
     ] } })
@@ -7943,7 +7943,7 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
     // Stating a consequence beside a list leaves the reader to apply it. Here
     // the list IS the consequence: the side that loses is struck through and
     // tagged, so the choice can be read without parsing a sentence.
-    stubFetch({ '/dsh-shelfry/install': clash })
+    stubFetch({ '/dsh-crate/install': clash })
     await installFirstCard()
 
     // Scoped to the decision: the plugin name also appears on the card.
@@ -7961,7 +7961,7 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
   it('closes on Escape, on an outside click, and from its own header', async () => {
     // Re-pressing the control that opened a popover is the one dismissal
     // route nobody looks for, so it cannot be the only one.
-    stubFetch({ '/dsh-shelfry/install': clash })
+    stubFetch({ '/dsh-crate/install': clash })
     await installFirstCard()
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -7982,7 +7982,7 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
     // The destructive option is one click away, so the default carries the
     // whole safety of this screen: confirming without touching it must not
     // remove a working plugin.
-    stubFetch({ '/dsh-shelfry/install': clash, '/dsh-shelfry/uninstall': { ok: true, installed: {} } })
+    stubFetch({ '/dsh-crate/install': clash, '/dsh-crate/uninstall': { ok: true, installed: {} } })
     await installFirstCard()
 
     expect((screen.getByRole('radio', { name: re(en.conflictKeep) }) as HTMLInputElement).checked).toBe(true)
@@ -7990,17 +7990,17 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: en.confirm }))
     await waitFor(() => expect(screen.queryByText(en.conflictTitle)).toBeNull())
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/uninstall')).toEqual([])
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/uninstall')).toEqual([])
   })
 
   it('swaps: uninstalls what clashed, then retries the install', async () => {
     let installs = 0
     stubFetch({
-      '/dsh-shelfry/install': () => {
+      '/dsh-crate/install': () => {
         installs += 1
         return installs === 1 ? clash : { ok: true, hot: true, activation: {}, installed: {} }
       },
-      '/dsh-shelfry/uninstall': { ok: true, hot: true, installed: {} },
+      '/dsh-crate/uninstall': { ok: true, hot: true, installed: {} },
     })
     await installFirstCard()
 
@@ -8010,7 +8010,7 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
     fireEvent.click(screen.getByRole('button', { name: en.confirm }))
 
     await waitFor(() => expect(installs).toBe(2))
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/uninstall').map(call => call.body))
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/uninstall').map(call => call.body))
       .toEqual([{ name: 'dsh-tui-core' }])
   })
 
@@ -8019,11 +8019,11 @@ describe('a loader-id clash becomes a decision in the activity panel', () => {
     // leave the user guessing which of their plugins survived.
     let removes = 0
     stubFetch({
-      '/dsh-shelfry/install': { ok: false, conflictGroups: [
+      '/dsh-crate/install': { ok: false, conflictGroups: [
         { owner: 'a-plug', ids: ['x'] },
         { owner: 'b-plug', ids: ['y'] },
       ] },
-      '/dsh-shelfry/uninstall': () => {
+      '/dsh-crate/uninstall': () => {
         removes += 1
         return removes === 1 ? { ok: true, installed: {} } : { ok: false, error: 'EBUSY' }
       },
@@ -8058,7 +8058,7 @@ describe('category row expansion', () => {
   }
 
   it('drops the height cap once the row is open', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
+    stubFetch({ '/dsh-crate/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8075,7 +8075,7 @@ describe('category row expansion', () => {
   })
 
   it('renders every category once open', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
+    stubFetch({ '/dsh-crate/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8132,7 +8132,7 @@ describe('category row expansion', () => {
       disconnect() {}
     })
     try {
-      stubFetch({ '/dsh-shelfry/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
+      stubFetch({ '/dsh-crate/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
       const { container } = render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
       const chipCount = () => container.querySelectorAll('[data-chip="1"]').length
@@ -8192,7 +8192,7 @@ describe('category row expansion', () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
 
     try {
-      stubFetch({ '/dsh-shelfry/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
+      stubFetch({ '/dsh-crate/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
       const { container } = render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
       const chipCount = () => container.querySelectorAll('[data-chip="1"]').length
@@ -8303,7 +8303,7 @@ describe('category row expansion', () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
 
     try {
-      stubFetch({ '/dsh-shelfry/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
+      stubFetch({ '/dsh-crate/registry': { source: 'snapshot', registry: { ...REGISTRY, categories: CATS } } })
       const { container } = render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
 
@@ -8400,7 +8400,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
     Object.assign(registry.plugins[0], {
       downloadsStart: '2026-08-25', downloadsEnd: '2026-09-23', downloadsCheckedAt: '2026-09-24',
     })
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     render(<MarketSection {...props()} />)
     const tip = downloadStatsText(registry.plugins[0]!, props().t)!
     // Wait on the labelled mark itself: the name can paint before the
@@ -8423,7 +8423,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   })
 
   it('shows a scrollable thumbnail strip only on the card with curated screenshots', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8443,12 +8443,12 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
     // bytes, so it is the one that most needs that proxy.
     resetMarketPortalHost()
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() },
-      '/dsh-shelfry/status': { githubRoutes: { raw: ['https://gh-proxy.example'], avatar: [null] }, githubProxy: null },
+      '/dsh-crate/registry': { source: 'live', registry: registryWithShots() },
+      '/dsh-crate/status': { githubRoutes: { raw: ['https://gh-proxy.example'], avatar: [null] }, githubProxy: null },
     })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
-    await waitFor(() => expect(fetchCalls.some(call => call.path === '/dsh-shelfry/status')).toBe(true))
+    await waitFor(() => expect(fetchCalls.some(call => call.path === '/dsh-crate/status')).toBe(true))
     await act(async () => {})
 
     fireEvent.click(container.querySelector('img[class*="cardShot"]')!)
@@ -8473,7 +8473,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
     // itself depends on mount ordering that varies per host and cannot be
     // pinned down in jsdom.
     resetMarketPortalHost()
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
     fireEvent.click(container.querySelector('img[class*="cardShot"]')!)
@@ -8483,7 +8483,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
       return found as HTMLElement
     })
 
-    const own = document.querySelector('[data-dsh-shelfry-portal]')
+    const own = document.querySelector('[data-dsh-crate-portal]')
     expect(own, 'no owned portal container was created').toBeTruthy()
     expect(own!.contains(img), 'the lightbox mounted outside the container this package owns').toBe(true)
     // And it is body's LAST child: the stacking guarantee the portal exists
@@ -8499,24 +8499,24 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
     // is opened. A second container, or one that drifts off the end, is the
     // shared-child-list churn between two React roots that #293 was about.
     resetMarketPortalHost()
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
     for (let i = 0; i < 3; i++) {
       fireEvent.click(container.querySelector('img[class*="cardShot"]')!)
       await waitFor(() => expect(document.querySelector('[class*="lightboxImg"]')).toBeTruthy())
-      expect(document.querySelectorAll('[data-dsh-shelfry-portal]').length,
+      expect(document.querySelectorAll('[data-dsh-crate-portal]').length,
         'a second portal container was created').toBe(1)
       expect(document.body.lastElementChild,
-        'the container drifted off the end of body').toBe(document.querySelector('[data-dsh-shelfry-portal]'))
+        'the container drifted off the end of body').toBe(document.querySelector('[data-dsh-crate-portal]'))
       fireEvent.click(document.querySelector('[class*="lightboxClose"]')!)
       await waitFor(() => expect(document.querySelector('[class*="lightboxImg"]')).toBeNull())
     }
   })
 
   it('leaves the close button on its normal CSS inset when there is no native titlebar overlay', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8533,7 +8533,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
 
   it('keeps the close button below the native titlebar and follows geometry changes (#384)', async () => {
     const controls = stubWindowControlsOverlay(42)
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8565,7 +8565,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   })
 
   it('opens a lightbox on click, at the clicked shot, and wraps prev/next around the ends', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8589,7 +8589,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   it('does not auto-advance the lightbox — a full-bleed preview stays put until the viewer moves on', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+      stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
       const { container } = render(<MarketSection {...props()} />)
       await vi.waitFor(() => expect(screen.queryByText('dsh-loop')).toBeTruthy())
 
@@ -8607,7 +8607,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   })
 
   it('closes only the lightbox on Escape, leaving the dialog underneath open', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8623,7 +8623,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   it('does not auto-cycle the card thumbnail strip — scrolling, not a timer, is how you see more than one', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+      stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
       const { container } = render(<MarketSection {...props()} />)
       await vi.waitFor(() => expect(screen.queryByText('dsh-loop')).toBeTruthy())
 
@@ -8660,7 +8660,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
     }
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
 
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8674,7 +8674,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   })
 
   it('the confirm dialog shows the card\'s own byline — owner, downloads, stars, date, category', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: registryWithShots() } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: registryWithShots() } })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8701,7 +8701,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   it('lets the "Install command" row expand by clicking its title text, not only its icon (expandOnRowClick)', async () => {
     const registry = registryWithShots()
     const installCmd = registry.plugins[0].install as string
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry } })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8723,7 +8723,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
   it('offers a Retry button on a catalog load failure, which re-fetches and recovers (#188)', async () => {
     let calls = 0
     stubFetch({
-      '/dsh-shelfry/registry': () => {
+      '/dsh-crate/registry': () => {
         calls++
         return calls === 1
           ? { __status: 500, error: 'HTTP 500' }
@@ -8746,7 +8746,7 @@ describe('card thumbnail + lightbox (curated screenshots only)', () => {
 
 describe('card owner name and description overflow', () => {
   it('carries the full owner name in a title attribute, even once CSS ellipsizes it', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: REGISTRY } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: REGISTRY } })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8756,7 +8756,7 @@ describe('card owner name and description overflow', () => {
   })
 
   it('clamps a long description by default and shows nothing to expand for a short one', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: REGISTRY } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: REGISTRY } })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
 
@@ -8778,7 +8778,7 @@ describe('card owner name and description overflow', () => {
       get(this: HTMLElement) { return this.className.includes('desc') ? 54 : 0 },
     })
     try {
-      stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: REGISTRY } })
+      stubFetch({ '/dsh-crate/registry': { source: 'live', registry: REGISTRY } })
       const { container } = render(<MarketSection {...props()} />)
       await screen.findByText('dsh-loop')
 
@@ -8804,7 +8804,7 @@ describe('card owner name and description overflow', () => {
 describe('Git to npm source migration (#461)', () => {
   it.each([false, true])('requires source and busy-risk confirmations for migration (busy=%s, #779)', async busy => {
     stubFetch({
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { 'dsh-loop': 'github:alice/dsh-loop' },
         live: ['dsh-loop'],
@@ -8812,7 +8812,7 @@ describe('Git to npm source migration (#461)', () => {
         groups: {},
         groupOrder: [],
       },
-      '/dsh-shelfry/updates': {
+      '/dsh-crate/updates': {
         updates: {
           'dsh-loop': {
             kind: 'github',
@@ -8828,7 +8828,7 @@ describe('Git to npm source migration (#461)', () => {
           },
         },
       },
-      '/dsh-shelfry/migrate-source': (body: unknown) => busy && (body as { confirmAgentsRunning?: boolean }).confirmAgentsRunning !== true
+      '/dsh-crate/migrate-source': (body: unknown) => busy && (body as { confirmAgentsRunning?: boolean }).confirmAgentsRunning !== true
         ? { ok: false, agentsBusy: true, runningAgents: ['main'], __status: 409 }
         : {
           ok: true,
@@ -8847,11 +8847,11 @@ describe('Git to npm source migration (#461)', () => {
     const dialog = await screen.findByRole('dialog', { name: re(en.migrateTitle) })
     expect(within(dialog).getByText(/github:alice\/dsh-loop/)).toBeTruthy()
     expect(within(dialog).getByText('@alice/dsh-loop')).toBeTruthy()
-    expect(fetchCalls.some(call => call.path.endsWith('/dsh-shelfry/migrate-source'))).toBe(false)
+    expect(fetchCalls.some(call => call.path.endsWith('/dsh-crate/migrate-source'))).toBe(false)
 
     fireEvent.click(within(dialog).getByRole('button', { name: en.cancel }))
     await waitFor(() => expect(screen.queryByText(en.migrateTitle)).toBeNull())
-    expect(fetchCalls.some(call => call.path.endsWith('/dsh-shelfry/migrate-source'))).toBe(false)
+    expect(fetchCalls.some(call => call.path.endsWith('/dsh-crate/migrate-source'))).toBe(false)
 
     fireEvent.click(await screen.findByRole('button', { name: en.migrateNpm }))
     const reopened = await screen.findByRole('dialog', { name: re(en.migrateTitle) })
@@ -8859,13 +8859,13 @@ describe('Git to npm source migration (#461)', () => {
 
     await waitFor(() => {
       expect(fetchCalls).toContainEqual({
-        path: '/dsh-shelfry/migrate-source',
+        path: '/dsh-crate/migrate-source',
         method: 'POST',
         body: { name: 'dsh-loop' },
       })
     })
     if (busy) {
-      const posts = () => fetchCalls.filter(call => call.path === '/dsh-shelfry/migrate-source' && call.method === 'POST')
+      const posts = () => fetchCalls.filter(call => call.path === '/dsh-crate/migrate-source' && call.method === 'POST')
       const risk = await screen.findByRole('dialog', { name: re(en.agentsRunningConfirm) })
       expect(within(risk).getByText(en.agentsRunningRisk)).toBeTruthy()
       expect(posts()).toHaveLength(1)
@@ -8904,12 +8904,12 @@ describe('npm rename migration (#1012)', () => {
 
   it('follows an install refusal into the rename dialog and runs the migration', async () => {
     stubFetch({
-      '/dsh-shelfry/registry': {
+      '/dsh-crate/registry': {
         source: 'live',
         hostVersion: '0.1.2-alpha.2',
         registry: { ...REGISTRY, count: 1, plugins: [SUCCESSOR] },
       },
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/installed': {
         profile: 'web',
         installed: { [FORMER]: '^0.9.6' },
         live: [FORMER],
@@ -8921,13 +8921,13 @@ describe('npm rename migration (#1012)', () => {
       },
       // What the host answers when the successor would collide with the
       // install it is meant to replace: not a plain failure, a rename question.
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         __status: 409,
         ok: false,
         error: 'name conflict',
         migration: { from: FORMER, target: '@scope/dsh-renamed' },
       },
-      '/dsh-shelfry/migrate-source': {
+      '/dsh-crate/migrate-source': {
         ok: true,
         from: { name: FORMER, source: '^0.9.6' },
         to: { name: '@scope/dsh-renamed', source: 'npm' },
@@ -8952,12 +8952,12 @@ describe('npm rename migration (#1012)', () => {
     expect(note.classList.contains(css.migrationWarning)).toBe(false)
     // Opening the dialog decides nothing; only the confirm button runs the
     // transaction, which is the whole reason the host refused in the first place.
-    expect(fetchCalls.some(call => call.path === '/dsh-shelfry/migrate-source')).toBe(false)
+    expect(fetchCalls.some(call => call.path === '/dsh-crate/migrate-source')).toBe(false)
 
     fireEvent.click(within(dialog).getByRole('button', { name: en.renameContinue }))
     await waitFor(() => {
       expect(fetchCalls).toContainEqual({
-        path: '/dsh-shelfry/migrate-source',
+        path: '/dsh-crate/migrate-source',
         method: 'POST',
         body: { name: FORMER, kind: 'npm-rename', to: '@scope/dsh-renamed' },
       })
@@ -8979,10 +8979,10 @@ describe('restart banner counts only restart-requiring updates (#558)', () => {
     * live immediately — the exact mix reported in #558. */
   function stubMixedUpdateResponses() {
     stubFetch({
-      '/dsh-shelfry/installed': INSTALLED,
-      '/dsh-shelfry/status': STATUS,
-      '/dsh-shelfry/updates': UPDATES,
-      '/dsh-shelfry/update': (body: unknown) => {
+      '/dsh-crate/installed': INSTALLED,
+      '/dsh-crate/status': STATUS,
+      '/dsh-crate/updates': UPDATES,
+      '/dsh-crate/update': (body: unknown) => {
         const name = (body as { name?: string }).name
         return {
           ok: true,
@@ -9031,10 +9031,10 @@ describe('restart banner counts only restart-requiring updates (#558)', () => {
     // restart count — under-reporting tells the user "no restart needed"
     // while the old build is what answers.
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [], groups: {}, groupOrder: [], favorites: [] },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
-      '/dsh-shelfry/update': { ok: true },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [], groups: {}, groupOrder: [], favorites: [] },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/update': { ok: true },
     })
 
     render(<MarketSection {...props()} />)
@@ -9073,9 +9073,9 @@ describe('restart banner counts only restart-requiring updates (#558)', () => {
 describe('Update all button visible for a single updatable plugin (#555)', () => {
   function stubSingleUpdatable() {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [], groups: {}, groupOrder: [], favorites: [] },
-      '/dsh-shelfry/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
+      '/dsh-crate/installed': { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: ['dsh-loop'], disabled: [], groups: {}, groupOrder: [], favorites: [] },
+      '/dsh-crate/status': { active: false, busy: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': { kind: 'npm', version: '1.0.0', current: '1.0.0', latest: '1.2.0', updateAvailable: true } } },
     })
   }
 
@@ -9092,7 +9092,7 @@ describe('catalog version in discover byline (#348)', () => {
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[0].version = '1.2.3'
     registry.plugins[1].version = null
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry, hostVersion: '0.1.2-alpha.2' } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry, hostVersion: '0.1.2-alpha.2' } })
     render(<MarketSection {...props()} />)
     const loop = (await screen.findByText('dsh-loop')).closest('[class*="card"]') as HTMLElement
     const notify = screen.getByText('dsh-notify').closest('[class*="card"]') as HTMLElement
@@ -9107,7 +9107,7 @@ describe('catalog version in discover byline (#348)', () => {
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[0].version = '1.2.3'
     registry.updated = '2026-09-24'
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry, hostVersion: '0.1.2-alpha.2' } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry, hostVersion: '0.1.2-alpha.2' } })
     render(<MarketSection {...props()} />)
     const mark = await screen.findByText('· v1.2.3')
     fireEvent.mouseEnter(mark)
@@ -9121,7 +9121,7 @@ describe('catalog version in discover byline (#348)', () => {
     const registry = JSON.parse(JSON.stringify(REGISTRY))
     registry.plugins[0].version = '1.2.3'
     registry.updated = ''
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry, hostVersion: '0.1.2-alpha.2' } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry, hostVersion: '0.1.2-alpha.2' } })
     render(<MarketSection {...props()} />)
     const mark = await screen.findByText('· v1.2.3')
     fireEvent.mouseEnter(mark)
@@ -9164,7 +9164,7 @@ describe('recently added Discover row (#780)', () => {
     const plugins = rows().map(plugin => plugin.name === 'recent-high'
       ? { ...plugin, screenshots: ['https://example.com/recent-high.png'] }
       : plugin)
-    stubFetch({ '/dsh-shelfry/registry': registry(plugins) })
+    stubFetch({ '/dsh-crate/registry': registry(plugins) })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     expect(recent().getAttribute('aria-labelledby')).toBe('dshm-recently-added')
@@ -9187,7 +9187,7 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('puts the avatar on the same row as the name, not beside the whole tile', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry() })
+    stubFetch({ '/dsh-crate/registry': registry() })
     render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     const tile = recent().querySelector(`.${css.recentTile}`)!
@@ -9210,7 +9210,7 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('keeps install on the title row and the menu on the bottom row when there is no description', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry([{ ...entry('recent-high', 900, 1), description: { en: '' } }]) })
+    stubFetch({ '/dsh-crate/registry': registry([{ ...entry('recent-high', 900, 1), description: { en: '' } }]) })
     render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     const tile = recent().querySelector(`.${css.recentTile}`)!
@@ -9223,7 +9223,7 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('keeps the full name and description available on hover', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry() })
+    stubFetch({ '/dsh-crate/registry': registry() })
     render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     const first = recent().querySelector(`.${css.recentTile}`)!
@@ -9252,7 +9252,7 @@ describe('recently added Discover row (#780)', () => {
 
   it('keeps extra recent tiles on a quiet horizontal scroll, capped at eight', async () => {
     const extra = Array.from({ length: 10 }, (_, index) => entry(`recent-extra-${index}`, 800 - index, 1))
-    stubFetch({ '/dsh-shelfry/registry': registry([...rows(), ...extra]) })
+    stubFetch({ '/dsh-crate/registry': registry([...rows(), ...extra]) })
     render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     const row = recent().querySelector('#dshm-recent-grid')!
@@ -9292,22 +9292,22 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('shows the recent strip again after retrying a failed catalog refresh', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry() })
+    stubFetch({ '/dsh-crate/registry': registry() })
     render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     cleanup()
-    stubFetch({ '/dsh-shelfry/registry': { __status: 503, error: 'catalog unavailable' } })
+    stubFetch({ '/dsh-crate/registry': { __status: 503, error: 'catalog unavailable' } })
     render(<MarketSection {...props()} />)
     await screen.findByText('catalog unavailable')
     expectHidden()
-    stubFetch({ '/dsh-shelfry/registry': registry() })
+    stubFetch({ '/dsh-crate/registry': registry() })
     fireEvent.click(screen.getByRole('button', { name: en.loadRetry }))
     await screen.findByRole('region', { name: en.recentlyAdded })
     expect(names(recent())).toEqual(recentNames)
   })
 
   it('opens only one menu for either copy of a recent plugin', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry([entry('duplicated-recent', 100, 1)]) })
+    stubFetch({ '/dsh-crate/registry': registry([entry('duplicated-recent', 100, 1)]) })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     const recentMore = within(recent()).getByRole('button', { name: en.groupMore })
@@ -9324,7 +9324,7 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('uses a seven-day downloads/Stars rank without changing the main default or selected sort', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry() })
+    stubFetch({ '/dsh-crate/registry': registry() })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
     expect(names(recent())).toEqual(recentNames)
@@ -9346,7 +9346,7 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('appears only without a search, category or time filter, and only in Discover', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry() })
+    stubFetch({ '/dsh-crate/registry': registry() })
     const themeSnapshot = { preference: 'light', themes: [] as Array<{ id: string }> }
     render(<MarketSection {...props()} themeStore={{ subscribe: () => () => {}, getSnapshot: () => themeSnapshot }} />)
     await screen.findByRole('region', { name: en.recentlyAdded })
@@ -9381,14 +9381,14 @@ describe('recently added Discover row (#780)', () => {
   })
 
   it('hides an empty recent selection, including when its only recent entry is hidden', async () => {
-    stubFetch({ '/dsh-shelfry/registry': registry([entry('old-only', 100, 1, daysAgo(8))]) })
+    stubFetch({ '/dsh-crate/registry': registry([entry('old-only', 100, 1, daysAgo(8))]) })
     render(<MarketSection {...props()} />)
     await screen.findByText('old-only')
     expectHidden()
     cleanup()
     stubFetch({
-      '/dsh-shelfry/registry': registry([entry('hidden-recent', 100, 1), entry('old-only', 100, 1, daysAgo(8))]),
-      '/dsh-shelfry/installed': {
+      '/dsh-crate/registry': registry([entry('hidden-recent', 100, 1), entry('old-only', 100, 1, daysAgo(8))]),
+      '/dsh-crate/installed': {
         profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [],
         favorites: [], blocked: ['hidden-recent'],
       },
@@ -9407,8 +9407,8 @@ describe('recently added Discover row (#780)', () => {
       entry('off-page-recent', 1, 1),
     ]
     stubFetch({
-      '/dsh-shelfry/registry': registry(plugins),
-      '/dsh-shelfry/discovery-compatibility': (body: unknown) => ({
+      '/dsh-crate/registry': registry(plugins),
+      '/dsh-crate/discovery-compatibility': (body: unknown) => ({
         hostVersion: '0.1.2-alpha.2',
         plugins: Object.fromEntries(((body as { packages: string[] }).packages).map(name => [name, {
           status: 'compatible', basis: 'manifest', requirement: '^0.1.2-alpha.2',
@@ -9422,7 +9422,7 @@ describe('recently added Discover row (#780)', () => {
     expect(rankedNames(container)).toEqual(plugins.slice(0, 24).map(plugin => plugin.name))
     expect(screen.getByRole('button', { name: en.nextPage })).toBeTruthy()
     await waitFor(() => {
-      expect(fetchCalls.some(call => call.path === '/dsh-shelfry/discovery-compatibility'
+      expect(fetchCalls.some(call => call.path === '/dsh-crate/discovery-compatibility'
         && (call.body as { packages?: string[] } | undefined)?.packages?.includes('off-page-recent'))).toBe(true)
     })
     fireEvent.click(within(recent()).getByRole('button', { name: en.install }))
@@ -9443,7 +9443,7 @@ describe('recently added Discover row (#780)', () => {
 
 describe('empty filter recovery', () => {
   it('clears Discover search and category without changing the chosen sort', async () => {
-    stubFetch({ '/dsh-shelfry/installed': { profile: 'web', installed: {}, live: [], blocked: ['whale-skin'] } })
+    stubFetch({ '/dsh-crate/installed': { profile: 'web', installed: {}, live: [], blocked: ['whale-skin'] } })
     const { container } = render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
     fireEvent.click(screen.getByRole('button', { name: 'Skills' }))
@@ -9464,7 +9464,7 @@ describe('empty filter recovery', () => {
 
   it('recovers from an empty time range and cancels a pending search draft', async () => {
     const plugins = REGISTRY.plugins.map(plugin => ({ ...plugin, added: '2020-01-01' }))
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: { ...REGISTRY, plugins } } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: { ...REGISTRY, plugins } } })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
     fireEvent.click(screen.getByRole('button', { name: en.filter }))
@@ -9501,7 +9501,7 @@ describe('empty filter recovery', () => {
   })
 
   it('does not offer a filter reset for an empty catalog', async () => {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: { ...REGISTRY, count: 0, plugins: [] } } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: { ...REGISTRY, count: 0, plugins: [] } } })
     render(<MarketSection {...props()} />)
     await screen.findByText(en.empty)
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
@@ -9515,7 +9515,7 @@ describe('Plugins page tab lays out as page content', () => {
     expect(screen.getByText(en.subtitle)).toBeTruthy()
     expect(screen.getByRole('link', { name: en.submitPlugin })).toBeTruthy()
     expect(screen.getByRole('button', { name: en.exportLog })).toBeTruthy()
-    expect(container.querySelector('[data-dsh-shelfry-plugins-tab]')).toBeNull()
+    expect(container.querySelector('[data-dsh-crate-plugins-tab]')).toBeNull()
   })
 
   it('drops the page heading and the inner scroller height on the Plugins tab', async () => {
@@ -9527,8 +9527,8 @@ describe('Plugins page tab lays out as page content', () => {
     // Export stays on the tab row — install failures ask for a log here.
     const exportButton = screen.getByRole('button', { name: en.exportLog })
     expect(exportButton.closest(`.${css.tabs}`)).toBeTruthy()
-    const root = container.querySelector('[data-dsh-shelfry-root]')
-    expect(root?.getAttribute('data-dsh-shelfry-plugins-tab')).toBe('true')
+    const root = container.querySelector('[data-dsh-crate-root]')
+    expect(root?.getAttribute('data-dsh-crate-plugins-tab')).toBe('true')
     expect(root?.getAttribute('style') ?? '').not.toMatch(/height\s*:/)
     // Empty tabs still fill the viewport under the stuck chrome, so a
     // switch from Discover does not clamp the host scrollTop to 0.
@@ -9536,17 +9536,17 @@ describe('Plugins page tab lays out as page content', () => {
     // not the full min-height (host title still in flow would push it low).
     const sheet = readFileSync(resolve(__dirname, '../../src/client/Market.module.css'), 'utf8')
     expect(sheet).toMatch(
-      /\[data-dsh-shelfry-plugins-tab="true"\]:not\(\[data-dsh-shelfry-fullscreen="true"\]\) \.body\{[^}]*min-height:calc\(100vh - var\(--dshm-host-sticky-top/,
+      /\[data-dsh-crate-plugins-tab="true"\]:not\(\[data-dsh-crate-fullscreen="true"\]\) \.body\{[^}]*min-height:calc\(100vh - var\(--dshm-host-sticky-top/,
     )
     expect(sheet).toMatch(
-      /\[data-dsh-shelfry-plugins-tab="true"\]:not\(\[data-dsh-shelfry-fullscreen="true"\]\) \.body > \.empty\{[^}]*max-height:var\(--dshm-empty-view-height/,
+      /\[data-dsh-crate-plugins-tab="true"\]:not\(\[data-dsh-crate-fullscreen="true"\]\) \.body > \.empty\{[^}]*max-height:var\(--dshm-empty-view-height/,
     )
   })
 
   it('keeps Update all on the tab row when the heading is gone', async () => {
     stubFetch({
-      '/dsh-shelfry/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
-      '/dsh-shelfry/updates': { updates: { 'dsh-loop': {
+      '/dsh-crate/installed': { profile: 'desktop', installed: { 'dsh-loop': '^1.0.0' }, live: [] },
+      '/dsh-crate/updates': { updates: { 'dsh-loop': {
         kind: 'npm', current: '1.0.0', latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true,
       } } },
     })
@@ -9590,7 +9590,7 @@ describe('Plugins page tab lays out as page content', () => {
       await screen.findByText('dsh-loop')
       fireEvent.scroll(scroller)
       await act(async () => { await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) }) })
-      const root = container.querySelector('[data-dsh-shelfry-plugins-tab="true"]') as HTMLElement
+      const root = container.querySelector('[data-dsh-crate-plugins-tab="true"]') as HTMLElement
       return root.style.getPropertyValue('--dshm-host-sticky-top')
     } finally {
       scroller.remove()
@@ -9669,7 +9669,7 @@ describe('Plugins page tab lays out as page content', () => {
       description: { en: `Plugin ${i}`, zh: `插件 ${i}` }, install: '',
     }))
     stubFetch({
-      '/dsh-shelfry/registry': { source: 'live', registry: { ...REGISTRY, count: plugins.length, plugins }, hostVersion: '0.1.2-alpha.2' },
+      '/dsh-crate/registry': { source: 'live', registry: { ...REGISTRY, count: plugins.length, plugins }, hostVersion: '0.1.2-alpha.2' },
     })
     const { rerender } = render(<MarketSection {...props()} surface="plugins" />)
     await screen.findByText('plug-0')
@@ -9706,7 +9706,7 @@ describe('Plugins page tab lays out as page content', () => {
     try {
       const { container, rerender } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
       await screen.findByText('dsh-loop')
-      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      const root = container.querySelector('[data-dsh-crate-root]') as HTMLElement
       const head = container.querySelector(`.${css.head}`) as HTMLElement
       head.getBoundingClientRect = () => box(66, 110)
       await act(async () => {
@@ -9764,7 +9764,7 @@ describe('Plugins page tab lays out as page content', () => {
     try {
       const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
       await screen.findByText('dsh-loop')
-      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      const root = container.querySelector('[data-dsh-crate-root]') as HTMLElement
       await act(async () => {
         window.dispatchEvent(new Event('resize'))
         await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) })
@@ -9808,7 +9808,7 @@ describe('Plugins page tab lays out as page content', () => {
     try {
       const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
       await screen.findByText('dsh-loop')
-      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      const root = container.querySelector('[data-dsh-crate-root]') as HTMLElement
       await act(async () => {
         window.dispatchEvent(new Event('resize'))
         await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()) })
@@ -9847,7 +9847,7 @@ describe('Plugins page tab lays out as page content', () => {
     try {
       const { container } = render(<MarketSection {...props()} surface="plugins" />, { container: mount })
       await screen.findByText('dsh-loop')
-      const root = container.querySelector('[data-dsh-shelfry-root]') as HTMLElement
+      const root = container.querySelector('[data-dsh-crate-root]') as HTMLElement
       const body = container.querySelector(`.${css.body}`) as HTMLElement
 
       // Favorites empty: sole .body > .empty. Title still in flow — body starts
@@ -9968,7 +9968,7 @@ describe('Plugins page tab lays out as page content', () => {
         { container: mount },
       )
       await screen.findByText('dsh-loop')
-      const body = container.querySelector('[data-dsh-shelfry-root] > [class*="body"]') as HTMLElement
+      const body = container.querySelector('[data-dsh-crate-root] > [class*="body"]') as HTMLElement
       Object.defineProperty(body, 'scrollHeight', { configurable: true, get: () => 2000 })
       Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => 800 })
 
@@ -9980,7 +9980,7 @@ describe('Plugins page tab lays out as page content', () => {
       expect(body.scrollTop).toBe(0)
 
       fireEvent.click(screen.getByRole('button', { name: en.themeFullscreen }))
-      expect(container.querySelector('[data-dsh-shelfry-root]')?.getAttribute('data-dsh-shelfry-fullscreen')).toBe('true')
+      expect(container.querySelector('[data-dsh-crate-root]')?.getAttribute('data-dsh-crate-fullscreen')).toBe('true')
       body.scrollTop = 260
       scroller.scrollTop = 320
       fireEvent.change(screen.getByPlaceholderText(en.searchPh), { target: { value: 'no-such-theme' } })
@@ -10083,7 +10083,7 @@ describe('最近收录 collapses and hides (#940)', () => {
     ],
   }
   function mount() {
-    stubFetch({ '/dsh-shelfry/registry': { source: 'live', registry: RECENT_REGISTRY, hostVersion: '0.1.2-alpha.2' } })
+    stubFetch({ '/dsh-crate/registry': { source: 'live', registry: RECENT_REGISTRY, hostVersion: '0.1.2-alpha.2' } })
     return render(<MarketSection {...props()} />)
   }
   const gridOf = (container: HTMLElement) => container.querySelector('#dshm-recent-grid')
@@ -10167,8 +10167,8 @@ describe('when DSH has unloaded the market (#962)', () => {
     // The host reloaded its plugins and did not mount the market again: every
     // market route answers 404 while the page's own client keeps running.
     stubFetch({
-      '/dsh-shelfry/registry': { __status: 404 },
-      '/dsh-shelfry/status': { __status: 404 },
+      '/dsh-crate/registry': { __status: 404 },
+      '/dsh-crate/status': { __status: 404 },
     })
     render(<MarketSection {...props()} />)
 
@@ -10186,20 +10186,20 @@ describe('when DSH has unloaded the market (#962)', () => {
       let installStarted = false
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
-        if (path === '/dsh-shelfry/install') {
+        if (path === '/dsh-crate/install') {
           installStarted = true
           // The host unloaded the market mid-install: the response never comes.
           return new Promise<Response>(() => {})
         }
-        if (path === '/dsh-shelfry/status' && installStarted) {
+        if (path === '/dsh-crate/status' && installStarted) {
           return Promise.resolve(new Response('', { status: 404 }))
         }
         const payload =
-          path === '/dsh-shelfry/registry' ? { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' }
-          : path === '/dsh-shelfry/installed' ? { profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] }
-          : path === '/dsh-shelfry/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} }
-          : path === '/dsh-shelfry/updates' ? { updates: {} }
-          : path === '/dsh-shelfry/discovery-compatibility' ? { hostVersion: '0.1.2-alpha.2', plugins: {} }
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] }
+          : path === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} }
+          : path === '/dsh-crate/updates' ? { updates: {} }
+          : path === '/dsh-crate/discovery-compatibility' ? { hostVersion: '0.1.2-alpha.2', plugins: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
@@ -10256,7 +10256,7 @@ describe('Agent-safe drain mode (#411)', () => {
       outcome: null,
     }
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10267,14 +10267,14 @@ describe('Agent-safe drain mode (#411)', () => {
         drainOperations: [],
         drainHistory: [],
       },
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         __status: 202,
         ok: true,
         accepted: true,
         operationId: operation.operationId,
         operation,
       },
-      '/dsh-shelfry/cancel': { ok: true, cancelled: true, operationId: operation.operationId },
+      '/dsh-crate/cancel': { ok: true, cancelled: true, operationId: operation.operationId },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')
@@ -10283,7 +10283,7 @@ describe('Agent-safe drain mode (#411)', () => {
     fireEvent.click(await screen.findByRole('button', { name: en.confirmInstall }))
 
     expect(await screen.findByText(/Waiting for 1 Agent/)).toBeTruthy()
-    const installCall = fetchCalls.find(call => call.path === '/dsh-shelfry/install' && call.method === 'POST')
+    const installCall = fetchCalls.find(call => call.path === '/dsh-crate/install' && call.method === 'POST')
     expect(installCall?.body).toMatchObject({ busyPolicy: 'drain' })
     // The card says it is waiting for Agents, not that the install failed.
     expect(screen.getAllByText(en.agentDrainBadge).length).toBeGreaterThan(0)
@@ -10293,18 +10293,18 @@ describe('Agent-safe drain mode (#411)', () => {
     // The client drain interval must not re-run the row: the Host owns the
     // maintenance barrier, and a second POST would bypass it.
     await new Promise(resolve => setTimeout(resolve, 2200))
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/install' && call.method === 'POST')).toHaveLength(1)
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/install' && call.method === 'POST')).toHaveLength(1)
     fireEvent.click(screen.getAllByRole('button', { name: en.cancelOp }).at(-1)!)
     await waitFor(() => {
       expect(fetchCalls.some(call =>
-        call.path === '/dsh-shelfry/cancel'
+        call.path === '/dsh-crate/cancel'
         && (call.body as { operationId?: string } | undefined)?.operationId === operation.operationId)).toBe(true)
     })
   })
 
   it('reconstructs a waiting Host task after the page mounts', async () => {
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10338,7 +10338,7 @@ describe('Agent-safe drain mode (#411)', () => {
       { id: 'boot-old-drain-1', kind: 'update', name: 'dsh-loop' },
     ]))
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10370,7 +10370,7 @@ describe('Agent-safe drain mode (#411)', () => {
       outcome: null,
     }
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10381,7 +10381,7 @@ describe('Agent-safe drain mode (#411)', () => {
         drainOperations: [operation],
         drainHistory: [],
       },
-      '/dsh-shelfry/install': {
+      '/dsh-crate/install': {
         __status: 202,
         ok: true,
         accepted: true,
@@ -10424,7 +10424,7 @@ describe('Agent-safe drain mode (#411)', () => {
       }],
       drainHistory: [],
     }
-    stubFetch({ '/dsh-shelfry/status': status })
+    stubFetch({ '/dsh-crate/status': status })
     render(<MarketSection {...props()} />)
     expect(await screen.findByText(/Waiting for 1 Agent/)).toBeTruthy()
 
@@ -10448,7 +10448,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const activeId = 'boot-1-drain-8'
     const doneId = 'boot-1-drain-9'
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10503,7 +10503,7 @@ describe('Agent-safe drain mode (#411)', () => {
       { id: 'boot-old-drain-11', kind: 'update', name: 'old-boot' },
     ]))
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10562,7 +10562,7 @@ describe('Agent-safe drain mode (#411)', () => {
       ],
       drainHistory: [],
     }
-    stubFetch({ '/dsh-shelfry/status': status })
+    stubFetch({ '/dsh-crate/status': status })
     render(<MarketSection {...props()} />)
     expect(await screen.findByText(/Waiting for 1 Agent/)).toBeTruthy()
     expect(screen.getAllByRole('button', { name: en.refresh }).length).toBeGreaterThan(0)
@@ -10586,7 +10586,7 @@ describe('Agent-safe drain mode (#411)', () => {
 
   it('renders a cancelled Host task without the failure treatment', async () => {
     stubFetch({
-      '/dsh-shelfry/status': {
+      '/dsh-crate/status': {
         active: false,
         pnpm: true,
         boot: 'boot-1',
@@ -10629,8 +10629,8 @@ describe('a compatible release still inside the release-age wait (#945)', () => 
   it('names the wait and disables the version it cannot install yet', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-06T20:00:00Z'))
     stubFetch({
-      '/dsh-shelfry/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
-      '/dsh-shelfry/find-compatible': {
+      '/dsh-crate/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
+      '/dsh-crate/find-compatible': {
         compatibleVersion: '1.2.0', upgradeOnly: false,
         maturity: {
           version: '1.2.0', installable: false, held: true, exempt: false,
@@ -10651,13 +10651,13 @@ describe('a compatible release still inside the release-age wait (#945)', () => 
     const offered = screen.getByRole('button', { name: en.hostIncompatibleHeldButton.replace('{hours}', '22') })
     expect((offered as HTMLButtonElement).disabled).toBe(true)
     // The refusal stays a refusal: no install request follows the dialog.
-    expect(fetchCalls.filter(call => call.path === '/dsh-shelfry/install').length).toBe(1)
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/install').length).toBe(1)
   })
 
   it('still offers the version when the host cannot read its age', async () => {
     stubFetch({
-      '/dsh-shelfry/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
-      '/dsh-shelfry/find-compatible': { compatibleVersion: '1.2.0', upgradeOnly: false, maturity: null },
+      '/dsh-crate/install': { __status: 400, hostIncompatible: { name: 'dsh-loop', npmName: 'dsh-loop', version: '2.0.0', requirement: '>=0.1.7', hostVersion: '0.1.5-rc.3' } },
+      '/dsh-crate/find-compatible': { compatibleVersion: '1.2.0', upgradeOnly: false, maturity: null },
     })
     render(<MarketSection {...props()} />)
     await screen.findByText('dsh-loop')

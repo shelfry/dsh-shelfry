@@ -26,7 +26,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { MAX_BACKUP_BYTES, validatedBackup, type ProfileBackup } from './backup.ts'
 
-/** The single file every dsh-shelfry backup Gist carries. */
+/** The single file every dsh-crate backup Gist carries. */
 export const GIST_FILENAME = 'dsh-profile-backup.json'
 
 /** GitHub hard limit for one Gist file (1 MB); enforced before upload. */
@@ -255,7 +255,7 @@ function gistRequest(token: string, method: 'GET' | 'POST' | 'PATCH', path: stri
   return new Promise<GistResponse>((resolve, reject) => {
     const headers: Record<string, string> = {
       authorization: `Bearer ${token}`,
-      'user-agent': 'dsh-shelfry',
+      'user-agent': 'dsh-crate',
       accept: 'application/vnd.github+json',
     }
     if (body !== undefined) {
@@ -327,7 +327,7 @@ async function sendGistRequest(token: string, method: 'GET' | 'POST' | 'PATCH', 
 /** Create a new private Gist carrying one backup file. */
 export async function createGist(token: string, content: string, signal?: AbortSignal): Promise<GistRef> {
   const body = JSON.stringify({
-    description: 'dsh-shelfry profile backup',
+    description: 'dsh-crate profile backup',
     public: false,
     files: { [GIST_FILENAME]: { content } },
   })

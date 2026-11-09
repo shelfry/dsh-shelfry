@@ -41,7 +41,7 @@ function writeProfile(dir: string, manifest: unknown): void {
 }
 
 function snapshotsDir(dir: string): string {
-  return join(dir, '.dsh-shelfry', 'snapshots')
+  return join(dir, '.dsh-crate', 'snapshots')
 }
 
 function mustCreateProfileSnapshot(dir: string, maxSnapshots?: number): ProfileSnapshot {
@@ -63,26 +63,26 @@ describe('createProfileSnapshot', () => {
   it('captures package.json, cordis.patch.yml and state.json into a snapshot file', () => {
     const dir = pdir()
     writeProfile(dir, SAMPLE_MANIFEST)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(join(dir, 'cordis.patch.yml'), SAMPLE_PATCH)
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['p1'], groups: {}, groupOrder: [] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['p1'], groups: {}, groupOrder: [] }))
 
     const snapshot = mustCreateProfileSnapshot(dir)
     expect(snapshot.id).toMatch(/^snapshot-/)
     expect(typeof snapshot.createdAt).toBe('number')
     // Known composition files, package.json first.
-    expect(snapshot.files.map(f => f.path)).toEqual(['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'])
+    expect(snapshot.files.map(f => f.path)).toEqual(['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'])
     // JSON documents keep their parsed form; line-oriented files keep their lines.
     expect(snapshot.files[0]?.json).toEqual(SAMPLE_MANIFEST)
     expect(snapshot.files[1]?.lines?.join('\n')).toBe(SAMPLE_PATCH)
     expect(snapshot.files[2]?.json).toEqual({ disabled: ['p1'], groups: {}, groupOrder: [] })
 
-    // Persisted under <profile>/.dsh-shelfry/snapshots/<id>.json.
+    // Persisted under <profile>/.dsh-crate/snapshots/<id>.json.
     const file = join(snapshotsDir(dir), `${snapshot.id}.json`)
     expect(existsSync(file)).toBe(true)
     const stored = JSON.parse(readFileSync(file, 'utf8')) as { id: string; files: { path: string }[] }
     expect(stored.id).toBe(snapshot.id)
-    expect(stored.files.map(f => f.path)).toEqual(['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'])
+    expect(stored.files.map(f => f.path)).toEqual(['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'])
   })
 
   it('names package.json and the concrete reason when capture fails', () => {
@@ -101,17 +101,17 @@ describe('createProfileSnapshot', () => {
   it('captures malformed optional state as absent because Market observes it as empty', () => {
     const dir = pdir()
     writeProfile(dir, SAMPLE_MANIFEST)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), '{ broken')
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), '{ broken')
 
     const snapshot = mustCreateProfileSnapshot(dir)
-    expect(snapshot.files).toContainEqual({ path: '.dsh-shelfry/state.json', absent: true })
+    expect(snapshot.files).toContainEqual({ path: '.dsh-crate/state.json', absent: true })
     expect(existsSync(join(snapshotsDir(dir), `${snapshot.id}.json`))).toBe(true)
-    expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe('{ broken')
+    expect(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')).toBe('{ broken')
 
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['later'] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['later'] }))
     expect(restoreSnapshot(dir, snapshot.id)).toMatchObject({ ok: true })
-    expect(existsSync(join(dir, '.dsh-shelfry', 'state.json'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'state.json'))).toBe(false)
   })
 
   it('does not mislabel an existing but unreadable optional path as absent', () => {
@@ -145,12 +145,12 @@ describe('createProfileSnapshot', () => {
     writeProfile(dir, SAMPLE_MANIFEST)
     const snapshot = mustCreateProfileSnapshot(dir)
     expect(snapshot).toMatchObject({
-      format: 'dsh-shelfry/profile-snapshot',
+      format: 'dsh-crate/profile-snapshot',
       version: 2,
       files: [
         { path: 'package.json', json: SAMPLE_MANIFEST },
         { path: 'cordis.patch.yml', absent: true },
-        { path: '.dsh-shelfry/state.json', absent: true },
+        { path: '.dsh-crate/state.json', absent: true },
       ],
     })
   })
@@ -204,22 +204,22 @@ describe('restoreSnapshot', () => {
   it('restores every captured file from memory', () => {
     const dir = pdir()
     writeProfile(dir, SAMPLE_MANIFEST)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(join(dir, 'cordis.patch.yml'), SAMPLE_PATCH)
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['p1'], groups: {}, groupOrder: [] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['p1'], groups: {}, groupOrder: [] }))
     const snapshot = mustCreateProfileSnapshot(dir)
 
     // Mutate all three files after the snapshot was taken.
     writeProfile(dir, { name: 'changed', dsh: { profile: { bundles: ['beta'] } } })
     writeFileSync(join(dir, 'cordis.patch.yml'), '- insert:\n  - id: beta\n    name: beta\n')
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['p2'], groups: {}, groupOrder: [] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['p2'], groups: {}, groupOrder: [] }))
 
     const result = restoreSnapshot(dir, snapshot.id)
     expect(result.ok).toBe(true)
-    expect(result.restored).toEqual(['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'])
+    expect(result.restored).toEqual(['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'])
     expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))).toEqual(SAMPLE_MANIFEST)
     expect(readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')).toBe(SAMPLE_PATCH)
-    expect(JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8'))).toEqual({ disabled: ['p1'], groups: {}, groupOrder: [] })
+    expect(JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8'))).toEqual({ disabled: ['p1'], groups: {}, groupOrder: [] })
   })
 
   it('removes optional composition files created after a v2 snapshot', () => {
@@ -227,16 +227,16 @@ describe('restoreSnapshot', () => {
     writeProfile(dir, SAMPLE_MANIFEST)
     const snapshot = mustCreateProfileSnapshot(dir)
     writeProfile(dir, { name: 'changed' })
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(join(dir, 'cordis.patch.yml'), '- insert:\n  - id: later\n')
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['later'] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['later'] }))
 
     const result = restoreSnapshot(dir, snapshot.id)
     expect(result.ok).toBe(true)
-    expect(result.restored).toEqual(['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'])
+    expect(result.restored).toEqual(['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'])
     expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))).toEqual(SAMPLE_MANIFEST)
     expect(existsSync(join(dir, 'cordis.patch.yml'))).toBe(false)
-    expect(existsSync(join(dir, '.dsh-shelfry', 'state.json'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'state.json'))).toBe(false)
   })
 
   it('preserves later optional files when restoring a legacy package-only snapshot', () => {
@@ -249,15 +249,15 @@ describe('restoreSnapshot', () => {
       files: [{ path: 'package.json', json: SAMPLE_MANIFEST }],
     }))
     writeProfile(dir, { name: 'changed' })
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(join(dir, 'cordis.patch.yml'), 'later patch\n')
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['later'] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['later'] }))
 
     const result = restoreSnapshot(dir, 'snapshot-legacy')
     expect(result.ok).toBe(true)
     expect(result.restored).toEqual(['package.json'])
     expect(readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')).toBe('later patch\n')
-    expect(JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8'))).toEqual({ disabled: ['later'] })
+    expect(JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8'))).toEqual({ disabled: ['later'] })
   })
 
   // A file link, so there is no junction fallback to reach for; see
@@ -287,23 +287,23 @@ describe('restoreSnapshot', () => {
   it('refuses a parent symlink that redirects a tracked file outside the profile', () => {
     const dir = pdir()
     writeProfile(dir, SAMPLE_MANIFEST)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['captured'] }))
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['captured'] }))
     const snapshot = mustCreateProfileSnapshot(dir)
 
     const changedManifest = JSON.stringify({ name: 'changed' }, null, 2)
     const outside = join(tmp, 'outside-market')
     writeFileSync(join(dir, 'package.json'), changedManifest)
-    renameSync(join(dir, '.dsh-shelfry'), outside)
+    renameSync(join(dir, '.dsh-crate'), outside)
     writeFileSync(join(outside, 'state.json'), JSON.stringify({ disabled: ['outside'] }))
-    symlinkSync(outside, join(dir, '.dsh-shelfry'), process.platform === 'win32' ? 'junction' : 'dir')
+    symlinkSync(outside, join(dir, '.dsh-crate'), process.platform === 'win32' ? 'junction' : 'dir')
 
     const result = restoreSnapshot(dir, snapshot.id)
     expect(result.ok).toBe(false)
     expect(result.restored).toEqual([])
     expect(result.error).toContain('unsafe snapshot restore path')
     expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(changedManifest)
-    expect(lstatSync(join(dir, '.dsh-shelfry')).isSymbolicLink()).toBe(true)
+    expect(lstatSync(join(dir, '.dsh-crate')).isSymbolicLink()).toBe(true)
     expect(JSON.parse(readFileSync(join(outside, 'state.json'), 'utf8'))).toEqual({ disabled: ['outside'] })
   })
 
@@ -313,7 +313,7 @@ describe('restoreSnapshot', () => {
     mkdirSync(snapshotsDir(dir), { recursive: true })
     const packageEntry = { path: 'package.json', json: SAMPLE_MANIFEST }
     const patchEntry = { path: 'cordis.patch.yml', lines: SAMPLE_PATCH.split('\n') }
-    const stateEntry = { path: '.dsh-shelfry/state.json', json: { disabled: [] } }
+    const stateEntry = { path: '.dsh-crate/state.json', json: { disabled: [] } }
     const cases: Array<{ id: string; version?: number; files: unknown[] }> = [
       { id: 'snapshot-missing-path', files: [packageEntry, patchEntry] },
       { id: 'snapshot-duplicate-path', files: [packageEntry, packageEntry, patchEntry, stateEntry] },
@@ -325,7 +325,7 @@ describe('restoreSnapshot', () => {
 
     for (const candidate of cases) {
       writeFileSync(join(snapshotsDir(dir), `${candidate.id}.json`), JSON.stringify({
-        format: 'dsh-shelfry/profile-snapshot',
+        format: 'dsh-crate/profile-snapshot',
         version: candidate.version ?? 2,
         id: candidate.id,
         createdAt: 1,
@@ -341,8 +341,8 @@ describe('restoreSnapshot', () => {
   it('recreates an earlier deletion when a later atomic write fails', () => {
     const dir = pdir()
     writeProfile(dir, SAMPLE_MANIFEST)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['old'] }))
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['old'] }))
     const snapshot = mustCreateProfileSnapshot(dir)
 
     const changedManifest = JSON.stringify({ name: 'changed' }, null, 2)
@@ -350,11 +350,11 @@ describe('restoreSnapshot', () => {
     const changedState = JSON.stringify({ disabled: ['later'] })
     writeFileSync(join(dir, 'package.json'), changedManifest)
     writeFileSync(join(dir, 'cordis.patch.yml'), changedPatch)
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), changedState)
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), changedState)
 
     const now = 123456789
     const random = 0.5
-    const blocker = `${join(dir, '.dsh-shelfry', 'state.json')}.tmp-${process.pid}-${now}-${random.toString(36).slice(2, 8)}`
+    const blocker = `${join(dir, '.dsh-crate', 'state.json')}.tmp-${process.pid}-${now}-${random.toString(36).slice(2, 8)}`
     mkdirSync(blocker)
     vi.spyOn(Date, 'now').mockReturnValue(now)
     vi.spyOn(Math, 'random').mockReturnValue(random)
@@ -363,20 +363,20 @@ describe('restoreSnapshot', () => {
       expect(result.ok).toBe(false)
       expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(changedManifest)
       expect(readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')).toBe(changedPatch)
-      expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe(changedState)
+      expect(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')).toBe(changedState)
     } finally {
       vi.restoreAllMocks()
       rmSync(blocker, { recursive: true, force: true })
     }
     expect(readdirSync(dir).some(name => name.includes('.tmp-'))).toBe(false)
-    expect(readdirSync(join(dir, '.dsh-shelfry')).some(name => name.includes('.tmp-'))).toBe(false)
+    expect(readdirSync(join(dir, '.dsh-crate')).some(name => name.includes('.tmp-'))).toBe(false)
   })
 
   it('reports when a later failure also prevents an earlier deletion from rolling back', () => {
     const dir = pdir()
     writeProfile(dir, SAMPLE_MANIFEST)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['old'] }))
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['old'] }))
     const snapshot = mustCreateProfileSnapshot(dir)
 
     const changedManifest = JSON.stringify({ name: 'changed' }, null, 2)
@@ -384,13 +384,13 @@ describe('restoreSnapshot', () => {
     const changedState = JSON.stringify({ disabled: ['later'] })
     writeFileSync(join(dir, 'package.json'), changedManifest)
     writeFileSync(join(dir, 'cordis.patch.yml'), changedPatch)
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), changedState)
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), changedState)
 
     const now = 123456790
     const random = 0.25
     const suffix = `.tmp-${process.pid}-${now}-${random.toString(36).slice(2, 8)}`
     const rollbackBlocker = `${join(dir, 'cordis.patch.yml')}${suffix}`
-    const laterWriteBlocker = `${join(dir, '.dsh-shelfry', 'state.json')}${suffix}`
+    const laterWriteBlocker = `${join(dir, '.dsh-crate', 'state.json')}${suffix}`
     mkdirSync(rollbackBlocker)
     mkdirSync(laterWriteBlocker)
     vi.spyOn(Date, 'now').mockReturnValue(now)
@@ -402,7 +402,7 @@ describe('restoreSnapshot', () => {
       expect(result.error).toContain('rollback incomplete')
       expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(changedManifest)
       expect(existsSync(join(dir, 'cordis.patch.yml'))).toBe(false)
-      expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe(changedState)
+      expect(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')).toBe(changedState)
     } finally {
       vi.restoreAllMocks()
       rmSync(rollbackBlocker, { recursive: true, force: true })

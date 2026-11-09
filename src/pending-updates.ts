@@ -15,7 +15,7 @@
  * plugin the user has to notice is gone.
  *
  * The file lives beside the market's other per-profile state
- * (`<profile>/.dsh-shelfry/`), not in the market's memory and not in DSH home:
+ * (`<profile>/.dsh-crate/`), not in the market's memory and not in DSH home:
  * a profile copied or reset elsewhere must not inherit another profile's
  * unfinished update, and a test that builds a throwaway profile must not touch
  * the real one.
@@ -26,6 +26,7 @@ import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from '
 import { dirname, join } from 'node:path'
 import { logEvent } from './log.ts'
 import { readInstalledManifest, readInstalledVersion, readManifestDeps, readProfileBundles } from './profile.ts'
+import { statePath } from './state.ts'
 
 /** One removal that has not been answered by a settled install. */
 export interface PendingUpdate {
@@ -66,7 +67,7 @@ const STATE_VERSION = 1 as const
  * resolution, and no path handed down from the host.
  */
 export function pendingUpdatesFile(profileDirectory: string): string {
-  return join(profileDirectory, '.dsh-shelfry', 'pending-updates.json')
+  return statePath(profileDirectory, 'pending-updates.json')
 }
 
 export class PendingUpdateJournal {

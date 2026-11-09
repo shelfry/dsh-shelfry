@@ -85,10 +85,10 @@ describe('installTargetFor', () => {
   it('installs the market itself from its own repository, like any other entry', () => {
     // 这个包没有发布到 npm，所以目录里没有 npm 映射时只能回落到 GitHub 源；
     // 旧版这里有一条「自家包特殊处理」，随发布状态一起删掉了。
-    expect(installTargetFor({ url: 'https://github.com/dsh-shelfry/dsh-shelfry' })).toBe('github:dsh-shelfry/dsh-shelfry')
-    expect(installTargetFor({ url: 'https://github.com/dsh-shelfry/dsh-shelfry', tarball })).toBe('github:dsh-shelfry/dsh-shelfry')
-    expect(installTargetFor({ url: 'https://github.com/dsh-shelfry/dsh-shelfry/tree/main/packages/other' }))
-      .toBe('github:dsh-shelfry/dsh-shelfry#path:/packages/other')
+    expect(installTargetFor({ url: 'https://github.com/dsh-crate/dsh-crate' })).toBe('github:dsh-crate/dsh-crate')
+    expect(installTargetFor({ url: 'https://github.com/dsh-crate/dsh-crate', tarball })).toBe('github:dsh-crate/dsh-crate')
+    expect(installTargetFor({ url: 'https://github.com/dsh-crate/dsh-crate/tree/main/packages/other' }))
+      .toBe('github:dsh-crate/dsh-crate#path:/packages/other')
   })
 
   it('refuses non-release, foreign, insecure, and malformed tarball targets', () => {

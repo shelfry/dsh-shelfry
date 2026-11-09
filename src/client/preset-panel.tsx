@@ -4,8 +4,8 @@
  * Rendered at the bottom of the Diagnostics tab inside a collapsible section
  * (the parent keeps it mounted and passes `open`, so it lazy-loads on first
  * expand and keeps its state across collapses). Lists named presets
- * (GET /dsh-shelfry/presets), saves the current community bundle order as a
- * new preset (POST /dsh-shelfry/presets {action:'save', name, bundleOrder,
+ * (GET /dsh-crate/presets), saves the current community bundle order as a
+ * new preset (POST /dsh-crate/presets {action:'save', name, bundleOrder,
  * disabled}), applies one (action:'apply' — the host trial-validates and
  * auto-snapshots before writing; on success the parent refreshes the check
  * report) and deletes one after an inline double confirmation
@@ -19,7 +19,7 @@ import css from './Market.module.css'
 import { api } from './market-data.ts'
 import type { Translate } from './market-data.ts'
 
-/** One preset from GET /dsh-shelfry/presets. */
+/** One preset from GET /dsh-crate/presets. */
 export interface Preset {
   name: string
   bundleOrder: string[]
@@ -73,7 +73,7 @@ export function PresetPanel(props: PresetPanelProps) {
   const loaded = useRef(false)
 
   const load = useCallback(() => {
-    fetch(api('/dsh-shelfry/presets'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/presets'), { cache: 'no-store' })
       .then(res => res.json())
       .then(body => {
         const list: unknown[] = Array.isArray(body) ? body : Array.isArray(body.presets) ? body.presets : []
@@ -111,9 +111,9 @@ export function PresetPanel(props: PresetPanelProps) {
     setError(null)
     // Save the CURRENT disable list too — applying a preset restores it, so
     // saving an empty list would silently re-enable every disabled plugin.
-    fetch(api('/dsh-shelfry/installed'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/installed'), { cache: 'no-store' })
       .then(res => res.json())
-      .then((installed: { disabled?: unknown }) => postJson(api('/dsh-shelfry/presets'), {
+      .then((installed: { disabled?: unknown }) => postJson(api('/dsh-crate/presets'), {
         action: 'save',
         name: presetName,
         bundleOrder,
@@ -137,7 +137,7 @@ export function PresetPanel(props: PresetPanelProps) {
     setBusy('apply')
     setMsg(null)
     setError(null)
-    postJson(api('/dsh-shelfry/presets'), { action: 'apply', name: presetName })
+    postJson(api('/dsh-crate/presets'), { action: 'apply', name: presetName })
       .then(({ status, body }) => {
         if (status >= 200 && status < 300 && body?.ok === true) {
           setMsg(t('presetApplied'))
@@ -155,7 +155,7 @@ export function PresetPanel(props: PresetPanelProps) {
     setBusy('delete')
     setMsg(null)
     setError(null)
-    postJson(api('/dsh-shelfry/presets'), { action: 'delete', name: presetName })
+    postJson(api('/dsh-crate/presets'), { action: 'delete', name: presetName })
       .then(({ status, body }) => {
         if (status >= 200 && status < 300 && body?.ok === true) {
           setConfirmDelete(null)
@@ -181,7 +181,7 @@ export function PresetPanel(props: PresetPanelProps) {
       setBusy(null)
       return
     }
-    postJson(api('/dsh-shelfry/presets'), { action: 'preview', name: presetName })
+    postJson(api('/dsh-crate/presets'), { action: 'preview', name: presetName })
       .then(({ status, body }) => {
         if (status >= 200 && status < 300 && body?.ok === true && body.changes !== null && typeof body.changes === 'object') {
           const changes = body.changes as { reordered?: unknown; enabled?: unknown; disabled?: unknown; noop?: unknown }

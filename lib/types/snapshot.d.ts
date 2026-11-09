@@ -4,7 +4,7 @@
  * composition-critical files are captured as a timestamped snapshot; a failed
  * or unwanted change can be rolled back in one step.
  *
- * A snapshot is a single JSON document under `<profile>/.dsh-shelfry/
+ * A snapshot is a single JSON document under `<profile>/.dsh-crate/
  * snapshots/<timestamp>-<seq>.json` describing the files that define the
  * profile's composition: package.json (dependency + bundle list),
  * cordis.patch.yml (the user patch layer) and state.json (market disable
@@ -17,7 +17,7 @@
  * plugin config (`maxSnapshots`) and each snapshot can also be deleted
  * individually from the UI.
  */
-declare const SNAPSHOT_FORMAT = "dsh-shelfry/profile-snapshot";
+declare const SNAPSHOT_FORMAT = "dsh-crate/profile-snapshot";
 declare const SNAPSHOT_VERSION = 2;
 interface SnapshotFile {
     path: string;

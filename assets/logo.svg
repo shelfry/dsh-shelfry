@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t">
-  <title id="t">shelfry</title>
+  <title id="t">crate</title>
   <!-- 品牌标记：四个方块，右上那一块会从外侧飞进来落位。
        波浪按对角线依次变暗，飞块同时参与波浪，节奏与上游 dsh-market 一致。 -->
   <style>

@@ -2,7 +2,7 @@
  * giscus wiring for the in-market comment thread.
  *
  * A plugin has ONE discussion, whether the reader reached it from
- * shelfry.app, from the awesome-dsh-plugin catalog, or from inside the
+ * dshcrate.com, from the awesome-dsh-plugin catalog, or from inside the
  * market itself. That is only true as long as three things agree across the
  * three surfaces: the repository ids below, the `plugin:<slug>` term, and the
  * slug those terms are built from. The ids here mirror site/comments.mjs and

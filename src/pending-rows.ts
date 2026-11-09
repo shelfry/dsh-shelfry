@@ -34,6 +34,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { removeRowBlocks } from './patch.ts'
 import { readInstalled } from './profile.ts'
+import { statePath } from './state.ts'
 
 export interface PendingRowCleanup {
   id: string
@@ -63,7 +64,7 @@ const STATE_VERSION = 1 as const
 
 /** Same directory as the other durable per-profile state (see pending-updates.ts). */
 export function pendingRowsFile(profileDirectory: string): string {
-  return join(profileDirectory, '.dsh-shelfry', 'pending-rows.json')
+  return statePath(profileDirectory, 'pending-rows.json')
 }
 
 export class PendingRowJournal {

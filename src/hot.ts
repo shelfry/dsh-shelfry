@@ -5,7 +5,7 @@
  * Durable state stays with the profile's `dsh.profile.bundles` (reconciled by
  * the dsh CLI at install time), so the next boot loads the plugin through the
  * normal bundle layer. The subtree here exists only for the current process:
- * its input files live under `<profile>/.dsh-shelfry/` and are wiped on every
+ * its input files live under `<profile>/.dsh-crate/` and are wiped on every
  * boot, so a crash can never leave a file that collides with the bundle layer
  * (inserting an id the bundle layer also inserts is a hard boot failure).
  * `state.json` in the same directory is the market's own durable state
@@ -24,6 +24,7 @@ import { asChannel, type Channel } from './channels.ts'
 import { asRegion, normalizeGithubProxy, type Region } from './regions.ts'
 import { logEvent } from './log.ts'
 import { bundlePatchTargets, declaredBundlePatchFiles, entryArtifactExists } from './profile.ts'
+import { stateDir, statePath } from './state.ts'
 
 interface HotRow {
   id: string
@@ -93,7 +94,6 @@ function yamlSingleQuoted(value: string): string {
   return value.replace(/'/g, "''")
 }
 
-const HOT_DIR = '.dsh-shelfry'
 
 /**
  * Ceiling for one hot-mount activation, env-overridable like the install
@@ -200,7 +200,7 @@ export function parseSimplePatch(patchText: string): HotRow[] | null {
  * `state.json` (disable choices + groups) deliberately survives.
  */
 export function cleanHotDir(profileDir: string): void {
-  const dir = join(profileDir, HOT_DIR)
+  const dir = stateDir(profileDir)
   let entries: string[]
   try {
     entries = readdirSync(dir)
@@ -213,7 +213,7 @@ export function cleanHotDir(profileDir: string): void {
 }
 
 function stateFile(profileDir: string): string {
-  return join(profileDir, HOT_DIR, 'state.json')
+  return statePath(profileDir, 'state.json')
 }
 
 /** Persisted market state: the generic disable list plus custom groups. */
@@ -646,7 +646,7 @@ function publishFile(path: string, contents: string): void {
  * the whole document" safe for callers that only hold part of it.
  */
 export function writeMarketState(profileDir: string, state: MarketState): void {
-  mkdirSync(join(profileDir, HOT_DIR), { recursive: true, mode: 0o700 })
+  mkdirSync(stateDir(profileDir), { recursive: true, mode: 0o700 })
   const onDisk = readMarketState(profileDir)
   // `?? {}` only for the type: MarketState declares notes optional, while
   // readMarketState always returns an object.
@@ -916,7 +916,7 @@ export async function hotMount(ctx: HotContext, profileDir: string, packageName:
       shimNames.add(packageName)
       rows = [{ id: `client-${packageName.replace(/[^A-Za-z0-9_.-]/g, '-')}`, name: packageName }]
     }
-    const dir = join(profileDir, HOT_DIR)
+    const dir = stateDir(profileDir)
     mkdirSync(dir, { recursive: true, mode: 0o700 })
     hotSequence += 1
     const file = join(dir, `hot-${String(hotSequence)}.yml`)
@@ -951,12 +951,12 @@ export async function hotMount(ctx: HotContext, profileDir: string, packageName:
       throw error
     }
     hotHandles.set(packageName, handle)
-    ctx.logger?.info?.(`[dsh-shelfry] hot-mounted ${packageName}`)
+    ctx.logger?.info?.(`[dsh-crate] hot-mounted ${packageName}`)
     logEvent('info', 'hot-mount', `${packageName}: live${shimNames.has(packageName) ? ' (client-only shim)' : ''}`)
     return { ok: true, reason: null }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    ctx.logger?.warn(`[dsh-shelfry] hot mount of ${packageName} failed, restart required: ${message}`)
+    ctx.logger?.warn(`[dsh-crate] hot mount of ${packageName} failed, restart required: ${message}`)
     logEvent('warn', 'hot-mount', `${packageName}: fell back to restart — ${message}`)
     return { ok: false, reason: `热挂载失败,重启后生效 — ${message} / hot-mount failed — restart required: ${message}` }
   }
@@ -1077,7 +1077,7 @@ export function patchLayerManages(controls: { ids: Set<string>; names: Set<strin
  * @returns true when a directory was there to remove.
  */
 export function purgeMarketState(profileDir: string): boolean {
-  const dir = join(profileDir, HOT_DIR)
+  const dir = stateDir(profileDir)
   try {
     rmSync(dir, { recursive: true, force: true })
     return true

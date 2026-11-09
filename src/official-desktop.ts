@@ -179,9 +179,9 @@ const REFUSAL_COPY: Record<string, { zh: string; en: string }> = {
 
 /**
  * The market's own package names. A desktop profile installs it from npm as
- * `dsh-shelfry`; a fork or a local checkout can declare the repository's name.
+ * `dsh-crate`; a fork or a local checkout can declare the repository's name.
  */
-const SELF_NAMES = new Set(['dsh-shelfry'])
+const SELF_NAMES = new Set(['dsh-crate'])
 
 /**
  * Why the market will not remove itself to update, and what to do instead.
@@ -241,7 +241,7 @@ function managementCode(error: unknown): string | undefined {
   return typeof code === 'string' ? code : undefined
 }
 
-/** `dsh-shelfry@1.66.32` → `dsh-shelfry`; anything that is not a registry name stays unparsed. */
+/** `dsh-crate@1.66.32` → `dsh-crate`; anything that is not a registry name stays unparsed. */
 export function registryNameOf(spec: string): string | undefined {
   // Start at 1 so a scoped name's leading `@` is not mistaken for a version.
   const at = spec.indexOf('@', 1)
@@ -442,7 +442,7 @@ export interface OfficialDesktopRuntime extends DesktopPluginRuntime {
   /**
    * Whether the manager is already running an operation of its own — the
    * state that makes `runPlugin` answer `busy: true` (see
-   * `PluginCommandRuntime.busy`). `/dsh-shelfry/status` reports it so the
+   * `PluginCommandRuntime.busy`). `/dsh-crate/status` reports it so the
    * client's queue waits instead of retrying into a refusal every 2s (#1140).
    */
   busy(): boolean
@@ -639,7 +639,7 @@ export function createOfficialDesktopRuntime(
     try {
       return await repairInterruptedUpdates({ profile: profileName, profileDirectory: directory, manager, journal })
     } catch (error) {
-      console.warn('dsh-shelfry: could not repair an interrupted update', error)
+      console.warn('dsh-crate: could not repair an interrupted update', error)
       return empty
     } finally {
       repairing = false

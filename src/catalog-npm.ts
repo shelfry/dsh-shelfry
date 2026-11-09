@@ -126,7 +126,7 @@ export async function catalogFromPackage(
 ): Promise<{ version: string; data: unknown | null }> {
   const metaRes = await marketFetch(`${registry}/${encodeURIComponent(pkg)}/latest`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
-    headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+    headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
   })
   if (!metaRes.ok) throw new Error(`HTTP ${String(metaRes.status)} reading ${pkg} metadata`)
   const meta = (await metaRes.json()) as Packument
@@ -173,7 +173,7 @@ export async function packageFileFromRegistry(registry: string, pkg: string, fil
   try {
     const metaRes = await marketFetch(`${registry}/${encodeURIComponent(pkg)}/latest`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+      headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
     })
     if (!metaRes.ok) return null
     const meta = (await metaRes.json()) as Packument

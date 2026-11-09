@@ -43,7 +43,7 @@ export interface RecoveryPluginView {
   reason?: string
 }
 
-/** Everything GET /dsh-shelfry/recovery answers with. */
+/** Everything GET /dsh-crate/recovery answers with. */
 export interface RecoveryView {
   ok: true
   recovery: true
@@ -91,7 +91,7 @@ export function isRecoveryView(value: unknown): value is RecoveryView {
  */
 export async function fetchRecovery(): Promise<RecoveryView | null> {
   try {
-    const response = await fetch(api('/dsh-shelfry/recovery'), { cache: 'no-store' })
+    const response = await fetch(api('/dsh-crate/recovery'), { cache: 'no-store' })
     if (!response.ok) return null
     const body: unknown = await response.json()
     return isRecoveryView(body) ? body : null
@@ -112,7 +112,7 @@ export async function fetchRecovery(): Promise<RecoveryView | null> {
  */
 export async function applyRecovery(enabled: readonly string[]): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(api('/dsh-shelfry/recovery/apply'), {
+    const response = await fetch(api('/dsh-crate/recovery/apply'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ enabled: [...enabled] }),
@@ -159,7 +159,7 @@ export async function watchRestart(
   const deadline = Date.now() + deadlineMs
   for (;;) {
     try {
-      const response = await fetch(api('/dsh-shelfry/status'), { cache: 'no-store' })
+      const response = await fetch(api('/dsh-crate/status'), { cache: 'no-store' })
       const body = await response.json() as { boot?: unknown; recovery?: unknown }
       if (body.recovery === true) {
         const view = await fetchRecovery()

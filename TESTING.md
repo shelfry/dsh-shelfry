@@ -76,8 +76,8 @@ changes:
    back afterwards.
 3. Point `npm_config_prefix` at a throwaway directory so the install under
    test cannot touch the real toolchain.
-4. Boot `dsh --profile web`, confirm `/dsh-shelfry/status` reports
-   `pnpm: false`, then POST `/dsh-shelfry/setup-pnpm`.
+4. Boot `dsh --profile web`, confirm `/dsh-crate/status` reports
+   `pnpm: false`, then POST `/dsh-crate/setup-pnpm`.
 
 What to assert, and why each one:
 

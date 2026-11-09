@@ -3,8 +3,8 @@
  * Portable render tests for the issue #98 phase 2/3 Diagnostics panels: the
  * community-bundle ordering block (orderConflicts) and the collapsible
  * snapshots & rollback panel (snapshot-panel.tsx). The host boundary is
- * stubbed with a URL-routing fetch mock (GET /dsh-shelfry/check, GET+POST
- * /dsh-shelfry/snapshots, POST /dsh-shelfry/restore-snapshot) — no real
+ * stubbed with a URL-routing fetch mock (GET /dsh-crate/check, GET+POST
+ * /dsh-crate/snapshots, POST /dsh-crate/restore-snapshot) — no real
  * profile, no absolute machine paths, so this runs on any environment/CI.
  */
 
@@ -69,7 +69,7 @@ function json(payload: unknown): Response {
 
 interface ApiOverrides {
   check?: unknown
-  /** Override the POST /dsh-shelfry/bundle-order response (defaults to 200 ok). */
+  /** Override the POST /dsh-crate/bundle-order response (defaults to 200 ok). */
   bundleOrder?: { status?: number; body?: unknown }
   snapshots?: unknown
 }
@@ -83,19 +83,19 @@ function stubApi(overrides: ApiOverrides = {}) {
   const mock = vi.fn((input: unknown, init?: RequestInit) => {
     const url = String(input)
     const method = init?.method ?? 'GET'
-    if (url === '/dsh-shelfry/check') return Promise.resolve(json(overrides.check ?? CHECK_REPORT))
-    if (url === '/dsh-shelfry/bundle-order') {
+    if (url === '/dsh-crate/check') return Promise.resolve(json(overrides.check ?? CHECK_REPORT))
+    if (url === '/dsh-crate/bundle-order') {
       const resp = overrides.bundleOrder
       if (resp !== undefined) {
         return Promise.resolve(new Response(JSON.stringify(resp.body), { status: resp.status ?? 200 }))
       }
       return Promise.resolve(json({ ok: true, bundles: ['@deepseek-ai/dsh-base', 'beta', 'alpha'] }))
     }
-    if (url === '/dsh-shelfry/snapshots') {
+    if (url === '/dsh-crate/snapshots') {
       if (method === 'GET') return Promise.resolve(json(overrides.snapshots ?? SNAPSHOTS))
       return Promise.resolve(json({ ok: true, snapshot: { id: 'snapshot-new', createdAt: 1780000000001, files: [] } }))
     }
-    if (url === '/dsh-shelfry/restore-snapshot') {
+    if (url === '/dsh-crate/restore-snapshot') {
       return Promise.resolve(json({ ok: true, restored: ['package.json'] }))
     }
     return Promise.resolve(json({ ok: true }))
@@ -135,7 +135,7 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
     const { mock } = await renderLoaded()
 
     // Only the check report is fetched on mount; the snapshot panel is lazy.
-    expect(mock.mock.calls.map(c => String(c[0]))).toEqual(['/dsh-shelfry/check'])
+    expect(mock.mock.calls.map(c => String(c[0]))).toEqual(['/dsh-crate/check'])
 
     const snapHead = screen.getByRole('button', { name: t('snapSection') })
     expect(snapHead.getAttribute('aria-expanded')).toBe('false')
@@ -145,7 +145,7 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
     const { mock, calls } = await renderLoaded()
 
     fireEvent.click(screen.getByRole('button', { name: t('snapSection') }))
-    await waitFor(() => expect(calls('/dsh-shelfry/snapshots').length).toBe(1))
+    await waitFor(() => expect(calls('/dsh-crate/snapshots').length).toBe(1))
 
     const head = screen.getByRole('button', { name: t('snapSection') })
     expect(head.getAttribute('aria-expanded')).toBe('true')
@@ -157,18 +157,18 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
     expect(within(section).getByText(/package\.json, cordis\.patch\.yml/)).toBeTruthy()
   })
 
-  it('creates a snapshot via POST /dsh-shelfry/snapshots and reloads the list', async () => {
+  it('creates a snapshot via POST /dsh-crate/snapshots and reloads the list', async () => {
     const { gets, posts } = await renderLoaded()
     fireEvent.click(screen.getByRole('button', { name: t('snapSection') }))
-    await waitFor(() => expect(gets('/dsh-shelfry/snapshots').length).toBe(1))
+    await waitFor(() => expect(gets('/dsh-crate/snapshots').length).toBe(1))
 
     fireEvent.click(within(sectionOf(t('snapSection'))).getByRole('button', { name: t('snapCreate') }))
-    await waitFor(() => expect(posts('/dsh-shelfry/snapshots').length).toBe(1))
-    expect(posts('/dsh-shelfry/snapshots')[0]?.[1]?.body).toBe('{}')
+    await waitFor(() => expect(posts('/dsh-crate/snapshots').length).toBe(1))
+    expect(posts('/dsh-crate/snapshots')[0]?.[1]?.body).toBe('{}')
 
     await waitFor(() => expect(screen.getByText(t('snapCreated'))).toBeTruthy())
     // The create succeeded → the list is reloaded (a second GET).
-    await waitFor(() => expect(gets('/dsh-shelfry/snapshots').length).toBe(2))
+    await waitFor(() => expect(gets('/dsh-crate/snapshots').length).toBe(2))
   })
 
   it('restores a snapshot only after inline double confirmation, then refreshes the check report', async () => {
@@ -180,22 +180,22 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
     // First click arms the confirm state — no request yet.
     fireEvent.click(within(section).getByRole('button', { name: t('snapRestore') }))
     expect(within(section).getByText(t('snapRestoreConfirmText'))).toBeTruthy()
-    expect(posts('/dsh-shelfry/restore-snapshot').length).toBe(0)
+    expect(posts('/dsh-crate/restore-snapshot').length).toBe(0)
 
     // Cancel leaves everything untouched.
     fireEvent.click(within(section).getByRole('button', { name: t('cancel') }))
     expect(within(section).queryByText(t('snapRestoreConfirmText'))).toBeNull()
-    expect(posts('/dsh-shelfry/restore-snapshot').length).toBe(0)
+    expect(posts('/dsh-crate/restore-snapshot').length).toBe(0)
 
     // Arm again and confirm → POST restore-snapshot with the snapshot id.
     fireEvent.click(within(section).getByRole('button', { name: t('snapRestore') }))
     fireEvent.click(within(section).getByRole('button', { name: t('snapRestoreConfirm') }))
-    await waitFor(() => expect(posts('/dsh-shelfry/restore-snapshot').length).toBe(1))
-    const post = posts('/dsh-shelfry/restore-snapshot')[0]!
+    await waitFor(() => expect(posts('/dsh-crate/restore-snapshot').length).toBe(1))
+    const post = posts('/dsh-crate/restore-snapshot')[0]!
     expect(JSON.parse(String(post[1]?.body))).toEqual({ snapshot: 'snapshot-2025-01-01T00-00-00-000Z' })
 
     // Success triggers onRefresh → the check report is re-fetched.
-    await waitFor(() => expect(calls('/dsh-shelfry/check').length).toBeGreaterThanOrEqual(2))
+    await waitFor(() => expect(calls('/dsh-crate/check').length).toBeGreaterThanOrEqual(2))
   })
 
   it('renders the ordering conflicts from the check report (name — reason)', async () => {
@@ -229,7 +229,7 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
     fireEvent.dragOver(rows()[1]!, { dataTransfer: {} })
     fireEvent.drop(rows()[1]!, { dataTransfer: {} })
     fireEvent.dragEnd(rows()[1]!, { dataTransfer: {} })
-    expect(posts('/dsh-shelfry/bundle-order').length).toBe(0)
+    expect(posts('/dsh-crate/bundle-order').length).toBe(0)
 
     // The local draft reordered to beta, alpha (row order in the DOM).
     await waitFor(() => {
@@ -238,13 +238,13 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
       expect(text[1]).toContain('alpha')
     })
 
-    // Applying the order persists the draft via POST /dsh-shelfry/bundle-order.
+    // Applying the order persists the draft via POST /dsh-crate/bundle-order.
     fireEvent.click(screen.getByRole('button', { name: t('orderApply') }))
-    await waitFor(() => expect(posts('/dsh-shelfry/bundle-order').length).toBe(1))
-    expect(JSON.parse(String(posts('/dsh-shelfry/bundle-order')[0]?.[1]?.body))).toEqual({ order: ['beta', 'alpha'] })
+    await waitFor(() => expect(posts('/dsh-crate/bundle-order').length).toBe(1))
+    expect(JSON.parse(String(posts('/dsh-crate/bundle-order')[0]?.[1]?.body))).toEqual({ order: ['beta', 'alpha'] })
 
     // Success triggers onRefresh → the check report is re-fetched.
-    await waitFor(() => expect(calls('/dsh-shelfry/check').length).toBeGreaterThanOrEqual(2))
+    await waitFor(() => expect(calls('/dsh-crate/check').length).toBeGreaterThanOrEqual(2))
   })
 
   it('shows no auto-sort / apply-suggested button when the host reports no ordering rules', async () => {
@@ -335,18 +335,18 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
     // First click arms the delete confirmation — no request yet.
     fireEvent.click(within(section).getByRole('button', { name: t('snapDelete') }))
     expect(within(section).getByText(t('snapDeleteConfirmText'))).toBeTruthy()
-    expect(posts('/dsh-shelfry/delete-snapshot').length).toBe(0)
+    expect(posts('/dsh-crate/delete-snapshot').length).toBe(0)
 
     // Cancel leaves everything untouched.
     fireEvent.click(within(section).getByRole('button', { name: t('cancel') }))
     expect(within(section).queryByText(t('snapDeleteConfirmText'))).toBeNull()
-    expect(posts('/dsh-shelfry/delete-snapshot').length).toBe(0)
+    expect(posts('/dsh-crate/delete-snapshot').length).toBe(0)
 
     // Arm again and confirm → POST delete-snapshot with the snapshot id.
     fireEvent.click(within(section).getByRole('button', { name: t('snapDelete') }))
     fireEvent.click(within(section).getByRole('button', { name: t('snapDeleteConfirm') }))
-    await waitFor(() => expect(posts('/dsh-shelfry/delete-snapshot').length).toBe(1))
-    const post = posts('/dsh-shelfry/delete-snapshot')[0]!
+    await waitFor(() => expect(posts('/dsh-crate/delete-snapshot').length).toBe(1))
+    const post = posts('/dsh-crate/delete-snapshot')[0]!
     expect(JSON.parse(String(post[1]?.body))).toEqual({ snapshot: 'snapshot-2025-01-01T00-00-00-000Z' })
 
     // Success reloads the snapshot list and shows the deleted message.
@@ -541,13 +541,13 @@ describe('Diagnostics panels (jsdom, #98 phase 2/3)', () => {
  * refresh lands, and your work is silently gone.
  */
 describe('Diagnostics ordering draft vs refetch', () => {
-  /** Fetch stub whose /dsh-shelfry/check payload can change between calls. */
+  /** Fetch stub whose /dsh-crate/check payload can change between calls. */
   function stubMutableApi(initial: unknown) {
     let report = initial
     const mock = vi.fn((input: unknown, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/dsh-shelfry/check') return Promise.resolve(json(report))
-      if (url === '/dsh-shelfry/bundle-order') return Promise.resolve(json({ ok: true }))
+      if (url === '/dsh-crate/check') return Promise.resolve(json(report))
+      if (url === '/dsh-crate/bundle-order') return Promise.resolve(json({ ok: true }))
       return Promise.resolve(json({ ok: true }))
     })
     vi.stubGlobal('fetch', mock)

@@ -20,7 +20,7 @@
  * pnpm major refuses -w when the directory is NOT a workspace. So the flag
  * is injected exactly when the profile has a pnpm-workspace.yaml.
  * @param profileDir - resolved profile directory (owns pnpm-workspace.yaml, or not).
- * @param pluginArgs - the raw args, e.g. ['add', 'dsh-shelfry@latest'].
+ * @param pluginArgs - the raw args, e.g. ['add', 'dsh-crate@latest'].
  * @returns args with -w injected when — and only when — the profile is a workspace root.
  */
 export declare function pluginArgsFor(profileDir: string, pluginArgs: string[]): string[];

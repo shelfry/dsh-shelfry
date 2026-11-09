@@ -59,7 +59,7 @@ export declare function crossesImplicitCeiling(resolved: string, range: string):
 export declare function classifyPeer(plugin: string, peer: string, range: string, resolved: string | null, optional: boolean): PeerVerdict;
 /** Whether a peer is declared optional in the installed plugin manifest. */
 export declare function isOptionalPeer(profileDirectory: string, plugin: string, peer: string): boolean;
-/** Evaluate the current profile with the same machinery `/dsh-shelfry/check` uses. */
+/** Evaluate the current profile with the same machinery `/dsh-crate/check` uses. */
 export declare function assessCompatibility(profileDirectory: string, options?: CheckOptions): CompatibilityAssessment;
 /** Risks present after a mutation but absent before it. */
 export declare function introducedRisks(before: CompatibilityAssessment, after: CompatibilityAssessment): CompatibilityRisk[];

@@ -7,7 +7,7 @@
  * Allow, origin, body-validation, 422 and write-lock contracts of the 5 new
  * routes are pinned without spawning a process.
  *
- * The 6 routes covered here: /dsh-shelfry/check, /bundle-order, /snapshots,
+ * The 6 routes covered here: /dsh-crate/check, /bundle-order, /snapshots,
  * /restore-snapshot, /delete-snapshot and /presets. Presets have no import
  * or export of their own — Backup & Restore already carries a profile off
  * the machine, and a second export in another tab would only make the user
@@ -55,7 +55,7 @@ function mount(commandRuntime?: PluginCommandRuntime): { host: MarketHost; route
     plugin: () => ({ await: async () => undefined, dispose: async () => undefined }),
   }
   // 固定地区，避免每次挂载都触发一次真实网络探测：探测是异步写状态的，
-  // 会和 ``.dsh-shelfry/state.json`` 的快照断言抢同一个文件。
+  // 会和 ``.dsh-crate/state.json`` 的快照断言抢同一个文件。
   mountMarketRoutes(host, { profile: 'web', region: 'global' }, commandRuntime)
   return { host, routes }
 }
@@ -233,15 +233,15 @@ function writeStandardProfile(): void {
 
 describe('method & Allow contract', () => {
   it.each([
-    ['/dsh-shelfry/check', 'POST', 'GET'],
-    ['/dsh-shelfry/discovery-compatibility', 'GET', 'POST'],
-    ['/dsh-shelfry/bundle-order', 'GET', 'POST'],
-    ['/dsh-shelfry/snapshots', 'DELETE', 'GET, POST'],
-    ['/dsh-shelfry/restore-snapshot', 'GET', 'POST'],
-    ['/dsh-shelfry/host-recovery', 'POST', 'GET'],
-    ['/dsh-shelfry/host-recovery/restore', 'GET', 'POST'],
-    ['/dsh-shelfry/delete-snapshot', 'GET', 'POST'],
-    ['/dsh-shelfry/presets', 'DELETE', 'GET, POST'],
+    ['/dsh-crate/check', 'POST', 'GET'],
+    ['/dsh-crate/discovery-compatibility', 'GET', 'POST'],
+    ['/dsh-crate/bundle-order', 'GET', 'POST'],
+    ['/dsh-crate/snapshots', 'DELETE', 'GET, POST'],
+    ['/dsh-crate/restore-snapshot', 'GET', 'POST'],
+    ['/dsh-crate/host-recovery', 'POST', 'GET'],
+    ['/dsh-crate/host-recovery/restore', 'GET', 'POST'],
+    ['/dsh-crate/delete-snapshot', 'GET', 'POST'],
+    ['/dsh-crate/presets', 'DELETE', 'GET, POST'],
   ])('answers 405 with an Allow header on %s', async (path, method, allow) => {
     const res = await hit(routes, path as string, { method: method as string, url: path as string })
     expect(res.status).toBe(405)
@@ -251,13 +251,13 @@ describe('method & Allow contract', () => {
 
 describe('origin enforcement (POST routes)', () => {
   const mutating: Array<[string, unknown]> = [
-    ['/dsh-shelfry/discovery-compatibility', { packages: [] }],
-    ['/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }],
-    ['/dsh-shelfry/snapshots', undefined],
-    ['/dsh-shelfry/restore-snapshot', { snapshot: 'snapshot-x' }],
-    ['/dsh-shelfry/host-recovery/restore', { name: 'cordis.patch.yml.bak-1' }],
-    ['/dsh-shelfry/delete-snapshot', { snapshot: 'snapshot-x' }],
-    ['/dsh-shelfry/presets', { action: 'save', name: 'p' }],
+    ['/dsh-crate/discovery-compatibility', { packages: [] }],
+    ['/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }],
+    ['/dsh-crate/snapshots', undefined],
+    ['/dsh-crate/restore-snapshot', { snapshot: 'snapshot-x' }],
+    ['/dsh-crate/host-recovery/restore', { name: 'cordis.patch.yml.bak-1' }],
+    ['/dsh-crate/delete-snapshot', { snapshot: 'snapshot-x' }],
+    ['/dsh-crate/presets', { action: 'save', name: 'p' }],
   ]
 
   it.each(mutating)('rejects a cross-origin POST %s with 403', async (path, body) => {
@@ -289,7 +289,7 @@ describe('origin enforcement (POST routes)', () => {
 
   it('passes a matching Origin through (same-origin success path)', async () => {
     writeStandardProfile()
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(res.status).toBe(200)
   })
 })
@@ -306,8 +306,8 @@ describe('body validation — 400 contracts', () => {
     ]) {
       const res = await hit(
         routes,
-        '/dsh-shelfry/discovery-compatibility',
-        post('/dsh-shelfry/discovery-compatibility', body),
+        '/dsh-crate/discovery-compatibility',
+        post('/dsh-crate/discovery-compatibility', body),
       )
       expect(res.status).toBe(400)
       expect(String(jsonBody(res).error)).toMatch(/packages must be an array/)
@@ -317,8 +317,8 @@ describe('body validation — 400 contracts', () => {
   it('discovery compatibility accepts an empty bounded batch without network access', async () => {
     const res = await hit(
       routes,
-      '/dsh-shelfry/discovery-compatibility',
-      post('/dsh-shelfry/discovery-compatibility', { packages: [] }),
+      '/dsh-crate/discovery-compatibility',
+      post('/dsh-crate/discovery-compatibility', { packages: [] }),
     )
     expect(res.status).toBe(200)
     expect(jsonBody(res).plugins).toEqual({})
@@ -335,16 +335,16 @@ describe('body validation — 400 contracts', () => {
       [entry.url]: { version: '1.2.1', enginesDsh: '0.2.1-rc.2 || 0.2.1-rc.3', peerDependencies: {} },
     })
     try {
-      const res = await hit(routes, '/dsh-shelfry/discovery-compatibility',
-        post('/dsh-shelfry/discovery-compatibility', { packages: [], entries: [entry.url] }))
+      const res = await hit(routes, '/dsh-crate/discovery-compatibility',
+        post('/dsh-crate/discovery-compatibility', { packages: [], entries: [entry.url] }))
       expect(res.status).toBe(200)
       expect(jsonBody(res).plugins[entry.url]).toMatchObject({
         basis: 'manifest', requirement: '0.2.1-rc.2 || 0.2.1-rc.3',
       })
       expect(lookup).toHaveBeenCalledWith([entry])
       lookup.mockClear()
-      const foreign = await hit(routes, '/dsh-shelfry/discovery-compatibility',
-        post('/dsh-shelfry/discovery-compatibility', { packages: [], entries: ['https://github.com/other/unlisted'] }))
+      const foreign = await hit(routes, '/dsh-crate/discovery-compatibility',
+        post('/dsh-crate/discovery-compatibility', { packages: [], entries: ['https://github.com/other/unlisted'] }))
       expect(foreign.status).toBe(400)
       expect(lookup).not.toHaveBeenCalled()
     } finally { registry.mockRestore(); lookup.mockRestore() }
@@ -353,8 +353,8 @@ describe('body validation — 400 contracts', () => {
   it('bounds mixed GitHub/npm batches and refuses non-GitHub manifest URLs before lookup', async () => {
     for (const entries of [['http://127.0.0.1/package.json'], ['https://github.com/o/r/tree/main/../secret'],
       Array.from({ length: 64 }, (_, i) => `https://github.com/owner/plugin-${String(i)}`)]) {
-      const res = await hit(routes, '/dsh-shelfry/discovery-compatibility',
-        post('/dsh-shelfry/discovery-compatibility', { packages: ['plugin-a'], entries }))
+      const res = await hit(routes, '/dsh-crate/discovery-compatibility',
+        post('/dsh-crate/discovery-compatibility', { packages: ['plugin-a'], entries }))
       expect(res.status).toBe(400)
     }
   })
@@ -370,13 +370,13 @@ describe('body validation — 400 contracts', () => {
       [{ order: ['alpha', 42] }, /order must be an array/],
     ]
     for (const [body, pattern] of cases) {
-      const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', body))
+      const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', body))
       expect(res.status, `body ${JSON.stringify(body)}`).toBe(400)
       expect(String(jsonBody(res).error)).toMatch(pattern)
     }
 
     // …while a non-permutation STRING array is refused by the trial gate (422).
-    const incomplete = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['alpha'] }))
+    const incomplete = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['alpha'] }))
     expect(incomplete.status).toBe(422)
   })
 
@@ -388,38 +388,38 @@ describe('body validation — 400 contracts', () => {
       [{ snapshot: 42 }, /snapshot id is required/],
     ]
     for (const [body, pattern] of cases) {
-      const res = await hit(routes, '/dsh-shelfry/restore-snapshot', post('/dsh-shelfry/restore-snapshot', body))
+      const res = await hit(routes, '/dsh-crate/restore-snapshot', post('/dsh-crate/restore-snapshot', body))
       expect(res.status, `body ${JSON.stringify(body)}`).toBe(400)
       expect(String(jsonBody(res).error)).toMatch(pattern)
     }
   })
 
   it('presets refuses a null body, a missing action and an unknown action', async () => {
-    const nullBody = await hit(routes, '/dsh-shelfry/presets', post('/dsh-shelfry/presets', null))
+    const nullBody = await hit(routes, '/dsh-crate/presets', post('/dsh-crate/presets', null))
     expect(nullBody.status).toBe(400)
-    const noAction = await hit(routes, '/dsh-shelfry/presets', post('/dsh-shelfry/presets', {}))
+    const noAction = await hit(routes, '/dsh-crate/presets', post('/dsh-crate/presets', {}))
     expect(noAction.status).toBe(400)
-    const badAction = await hit(routes, '/dsh-shelfry/presets', post('/dsh-shelfry/presets', { action: 'explode' }))
+    const badAction = await hit(routes, '/dsh-crate/presets', post('/dsh-crate/presets', { action: 'explode' }))
     expect(badAction.status).toBe(400)
     expect(String(jsonBody(badAction).error)).toMatch(/save \| preview \| apply \| delete/)
   })
 
   it('previewing a preset that does not exist is 422, not a 500', async () => {
-    const res = await hit(routes, '/dsh-shelfry/presets', post('/dsh-shelfry/presets', { action: 'preview', name: 'ghost' }))
+    const res = await hit(routes, '/dsh-crate/presets', post('/dsh-crate/presets', { action: 'preview', name: 'ghost' }))
     expect(res.status).toBe(422)
     expect(jsonBody(res)).toMatchObject({ ok: false })
   })
 
   it('delete-snapshot refuses a missing id and a traversal-shaped id', async () => {
-    const missing = await hit(routes, '/dsh-shelfry/delete-snapshot', post('/dsh-shelfry/delete-snapshot', {}))
+    const missing = await hit(routes, '/dsh-crate/delete-snapshot', post('/dsh-crate/delete-snapshot', {}))
     expect(missing.status).toBe(400)
     // The traversal-shaped id passes the route's string check but is refused
     // by deleteSnapshot's id validation BEFORE touching the filesystem — the
     // route reports it as a plain not-found (ok:false, 400).
-    const traversal = await hit(routes, '/dsh-shelfry/delete-snapshot', post('/dsh-shelfry/delete-snapshot', { snapshot: '../escape' }))
+    const traversal = await hit(routes, '/dsh-crate/delete-snapshot', post('/dsh-crate/delete-snapshot', { snapshot: '../escape' }))
     expect(traversal.status).toBe(400)
     expect(jsonBody(traversal)).toMatchObject({ ok: false, error: 'snapshot not found / 快照不存在' })
-    const traversal2 = await hit(routes, '/dsh-shelfry/delete-snapshot', post('/dsh-shelfry/delete-snapshot', { snapshot: 'snapshot-../../etc/passwd' }))
+    const traversal2 = await hit(routes, '/dsh-crate/delete-snapshot', post('/dsh-crate/delete-snapshot', { snapshot: 'snapshot-../../etc/passwd' }))
     expect(traversal2.status).toBe(400)
   })
 
@@ -429,9 +429,9 @@ describe('body validation — 400 contracts', () => {
     // `null` / malformed-value cases above. Nothing may be written either way.
     writeProfile(['@deepseek-ai/dsh-base', 'alpha', 'beta'])
     const before = readFileSync(join(dir, 'package.json'), 'utf8')
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', {
+    const res = await hit(routes, '/dsh-crate/bundle-order', {
       method: 'POST',
-      url: '/dsh-shelfry/bundle-order',
+      url: '/dsh-crate/bundle-order',
       origin: ORIGIN,
       host: HOST,
       rawBody: '{oops',
@@ -441,10 +441,10 @@ describe('body validation — 400 contracts', () => {
   })
 })
 
-describe('GET /dsh-shelfry/check — report contract', () => {
+describe('GET /dsh-crate/check — report contract', () => {
   it('returns the full analysis report on a healthy profile', async () => {
     writeStandardProfile()
-    const res = await hit(routes, '/dsh-shelfry/check', { method: 'GET', url: '/dsh-shelfry/check' })
+    const res = await hit(routes, '/dsh-crate/check', { method: 'GET', url: '/dsh-crate/check' })
     expect(res.status).toBe(200)
     const report = res.json() as {
       profile: string
@@ -502,7 +502,7 @@ describe('GET /dsh-shelfry/check — report contract', () => {
     writeResolved('@deepseek-ai/dsh-tools', '0.1.0-rc.6')
     writeResolved('@deepseek-ai/cordis', '4.0.1')
 
-    const res = await hit(routes, '/dsh-shelfry/check', { method: 'GET', url: '/dsh-shelfry/check' })
+    const res = await hit(routes, '/dsh-crate/check', { method: 'GET', url: '/dsh-crate/check' })
     expect(res.status).toBe(200)
     const report = res.json() as {
       peerMismatches: Array<{
@@ -533,7 +533,7 @@ describe('GET /dsh-shelfry/check — report contract', () => {
     writeBundle('alpha', { order: { after: ['beta'] } })
     writeBundle('beta')
 
-    const res = await hit(routes, '/dsh-shelfry/check', { method: 'GET', url: '/dsh-shelfry/check' })
+    const res = await hit(routes, '/dsh-crate/check', { method: 'GET', url: '/dsh-crate/check' })
     const report = res.json() as { orderConflicts: Array<{ name: string; reason: string }>; summary: { warnings: string[] } }
     expect(res.status).toBe(200)
     expect(report.orderConflicts.map(c => c.name)).toEqual(['alpha'])
@@ -542,7 +542,7 @@ describe('GET /dsh-shelfry/check — report contract', () => {
   })
 })
 
-describe('GET /dsh-shelfry/installed — local repository evidence', () => {
+describe('GET /dsh-crate/installed — local repository evidence', () => {
   it('returns package repository identities without changing the installed map', async () => {
     const target = join(tmp, 'dsh-vision-bridge')
     mkdirSync(target, { recursive: true })
@@ -554,7 +554,7 @@ describe('GET /dsh-shelfry/installed — local repository evidence', () => {
       repository: 'github:GXX182/dsh-vision-bridge',
     }))
 
-    const res = await hit(routes, '/dsh-shelfry/installed', { method: 'GET', url: '/dsh-shelfry/installed' })
+    const res = await hit(routes, '/dsh-crate/installed', { method: 'GET', url: '/dsh-crate/installed' })
     expect(res.status).toBe(200)
     expect(jsonBody(res)).toMatchObject({
       installed: { 'dsh-vision-bridge': `link:${target}` },
@@ -564,7 +564,7 @@ describe('GET /dsh-shelfry/installed — local repository evidence', () => {
   })
 })
 
-describe('GET /dsh-shelfry/backup — a failure says why (#55)', () => {
+describe('GET /dsh-crate/backup — a failure says why (#55)', () => {
   // kettly1260 hit "Error: HTTP 500" and asked how to find out more: the route
   // did answer with the reason, the client threw it away. Both ends are
   // asserted here — the body carries the reason, and the log carries it too so
@@ -575,7 +575,7 @@ describe('GET /dsh-shelfry/backup — a failure says why (#55)', () => {
     configurePersistentLog(join(tmp, 'log.ndjson'))
     let res: Captured
     try {
-      res = await hit(routes, '/dsh-shelfry/backup', { method: 'GET', url: '/dsh-shelfry/backup', host: HOST })
+      res = await hit(routes, '/dsh-crate/backup', { method: 'GET', url: '/dsh-crate/backup', host: HOST })
     } finally { configurePersistentLog(null) }
     expect(res.status).toBe(500)
     const body = JSON.parse(res.body) as { error: string }
@@ -586,13 +586,13 @@ describe('GET /dsh-shelfry/backup — a failure says why (#55)', () => {
 
   it('still exports a profile inside the cap', async () => {
     writeStandardProfile()
-    const res = await hit(routes, '/dsh-shelfry/backup', { method: 'GET', url: '/dsh-shelfry/backup', host: HOST })
+    const res = await hit(routes, '/dsh-crate/backup', { method: 'GET', url: '/dsh-crate/backup', host: HOST })
     expect(res.status).toBe(200)
     expect(JSON.parse(res.body).files.length).toBeGreaterThan(0)
   })
 })
 
-describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
+describe('POST /dsh-crate/dismiss-broken (#763)', () => {
   // #763: the removed-declaration notice is durable on purpose — it is the only
   // thing left that can say why a plugin vanished. But when the plugin is gone
   // from the catalog too, the one action it offered ("Find this plugin")
@@ -616,7 +616,7 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
   }
 
   const listed = async (): Promise<Record<string, unknown>> =>
-    jsonBody(await hit(routes, '/dsh-shelfry/installed', { method: 'GET', url: '/dsh-shelfry/installed' }))
+    jsonBody(await hit(routes, '/dsh-crate/installed', { method: 'GET', url: '/dsh-crate/installed' }))
       .brokenPlugins as Record<string, unknown>
 
   it('keeps a cancel-caused removal across a restart, and keeps its reason (#663)', async () => {
@@ -638,7 +638,7 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
     seedBroken('dsh-alpha', 'dsh-beta')
     expect(Object.keys(await listed()).sort()).toEqual(['dsh-alpha', 'dsh-beta'])
 
-    const res = await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    const res = await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
     expect(res.status).toBe(200)
     expect(jsonBody(res)).toMatchObject({ ok: true })
@@ -654,7 +654,7 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
     // a reply-only fix would miss — the dismissal has to be persisted, not held
     // in the in-memory state the request happened to touch.
     seedBroken('dsh-alpha', 'dsh-beta')
-    await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
     // A fresh mount is a fresh boot reading state.json: nothing in memory.
     routes = mount().routes
@@ -668,9 +668,9 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
     // wanting to hear about it. A dismiss must not resurrect a notice that
     // install already cleared, and must not be blocked by one.
     seedBroken('dsh-alpha', 'dsh-beta')
-    await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
-    const res = await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-beta' }))
+    const res = await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-beta' }))
 
     // The last notice cleared must not leave an empty object behind claiming
     // there is something broken: the notice is driven by keys existing.
@@ -683,16 +683,16 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
 
   it('is idempotent and never invents a notice for a name that has none', async () => {
     seedBroken('dsh-alpha', 'dsh-beta')
-    await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
     // Dismissing twice must be a no-op, not a second write that could race.
-    const again = await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    const again = await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
     expect(again.status).toBe(200)
     expect(jsonBody(again)).toMatchObject({ ok: true })
     // A name that was never broken is not an error either: the client and the
     // user can both be out of date, and refusing would strand the button.
-    const absent = await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-never-existed' }))
+    const absent = await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-never-existed' }))
     expect(absent.status).toBe(200)
     expect(Object.keys(await listed())).toEqual(['dsh-beta'])
   })
@@ -708,7 +708,7 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
     const mine = 'dsh-noop-probe'
     seedBroken(mine, 'dsh-beta')
     const dismiss = (name: string) =>
-      hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name }))
+      hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name }))
     // The export renders every entry twice (a JSON line and a readable one), so
     // count the machine form only — one event is one of those.
     const linesFor = (body: string) =>
@@ -716,20 +716,20 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
 
     // One real dismissal, to establish the line that must NOT grow after this.
     await dismiss(mine)
-    const logsAfterReal = (await hit(routes, '/dsh-shelfry/logs', { method: 'GET', url: '/dsh-shelfry/logs' })).body
+    const logsAfterReal = (await hit(routes, '/dsh-crate/logs', { method: 'GET', url: '/dsh-crate/logs' })).body
     expect(linesFor(logsAfterReal)).toHaveLength(1)
     expect(logsAfterReal).toContain('broken-notice-dismissed')
-    const stateAfterReal = readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')
+    const stateAfterReal = readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')
 
     // The same name again, and a name that never had a notice.
     await dismiss(mine)
     await dismiss('dsh-never-existed')
 
-    const logsAfterNoop = (await hit(routes, '/dsh-shelfry/logs', { method: 'GET', url: '/dsh-shelfry/logs' })).body
+    const logsAfterNoop = (await hit(routes, '/dsh-crate/logs', { method: 'GET', url: '/dsh-crate/logs' })).body
     expect(linesFor(logsAfterNoop)).toHaveLength(1)
     // ...and the state file is byte-identical: a no-op that rewrote it would be
     // indistinguishable from a real change to anyone reading the file later.
-    expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe(stateAfterReal)
+    expect(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')).toBe(stateAfterReal)
     // Still the authoritative list, and the other notice untouched.
     expect(Object.keys(await listed())).toEqual(['dsh-beta'])
   })
@@ -737,14 +737,14 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
   it('refuses a cross-origin dismiss and validates the name', async () => {
     seedBroken('dsh-alpha', 'dsh-beta')
 
-    const cross = await hit(routes, '/dsh-shelfry/dismiss-broken', {
-      method: 'POST', url: '/dsh-shelfry/dismiss-broken', origin: 'http://evil.example', host: HOST, body: { name: 'dsh-alpha' },
+    const cross = await hit(routes, '/dsh-crate/dismiss-broken', {
+      method: 'POST', url: '/dsh-crate/dismiss-broken', origin: 'http://evil.example', host: HOST, body: { name: 'dsh-alpha' },
     })
     expect(cross.status).toBe(403)
     expect(jsonBody(cross)).toEqual({ error: 'untrusted origin' })
 
     for (const body of [null, {}, { name: '' }, { name: '   ' }, { name: 42 }, { name: 'x'.repeat(215) }]) {
-      const res = await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', body))
+      const res = await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', body))
       expect(res.status).toBe(400)
     }
     // A rejected request must not have removed anything.
@@ -753,7 +753,7 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
 
   it('answers GET with 405 rather than pretending the notice is dismissable that way', async () => {
     seedBroken('dsh-alpha', 'dsh-beta')
-    const res = await hit(routes, '/dsh-shelfry/dismiss-broken', { method: 'GET', url: '/dsh-shelfry/dismiss-broken' })
+    const res = await hit(routes, '/dsh-crate/dismiss-broken', { method: 'GET', url: '/dsh-crate/dismiss-broken' })
     expect(res.status).toBe(405)
     expect(res.headers.allow).toBe('POST')
   })
@@ -768,7 +768,7 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
     mkdirSync(leftover, { recursive: true })
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'web-profile', dependencies: { 'dsh-beta': '^1.0.0' } }))
 
-    await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
     expect(existsSync(leftover)).toBe(true)
     // The profile's own declarations are not this route's business either.
@@ -780,9 +780,9 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
     // matters here: "repaired" or "reinstalled" would be a false statement the
     // user reads later, when they open the very directory this left in place.
     seedBroken('dsh-alpha', 'dsh-beta')
-    await hit(routes, '/dsh-shelfry/dismiss-broken', post('/dsh-shelfry/dismiss-broken', { name: 'dsh-alpha' }))
+    await hit(routes, '/dsh-crate/dismiss-broken', post('/dsh-crate/dismiss-broken', { name: 'dsh-alpha' }))
 
-    const res = await hit(routes, '/dsh-shelfry/logs', { method: 'GET', url: '/dsh-shelfry/logs' })
+    const res = await hit(routes, '/dsh-crate/logs', { method: 'GET', url: '/dsh-crate/logs' })
     expect(res.body).toContain('dsh-alpha')
     expect(res.body).not.toMatch(/repaired|已修复|reinstalled|已重装/)
   })
@@ -790,15 +790,15 @@ describe('POST /dsh-shelfry/dismiss-broken (#763)', () => {
 
 /** Raw state.json on disk, so a test can assert a key is absent, not just empty. */
 function readRawState(): Record<string, unknown> {
-  return JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as Record<string, unknown>
+  return JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as Record<string, unknown>
 }
 
-describe('POST /dsh-shelfry/bundle-order', () => {
+describe('POST /dsh-crate/bundle-order', () => {
   it('applies a valid community reorder: 200 with the merged stack, manifest rewritten', async () => {
     // #125/#126: the in-route pre-write safety net is the profile backup, and
     // a persistent snapshot is auto-created before the write (issue #126).
     writeStandardProfile()
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(res.status).toBe(200)
     const body = jsonBody(res)
     expect(body.ok).toBe(true)
@@ -810,7 +810,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
 
   it('persists a profile snapshot BEFORE the write (issue #126: recoverable reorder)', async () => {
     writeStandardProfile()
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(res.status).toBe(200)
     const body = jsonBody(res)
     expect(body.ok).toBe(true)
@@ -819,7 +819,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     expect(String(body.snapshot)).toMatch(/^snapshot-/)
     // The snapshot was persisted BEFORE the write: it captures the ORIGINAL
     // order [alpha, beta], so restoring it reverts the reorder.
-    const snapDir = join(dir, '.dsh-shelfry', 'snapshots')
+    const snapDir = join(dir, '.dsh-crate', 'snapshots')
     const snapFiles = readdirSync(snapDir).filter(f => f.endsWith('.json'))
     expect(snapFiles).toHaveLength(1)
     const snap = JSON.parse(readFileSync(join(snapDir, snapFiles[0]!), 'utf8')) as { files: Array<{ path: string; json: { dsh?: { profile?: { bundles?: string[] } } } }> }
@@ -829,29 +829,29 @@ describe('POST /dsh-shelfry/bundle-order', () => {
 
   it('refuses to reorder when the full pre-write composition cannot be captured', async () => {
     writeStandardProfile()
-    mkdirSync(join(dir, '.dsh-shelfry', 'state.json'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate', 'state.json'), { recursive: true })
     const before = readFileSync(join(dir, 'package.json'), 'utf8')
 
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(res.status).toBe(400)
-    expect(String(jsonBody(res).error)).toContain('.dsh-shelfry/state.json could not be read')
+    expect(String(jsonBody(res).error)).toContain('.dsh-crate/state.json could not be read')
     expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(before)
-    expect(existsSync(join(dir, '.dsh-shelfry', 'snapshots'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'snapshots'))).toBe(false)
   })
 
   it('reorders from malformed optional state and snapshots its observable absence', async () => {
     writeStandardProfile()
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), '{ broken')
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), '{ broken')
 
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(res.status).toBe(200)
     const id = String(jsonBody(res).snapshot)
-    const snapshot = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'snapshots', `${id}.json`), 'utf8')) as {
+    const snapshot = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'snapshots', `${id}.json`), 'utf8')) as {
       files: Array<{ path: string; absent?: true }>
     }
-    expect(snapshot.files).toContainEqual({ path: '.dsh-shelfry/state.json', absent: true })
-    expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe('{ broken')
+    expect(snapshot.files).toContainEqual({ path: '.dsh-crate/state.json', absent: true })
+    expect(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')).toBe('{ broken')
   })
 
   it('refuses a rule-violating order with 422 + conflicts', async () => {
@@ -861,14 +861,14 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     writeBundle('beta')
     const before = readFileSync(join(dir, 'package.json'), 'utf8')
 
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['alpha', 'beta'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['alpha', 'beta'] }))
     expect(res.status).toBe(422)
     const body = jsonBody(res)
     expect(String(body.error)).toMatch(/violates declared before\/after rules/)
     expect(Array.isArray(body.conflicts)).toBe(true)
     // Refused BEFORE the write: manifest and snapshot dir untouched.
     expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(before)
-    expect(existsSync(join(dir, '.dsh-shelfry', 'snapshots'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'snapshots'))).toBe(false)
   })
 
   it('refuses an order that would not boot with 422 + trial errors', async () => {
@@ -880,7 +880,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     writeBundle('beta', { entries: [{ id: 'dup-entry', name: 'beta' }] })
     const before = readFileSync(join(dir, 'package.json'), 'utf8')
 
-    const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(res.status).toBe(422)
     const body = jsonBody(res)
     expect(String(body.error)).toMatch(/trial validation failed/)
@@ -892,21 +892,21 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     writeStandardProfile()
     // restore-snapshot takes the lock BEFORE reading the body — a pending body
     // pins `writing` until the test releases it.
-    const pending = makePendingRequest('/dsh-shelfry/restore-snapshot')
-    const inflight = routes.get('/dsh-shelfry/restore-snapshot')!
+    const pending = makePendingRequest('/dsh-crate/restore-snapshot')
+    const inflight = routes.get('/dsh-crate/restore-snapshot')!
     const captured = makeResponse()
     const pendingRun = inflight(pending.request, captured.response)
 
     // Synchronous up to the first await → the lock is already held.
-    const snap = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const snap = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(snap.status).toBe(409)
     expect(jsonBody(snap)).toEqual({ error: 'another plugin operation is running', busy: true })
 
-    const order = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const order = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(order.status).toBe(409)
 
     // The update route gained the same `writing` guard (issue #98 analysis).
-    const upd = await hit(routes, '/dsh-shelfry/update', post('/dsh-shelfry/update', { name: 'alpha' }))
+    const upd = await hit(routes, '/dsh-crate/update', post('/dsh-crate/update', { name: 'alpha' }))
     expect(upd.status).toBe(409)
 
     // Release the lock → the same write succeeds.
@@ -914,7 +914,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     await pendingRun
     expect(captured.captured().status).toBe(400) // the released body {} → missing snapshot id
 
-    const after = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const after = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(after.status).toBe(200)
   })
 
@@ -930,19 +930,19 @@ describe('POST /dsh-shelfry/bundle-order', () => {
     }
     routes = mount(hanging).routes
 
-    const uninstallRun = routes.get('/dsh-shelfry/uninstall')!(makeRequest(post('/dsh-shelfry/uninstall', { name: 'alpha' })), makeResponse().response)
+    const uninstallRun = routes.get('/dsh-crate/uninstall')!(makeRequest(post('/dsh-crate/uninstall', { name: 'alpha' })), makeResponse().response)
     void uninstallRun
     await tick() // flush the microtasks up to the hanging runPlugin
 
-    const snap = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const snap = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(snap.status).toBe(409)
     expect(jsonBody(snap)).toEqual({ error: 'another plugin operation is running', busy: true })
 
-    const order = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+    const order = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
     expect(order.status).toBe(409)
 
     // update distinguishes the two locks in its message.
-    const upd = await hit(routes, '/dsh-shelfry/update', post('/dsh-shelfry/update', { name: 'alpha' }))
+    const upd = await hit(routes, '/dsh-crate/update', post('/dsh-crate/update', { name: 'alpha' }))
     expect(upd.status).toBe(409)
     expect(jsonBody(upd)).toEqual({ error: 'another install is already running', busy: true })
   })
@@ -957,7 +957,7 @@ describe('POST /dsh-shelfry/bundle-order', () => {
       throw new Error('simulated disk failure')
     })
     try {
-      const res = await hit(routes, '/dsh-shelfry/bundle-order', post('/dsh-shelfry/bundle-order', { order: ['beta', 'alpha'] }))
+      const res = await hit(routes, '/dsh-crate/bundle-order', post('/dsh-crate/bundle-order', { order: ['beta', 'alpha'] }))
       expect(res.status).toBe(500)
       expect(String(jsonBody(res).error)).toMatch(/simulated disk failure/)
     } finally {
@@ -1052,31 +1052,31 @@ describe('sameOrigin', () => {
     }
   })
 })
-describe('GET/POST /dsh-shelfry/snapshots', () => {
+describe('GET/POST /dsh-crate/snapshots', () => {
   it('lists an empty snapshot set, creates one, lists it again', async () => {
     writeStandardProfile()
-    const empty = await hit(routes, '/dsh-shelfry/snapshots', { method: 'GET', url: '/dsh-shelfry/snapshots' })
+    const empty = await hit(routes, '/dsh-crate/snapshots', { method: 'GET', url: '/dsh-crate/snapshots' })
     expect(empty.status).toBe(200)
     expect(jsonBody(empty)).toEqual({ snapshots: [] })
 
-    const created = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const created = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(created.status).toBe(200)
     const body = jsonBody(created)
     expect(body.ok).toBe(true)
     const snapshot = (body.snapshot ?? {}) as { format: string; version: number; id: string; createdAt: number; files: unknown[] }
-    expect(snapshot.format).toBe('dsh-shelfry/profile-snapshot')
+    expect(snapshot.format).toBe('dsh-crate/profile-snapshot')
     expect(snapshot.version).toBe(2)
     expect(snapshot.id).toMatch(/^snapshot-/)
     expect(typeof snapshot.createdAt).toBe('number')
-    expect(snapshot.files.map((f: { path: string }) => f.path)).toEqual(['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'])
+    expect(snapshot.files.map((f: { path: string }) => f.path)).toEqual(['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'])
 
-    const listed = await hit(routes, '/dsh-shelfry/snapshots', { method: 'GET', url: '/dsh-shelfry/snapshots' })
+    const listed = await hit(routes, '/dsh-crate/snapshots', { method: 'GET', url: '/dsh-crate/snapshots' })
     expect((jsonBody(listed).snapshots as unknown[]).length).toBe(1)
   })
 
   it('answers 400 when the profile has no package.json', async () => {
     // No fixture at all: createProfileSnapshot cannot snapshot a manifest-less dir.
-    const res = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const res = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(res.status).toBe(400)
     expect(String(jsonBody(res).error)).toMatch(/package\.json is missing/)
   })
@@ -1085,28 +1085,28 @@ describe('GET/POST /dsh-shelfry/snapshots', () => {
     writeStandardProfile()
     mkdirSync(join(dir, 'cordis.patch.yml'))
 
-    const res = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const res = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(res.status).toBe(400)
     expect(String(jsonBody(res).error)).toContain('cordis.patch.yml could not be read')
   })
 
   it('captures malformed optional state as absent instead of blocking snapshots', async () => {
     writeStandardProfile()
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), '{ broken')
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), '{ broken')
 
-    const res = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const res = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     expect(res.status).toBe(200)
     const snapshot = jsonBody(res).snapshot as { files: Array<{ path: string; absent?: true }> }
-    expect(snapshot.files).toContainEqual({ path: '.dsh-shelfry/state.json', absent: true })
-    expect(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')).toBe('{ broken')
+    expect(snapshot.files).toContainEqual({ path: '.dsh-crate/state.json', absent: true })
+    expect(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')).toBe('{ broken')
   })
 })
 
-describe('POST /dsh-shelfry/restore-snapshot & /dsh-shelfry/delete-snapshot', () => {
+describe('POST /dsh-crate/restore-snapshot & /dsh-crate/delete-snapshot', () => {
   it('round-trips: create → corrupt the order → restore → delete', async () => {
     writeStandardProfile()
-    const created = await hit(routes, '/dsh-shelfry/snapshots', post('/dsh-shelfry/snapshots', undefined))
+    const created = await hit(routes, '/dsh-crate/snapshots', post('/dsh-crate/snapshots', undefined))
     const id = (jsonBody(created).snapshot as { id: string }).id
 
     // Corrupt the manifest (swap the community order by hand).
@@ -1114,36 +1114,36 @@ describe('POST /dsh-shelfry/restore-snapshot & /dsh-shelfry/delete-snapshot', ()
       name: 'web-profile',
       dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'beta', 'alpha'] } },
     }, null, 2))
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(join(dir, 'cordis.patch.yml'), 'later patch\n')
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['later'] }))
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['later'] }))
 
-    const restored = await hit(routes, '/dsh-shelfry/restore-snapshot', post('/dsh-shelfry/restore-snapshot', { snapshot: id }))
+    const restored = await hit(routes, '/dsh-crate/restore-snapshot', post('/dsh-crate/restore-snapshot', { snapshot: id }))
     expect(restored.status).toBe(200)
     const restoredBody = jsonBody(restored)
     expect(restoredBody.ok).toBe(true)
-    expect(restoredBody.restored).toEqual(['package.json', 'cordis.patch.yml', '.dsh-shelfry/state.json'])
+    expect(restoredBody.restored).toEqual(['package.json', 'cordis.patch.yml', '.dsh-crate/state.json'])
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { dsh: { profile: { bundles: string[] } } }
     expect(manifest.dsh.profile.bundles).toEqual(['@deepseek-ai/dsh-base', 'alpha', 'beta'])
     expect(existsSync(join(dir, 'cordis.patch.yml'))).toBe(false)
-    expect(existsSync(join(dir, '.dsh-shelfry', 'state.json'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'state.json'))).toBe(false)
 
-    const deleted = await hit(routes, '/dsh-shelfry/delete-snapshot', post('/dsh-shelfry/delete-snapshot', { snapshot: id }))
+    const deleted = await hit(routes, '/dsh-crate/delete-snapshot', post('/dsh-crate/delete-snapshot', { snapshot: id }))
     expect(deleted.status).toBe(200)
     expect(jsonBody(deleted)).toMatchObject({ ok: true, snapshot: id })
 
-    const listed = await hit(routes, '/dsh-shelfry/snapshots', { method: 'GET', url: '/dsh-shelfry/snapshots' })
+    const listed = await hit(routes, '/dsh-crate/snapshots', { method: 'GET', url: '/dsh-crate/snapshots' })
     expect(jsonBody(listed)).toEqual({ snapshots: [] })
   })
 
   it('restore of an unknown snapshot answers 400', async () => {
-    const res = await hit(routes, '/dsh-shelfry/restore-snapshot', post('/dsh-shelfry/restore-snapshot', { snapshot: 'snapshot-does-not-exist' }))
+    const res = await hit(routes, '/dsh-crate/restore-snapshot', post('/dsh-crate/restore-snapshot', { snapshot: 'snapshot-does-not-exist' }))
     expect(res.status).toBe(400)
     expect(String(jsonBody(res).error)).toMatch(/snapshot not found/)
   })
 
   it('delete of an unknown snapshot answers 400', async () => {
-    const res = await hit(routes, '/dsh-shelfry/delete-snapshot', post('/dsh-shelfry/delete-snapshot', { snapshot: 'snapshot-does-not-exist' }))
+    const res = await hit(routes, '/dsh-crate/delete-snapshot', post('/dsh-crate/delete-snapshot', { snapshot: 'snapshot-does-not-exist' }))
     expect(res.status).toBe(400)
     expect(String(jsonBody(res).error)).toMatch(/snapshot not found/)
   })
@@ -1153,16 +1153,16 @@ describe('market state publication (#582 narrowest point)', () => {
   let dir: string
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'dshm-state-'))
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
   })
   afterEach(() => { rmSync(dir, { recursive: true, force: true }) })
 
-  const statePath = () => join(dir, '.dsh-shelfry', 'state.json')
+  const statePath = () => join(dir, '.dsh-crate', 'state.json')
 
   it('leaves no half-written file and no temporary behind', () => {
     writeMarketState(dir, { disabled: new Set(['a']), groups: {}, groupOrder: [] })
     expect(readMarketState(dir).disabled.has('a')).toBe(true)
-    expect(readdirSync(join(dir, '.dsh-shelfry')).some(name => name.endsWith('.new'))).toBe(false)
+    expect(readdirSync(join(dir, '.dsh-crate')).some(name => name.endsWith('.new'))).toBe(false)
   })
 
   it('writes through a symlinked state file instead of replacing the link (#582)', () => {
@@ -1208,7 +1208,7 @@ describe('a client that reads its config from a name nothing serves (#810)', () 
   }
 
   const getInstalled = async (): Promise<Record<string, unknown>> =>
-    jsonBody(await hit(routes, '/dsh-shelfry/installed', { method: 'GET', url: '/dsh-shelfry/installed' }))
+    jsonBody(await hit(routes, '/dsh-crate/installed', { method: 'GET', url: '/dsh-crate/installed' }))
 
   it('names the package and the entry id it should have asked for', async () => {
     // The reported shape: the client asks for its PACKAGE name while its own
@@ -1238,7 +1238,7 @@ describe('a client that reads its config from a name nothing serves (#810)', () 
     writeProfile(['alpha'])
     writeClientBundle('alpha', 'ctx.configForms.get("alpha-panel")')
 
-    const body = jsonBody(await hit(routes, '/dsh-shelfry/check', { method: 'GET', url: '/dsh-shelfry/check' }))
+    const body = jsonBody(await hit(routes, '/dsh-crate/check', { method: 'GET', url: '/dsh-crate/check' }))
     expect(body.configNamespaces).toEqual([
       { name: 'alpha', namespaces: ['alpha-panel'], ownEntryIds: ['alpha-entry'] },
     ])
@@ -1247,7 +1247,7 @@ describe('a client that reads its config from a name nothing serves (#810)', () 
   it('is absent from a healthy profile, so the row renders nothing', async () => {
     writeStandardProfile()
     expect((await getInstalled()).configNamespaces).toBeUndefined()
-    const body = jsonBody(await hit(routes, '/dsh-shelfry/check', { method: 'GET', url: '/dsh-shelfry/check' }))
+    const body = jsonBody(await hit(routes, '/dsh-crate/check', { method: 'GET', url: '/dsh-crate/check' }))
     expect(body.configNamespaces).toEqual([])
   })
 })
@@ -1271,22 +1271,22 @@ describe('host recovery (#875)', () => {
     writeFileSync(join(dir, 'cordis.patch.yml'), '# recovered\n')
     writeFileSync(join(dir, BACKUP), USER_PATCH_ROWS)
 
-    const view = await hit(routes, '/dsh-shelfry/host-recovery', { method: 'GET', url: '/dsh-shelfry/host-recovery' })
+    const view = await hit(routes, '/dsh-crate/host-recovery', { method: 'GET', url: '/dsh-crate/host-recovery' })
     expect(view.status).toBe(200)
     expect(view.json()).toMatchObject({ offerRestore: true, lostRowIds: ['llm-deepseek', 'permission'] })
 
-    const res = await hit(routes, '/dsh-shelfry/host-recovery/restore', post('/dsh-shelfry/host-recovery/restore', { name: BACKUP }))
+    const res = await hit(routes, '/dsh-crate/host-recovery/restore', post('/dsh-crate/host-recovery/restore', { name: BACKUP }))
     expect(res.status).toBe(200)
     expect(res.json()).toMatchObject({ ok: true, restored: { rows: 2 } })
     expect(readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')).toBe(USER_PATCH_ROWS)
 
-    const after = await hit(routes, '/dsh-shelfry/host-recovery', { method: 'GET', url: '/dsh-shelfry/host-recovery' })
+    const after = await hit(routes, '/dsh-crate/host-recovery', { method: 'GET', url: '/dsh-crate/host-recovery' })
     expect(after.json()).toMatchObject({ offerRestore: false })
   })
 
   it('says nothing on a profile its own recovery never touched', async () => {
     writeProfile(['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'])
-    const res = await hit(routes, '/dsh-shelfry/host-recovery', { method: 'GET', url: '/dsh-shelfry/host-recovery' })
+    const res = await hit(routes, '/dsh-crate/host-recovery', { method: 'GET', url: '/dsh-crate/host-recovery' })
     expect(res.status).toBe(200)
     expect(res.json()).toMatchObject({ offerRestore: false, backups: [] })
   })
@@ -1295,13 +1295,13 @@ describe('host recovery (#875)', () => {
     writeProfile(['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'])
     writeFileSync(join(dir, 'cordis.patch.yml'), '# recovered\n')
     writeFileSync(join(dir, BACKUP), USER_PATCH_ROWS)
-    const res = await hit(routes, '/dsh-shelfry/host-recovery/restore', post('/dsh-shelfry/host-recovery/restore', { name: '../package.json' }))
+    const res = await hit(routes, '/dsh-crate/host-recovery/restore', post('/dsh-crate/host-recovery/restore', { name: '../package.json' }))
     expect(res.status).toBe(400)
     expect(readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')).toBe('# recovered\n')
   })
 
   it('rejects a body that names no backup at all', async () => {
-    const res = await hit(routes, '/dsh-shelfry/host-recovery/restore', post('/dsh-shelfry/host-recovery/restore', {}))
+    const res = await hit(routes, '/dsh-crate/host-recovery/restore', post('/dsh-crate/host-recovery/restore', {}))
     expect(res.status).toBe(400)
   })
 })

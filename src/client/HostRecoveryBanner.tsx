@@ -5,7 +5,7 @@
  * and writes a stub in its place, then boots normally — 22 KB of providers,
  * models and permission presets disappeared that way with nothing on screen
  * saying so. The server decides whether the shape is really the wipe
- * (`GET /dsh-shelfry/host-recovery`); this banner is what the user sees when it
+ * (`GET /dsh-crate/host-recovery`); this banner is what the user sees when it
  * is, and it only appears then. Nothing else on the page changes, because for
  * every other profile this is not a thing that happened.
  *
@@ -88,7 +88,7 @@ export function HostRecoveryBanner(props: HostRecoveryBannerProps): ReactElement
 
   useEffect(() => {
     let live = true
-    fetch(api('/dsh-shelfry/host-recovery'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/host-recovery'), { cache: 'no-store' })
       .then(res => res.json())
       .then(body => { if (live) setView(hostRecoveryOf(body)) })
       .catch(() => { /* the banner is an offer, not a status: silence is fine */ })
@@ -100,7 +100,7 @@ export function HostRecoveryBanner(props: HostRecoveryBannerProps): ReactElement
     if (newest === undefined || busy) return
     setBusy(true)
     setError(null)
-    fetch(api('/dsh-shelfry/host-recovery/restore'), {
+    fetch(api('/dsh-crate/host-recovery/restore'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: newest.name }),

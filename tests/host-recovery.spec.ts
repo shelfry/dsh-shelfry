@@ -115,7 +115,7 @@ describe('readHostRecoveryView', () => {
   })
 
   it('survives a profile the market cannot read', () => {
-    const view = readHostRecoveryView(join(tmpdir(), 'dsh-shelfry-no-such-profile', 'cordis.patch.yml'))
+    const view = readHostRecoveryView(join(tmpdir(), 'dsh-crate-no-such-profile', 'cordis.patch.yml'))
     expect(view).toMatchObject({ offerRestore: false, backups: [], currentBytes: 0 })
   })
 })

@@ -71,7 +71,7 @@ export class MarketErrorBoundary extends Component<Props, State> {
     }
     // Kept on the console too: a developer looking at a live page should not
     // have to export a file to see what a boundary swallowed.
-    console.error('[dsh-shelfry] the market UI crashed and was replaced by its recovery panel', error, info.componentStack)
+    console.error('[dsh-crate] the market UI crashed and was replaced by its recovery panel', error, info.componentStack)
   }
 
   render(): ReactNode {
@@ -83,8 +83,8 @@ export class MarketErrorBoundary extends Component<Props, State> {
       // count does not read as "never mounted" for a crashed market —
       // those are different failures and the log has to keep telling them
       // apart.
-      'data-dsh-shelfry-root': '',
-      'data-dsh-shelfry-crashed': '',
+      'data-dsh-crate-root': '',
+      'data-dsh-crate-crashed': '',
       translate: 'no',
       className: 'notranslate',
       style: { padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start' },

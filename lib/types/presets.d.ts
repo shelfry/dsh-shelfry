@@ -6,7 +6,7 @@
  * on failure, auto-snapshots the profile (createProfileSnapshot), and only
  * then writes the bundle order and disable list.
  *
- * Presets persist in `<profile>/.dsh-shelfry/presets.json` (market-owned
+ * Presets persist in `<profile>/.dsh-crate/presets.json` (market-owned
  * state, like snapshots) — deliberately separate from state.json, whose
  * shape routes.ts owns.
  */

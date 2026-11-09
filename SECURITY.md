@@ -5,7 +5,7 @@
 **Please do not open a public issue for a security problem.** Use GitHub's
 private vulnerability reporting instead:
 
-<https://github.com/shelfry/dsh-shelfry/security/advisories/new>
+<https://github.com/dshcrate/dsh-crate/security/advisories/new>
 
 That form is private between you and the maintainers, and it is the channel
 this project checks. A public issue is fine for anything that is not a

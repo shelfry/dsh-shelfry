@@ -1,6 +1,6 @@
 /**
- * Registry access: shelfry 的目录（dsh-shelfry.json）每次请求都重新拉取。
- * 这里只负责抓取、重试、校验与 304 复用；字段映射见 src/shelfry-catalog.ts。
+ * Registry access: crate 的目录（dsh-crate.json）每次请求都重新拉取。
+ * 这里只负责抓取、重试、校验与 304 复用；字段映射见 src/crate-catalog.ts。
  */
 import { type Region } from './regions.ts';
 export interface RegistryPlugin {

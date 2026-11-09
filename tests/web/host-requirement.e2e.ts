@@ -60,14 +60,14 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the host-version pre-check (#404)
   }
 
   it('installs 1.0.0, which declares nothing', async () => {
-    const installed = await post('/dsh-shelfry/install', { url: `https://github.com/dshm-e2e/${A}` })
+    const installed = await post('/dsh-crate/install', { url: `https://github.com/dshm-e2e/${A}` })
     expect(installed.status).toBe(200)
     expect(installedVersion()).toBe('1.0.0')
   }, 300_000)
 
   it('refuses the update to a release that needs a newer host, and changes nothing', async () => {
     scaffold.publish(A, '2.0.0')
-    const refused = await post('/dsh-shelfry/update', { name: A })
+    const refused = await post('/dsh-crate/update', { name: A })
 
     expect(refused.status).toBe(400)
     const body = await refused.json() as { hostIncompatible?: { requirement?: string; hostVersion?: string } }
@@ -83,7 +83,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the host-version pre-check (#404)
     // The market can be the wrong one here — a bundled host that misreports
     // its version makes a satisfiable requirement look unsatisfied — so the
     // check is a question, not a lock.
-    const forced = await post('/dsh-shelfry/update', { name: A, force: true })
+    const forced = await post('/dsh-crate/update', { name: A, force: true })
     // DSH 0.2.1 moved this gate into the CLI: it refuses the install itself
     // and names an exact-version exemption, so "the user insists" is no
     // longer enough on that line. Both answers are honest; what must hold
@@ -141,20 +141,20 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the fresh-install host-version pr
   }
 
   it('installs a selected compatible release while latest is incompatible', async () => {
-    const installed = await post('/dsh-shelfry/install', {
+    const installed = await post('/dsh-crate/install', {
       url: `https://github.com/dshm-e2e/${B}`,
       version: '1.0.0',
     })
     expect(installed.status).toBe(200)
     expect(installedVersion()).toBe('1.0.0')
 
-    const removed = await post('/dsh-shelfry/uninstall', { name: B })
+    const removed = await post('/dsh-crate/uninstall', { name: B })
     expect(removed.status).toBe(200)
     expect(installedVersion()).toBeNull()
   }, 300_000)
 
   it('refuses a fresh install whose release declares an incompatible host', async () => {
-    const refused = await post('/dsh-shelfry/install', { url: `https://github.com/dshm-e2e/${B}` })
+    const refused = await post('/dsh-crate/install', { url: `https://github.com/dshm-e2e/${B}` })
     expect(refused.status).toBe(400)
     const body = await refused.json() as { hostIncompatible?: { requirement?: string; hostVersion?: string } }
     expect(body.hostIncompatible).toBeDefined()
@@ -164,7 +164,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the fresh-install host-version pr
   }, 300_000)
 
   it('lets the user through the fresh install when they insist', async () => {
-    const forced = await post('/dsh-shelfry/install', {
+    const forced = await post('/dsh-crate/install', {
       url: `https://github.com/dshm-e2e/${B}`,
       force: true,
     })

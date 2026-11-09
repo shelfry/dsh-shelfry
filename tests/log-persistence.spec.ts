@@ -18,7 +18,7 @@ let home: string
 let logFile: string
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'dshm-log-'))
-  logFile = join(home, '.dsh-shelfry', 'log.ndjson')
+  logFile = join(home, '.dsh-crate', 'log.ndjson')
 })
 afterEach(() => {
   configurePersistentLog(null)
@@ -142,7 +142,7 @@ describe('persistent log sink', () => {
   })
 
   it('trims an oversized file to its newest half on configure', () => {
-    mkdirSync(join(home, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(home, '.dsh-crate'), { recursive: true })
     writeFileSync(logFile, `${'x'.repeat(64)}\n`.repeat(6000))
     configurePersistentLog(logFile)
     const trimmed = readFileSync(logFile, 'utf8')
@@ -187,7 +187,7 @@ describe('persistent log sink', () => {
     logEvent('error', 'install', 'remove failed (exit 1) but the package is gone')
     configurePersistentLog(null)
     logEvent('info', 'uninstall', 'a fresh process event')
-    const exported = exportLogs({ 'dsh-shelfry': 'test' }, ['bundles (1):', '  plug-a: NOT RESOLVED'], readPersistentLog(logFile))
+    const exported = exportLogs({ 'dsh-crate': 'test' }, ['bundles (1):', '  plug-a: NOT RESOLVED'], readPersistentLog(logFile))
     expect(exported).toContain('## previous sessions (persisted log)')
     expect(exported).toContain('remove failed (exit 1)')
     expect(exported).toContain('## events this session')
@@ -208,7 +208,7 @@ describe('exported timestamps say which clock they are on (#449)', () => {
       return { resolvedOptions: () => ({ timeZone: zone }) }
     } as unknown as typeof Intl.DateTimeFormat
     try {
-      return exportLogs({ 'dsh-shelfry': 'test' })
+      return exportLogs({ 'dsh-crate': 'test' })
     } finally {
       Date.prototype.getTimezoneOffset = realOffset
       Intl.DateTimeFormat = realFormat

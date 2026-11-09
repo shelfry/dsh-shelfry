@@ -969,14 +969,14 @@ describe('formatCount', () => {
 
 describe('isMarketItself / visiblePlugins excludes the market from Discover', () => {
   it('matches the market by catalog name or npm package, not by owner or category', () => {
-    expect(isMarketItself(plugin({ name: 'dsh-shelfry', npm: undefined }))).toBe(true)
-    expect(isMarketItself(plugin({ name: 'anything', npm: 'dsh-shelfry' }))).toBe(true)
-    expect(isMarketItself(plugin({ name: 'dsh-shelfry-clone', npm: 'not-dsh-shelfry' }))).toBe(false)
+    expect(isMarketItself(plugin({ name: 'dsh-crate', npm: undefined }))).toBe(true)
+    expect(isMarketItself(plugin({ name: 'anything', npm: 'dsh-crate' }))).toBe(true)
+    expect(isMarketItself(plugin({ name: 'dsh-crate-clone', npm: 'not-dsh-crate' }))).toBe(false)
   })
 
   it('never appears in the discover list, even with no filter applied at all', () => {
     const withSelf = [
-      plugin({ name: 'dsh-shelfry', npm: 'dsh-shelfry', category: 'market' }),
+      plugin({ name: 'dsh-crate', npm: 'dsh-crate', category: 'market' }),
       plugin({ name: 'dsh-loop', category: 'tool' }),
     ]
     // A store has no reason to sell itself to someone already standing in

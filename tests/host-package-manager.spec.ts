@@ -83,7 +83,7 @@ beforeEach(() => {
   // the Windows shape gets its own case rather than being skipped.
   platform('linux')
   vi.stubEnv('ComSpec', 'cmd.exe')
-  home = mkdtempSync(join(tmpdir(), 'dsh-shelfry-host-pm-'))
+  home = mkdtempSync(join(tmpdir(), 'dsh-crate-host-pm-'))
   vi.stubEnv('DSH_HOME', home)
 })
 

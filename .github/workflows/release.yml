@@ -94,20 +94,20 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             dist/*.tgz \
-            --title "dsh-shelfry v${GITHUB_REF_NAME#v}" \
+            --title "dsh-crate v${GITHUB_REF_NAME#v}" \
             --generate-notes \
             ${{ steps.channel.outputs.pre == 'true' && '--prerelease' || '' }} \
-            --notes "npm: https://www.npmjs.com/package/dsh-shelfry/v/${GITHUB_REF_NAME#v} · dist-tag: ${{ steps.channel.outputs.dist }}"
+            --notes "npm: https://www.npmjs.com/package/dsh-crate/v/${GITHUB_REF_NAME#v} · dist-tag: ${{ steps.channel.outputs.dist }}"
 
       - name: dev 版本安装说明
         if: env.DEV == 'true'
         run: |
           V='${{ steps.channel.outputs.version }}'
           {
-            echo "### dsh-shelfry@$V"
+            echo "### dsh-crate@$V"
             echo ''
             echo '```sh'
-            echo "dsh plugin --profile web add dsh-shelfry@$V"
+            echo "dsh plugin --profile web add dsh-crate@$V"
             echo '```'
             echo ''
             echo "branch: \`${GITHUB_REF_NAME}\` · commit: \`$(git rev-parse --short HEAD)\`"

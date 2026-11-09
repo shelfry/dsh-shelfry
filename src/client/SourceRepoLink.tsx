@@ -23,7 +23,7 @@ export function SourceRepoLink(props: { name: string; t: Translate }) {
     }
     let live = true
     // `api()` returns the pathname, so the query has to be appended after it.
-    fetch(`${api('/dsh-shelfry/source-repo')}?name=${encodeURIComponent(name)}`)
+    fetch(`${api('/dsh-crate/source-repo')}?name=${encodeURIComponent(name)}`)
       .then(async (res) => (res.ok ? (await res.json()) as { url?: unknown } : null))
       .then((body) => {
         // An href is only safe when it is https: the route builds one from

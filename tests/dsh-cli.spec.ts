@@ -381,9 +381,9 @@ describe('TARGET_RE plugin target allowlist', () => {
       'dsh-better-sidebar@^0.14.0',
       'dsh-dream-skin@~0.3.0',
       'dsh-free-search@^0.4.7',
-      'dsh-shelfry@^1.14.1',
-      'dsh-shelfry@=1.2.3',
-      'dsh-shelfry@1.14.0',
+      'dsh-crate@^1.14.1',
+      'dsh-crate@=1.2.3',
+      'dsh-crate@1.14.0',
       'github:Ychris12138/dsh-usage-stats',
     ]) {
       expect(TARGET_RE.test(target)).toBe(true)

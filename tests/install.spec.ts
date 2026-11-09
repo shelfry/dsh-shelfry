@@ -107,17 +107,17 @@ describe('retargetCollections (#18)', () => {
 
 describe('validateAddedPlugins (#18 / #21)', () => {
   it('keeps valid plugins, removes source-only and no-dsh-surface pieces on the spot', async () => {
-    const dir = writeProfile({ good: '^1.0.0', broken: 'github:o/broken', 'dsh-shelfry': '^0.0.1' })
+    const dir = writeProfile({ good: '^1.0.0', broken: 'github:o/broken', 'dsh-crate': '^0.0.1' })
     writePkg(dir, 'good', { dsh: {}, main: 'lib/index.js' }, ['lib/index.js'])
     // Source-only checkout: dsh manifest present but the built artifact is not.
     writePkg(dir, 'broken', { dsh: {}, main: 'lib/index.js' })
     // The #21 placeholder: artifact present but no dsh surface at all.
-    writePkg(dir, 'dsh-shelfry', { name: 'dsh-shelfry', version: '0.0.1', main: 'index.js' }, ['index.js'])
+    writePkg(dir, 'dsh-crate', { name: 'dsh-crate', version: '0.0.1', main: 'index.js' }, ['index.js'])
     const { calls, run } = recordingRunner()
     const { keep, removedBroken } = await validateAddedPlugins(run, 'web', new Set())
     expect(keep).toEqual(['good'])
-    expect(removedBroken.sort()).toEqual(['broken', 'dsh-shelfry'])
-    expect(calls.map(c => c.join(' ')).sort()).toEqual(['remove broken', 'remove dsh-shelfry'])
+    expect(removedBroken.sort()).toEqual(['broken', 'dsh-crate'])
+    expect(calls.map(c => c.join(' ')).sort()).toEqual(['remove broken', 'remove dsh-crate'])
   })
 
   it('removes a package whose loader entry ids clash with an installed bundle (#122)', async () => {
@@ -365,7 +365,7 @@ describe('surfacing the dsh CLI diagnostics file (#672)', () => {
     // cause — pnpm's ndjson error record — never appeared.
     const dir = writeProfile({})
     const log = join(dir, 'pnpm.log')
-    writeFileSync(log, "Command failed with exit code 1: pnpm add -w --force 'dsh-shelfry@1.66.8' '--reporter=ndjson'\n")
+    writeFileSync(log, "Command failed with exit code 1: pnpm add -w --force 'dsh-crate@1.66.8' '--reporter=ndjson'\n")
     const run = (): Promise<InstallResult> => Promise.resolve({
       ...ok,
       exitCode: 1,
@@ -664,7 +664,7 @@ describe('withHoistRecovery', () => {
       expect(result.stderr).not.toContain('设置 → 插件')
     })
 
-    it.each(['dsh-shelfry@1.66.48', 'dsh-shelfry@1.66.48'])('does not send a market overlay to Settings → Plugins (%s, #909, #982)', async spec => {
+    it.each(['dsh-crate@1.66.48', 'dsh-crate@1.66.48'])('does not send a market overlay to Settings → Plugins (%s, #909, #982)', async spec => {
       // That page has no update entry for a package already in the profile.
       // The #798 note is for other plugins; for the market it is a shut door.
       const result = await withHoistRecovery(failing, 'desktop', ['add', spec], undefined, { marketFlags: false })
@@ -783,7 +783,7 @@ describe('withHoistRecovery', () => {
     // would, which is how the test proves the order.
     const dir = writeProfile({})
     const workspace = join(dir, 'pnpm-workspace.yaml')
-    writeFileSync(workspace, 'minimumReleaseAgeExclude:\n  - billion-context@0.1.138 || 0.1.147\n  - dsh-shelfry@1.38.1\n  - dsh-shelfry@1.65.4\n')
+    writeFileSync(workspace, 'minimumReleaseAgeExclude:\n  - billion-context@0.1.138 || 0.1.147\n  - dsh-crate@1.38.1\n  - dsh-crate@1.65.4\n')
     const seen: string[] = []
     const run = async (_profile: string, _args: string[]): Promise<InstallResult> => {
       seen.push(readFileSync(workspace, 'utf8'))
@@ -791,7 +791,7 @@ describe('withHoistRecovery', () => {
     }
     const result = await withHoistRecovery(run, 'web', ['add', 'billion-context@0.1.147'], dir)
     expect(result.exitCode).toBe(0)
-    expect(seen[0]).toBe('minimumReleaseAgeExclude:\n  - billion-context@0.1.138 || 0.1.147\n  - dsh-shelfry@1.38.1 || 1.65.4\n')
+    expect(seen[0]).toBe('minimumReleaseAgeExclude:\n  - billion-context@0.1.138 || 0.1.147\n  - dsh-crate@1.38.1 || 1.65.4\n')
   })
 
   it('repairs a broken entry pnpm wrote during the run, and retries the same argv (#732)', async () => {
@@ -806,15 +806,15 @@ describe('withHoistRecovery', () => {
       if (failFirst) {
         failFirst = false
         // pnpm appends its own rule for the version it just let through.
-        writeFileSync(workspace, 'minimumReleaseAgeExclude:\n  - dsh-shelfry@1.38.1 || 1.65.1\n  - dsh-shelfry@1.65.4\n')
+        writeFileSync(workspace, 'minimumReleaseAgeExclude:\n  - dsh-crate@1.38.1 || 1.65.1\n  - dsh-crate@1.65.4\n')
         return { exitCode: 1, timedOut: false, stdout: '', stderr: AGE_VIOLATION_STDERR, cancelled: false }
       }
       return ok
     }
-    const result = await withHoistRecovery(run, 'web', ['add', 'dsh-shelfry@1.65.4'], dir, { marketFlags: false })
+    const result = await withHoistRecovery(run, 'web', ['add', 'dsh-crate@1.65.4'], dir, { marketFlags: false })
     expect(result.exitCode).toBe(0)
-    expect(calls).toEqual([['add', 'dsh-shelfry@1.65.4'], ['add', 'dsh-shelfry@1.65.4']])
-    expect(readFileSync(workspace, 'utf8')).toBe('minimumReleaseAgeExclude:\n  - dsh-shelfry@1.38.1 || 1.65.1 || 1.65.4\n')
+    expect(calls).toEqual([['add', 'dsh-crate@1.65.4'], ['add', 'dsh-crate@1.65.4']])
+    expect(readFileSync(workspace, 'utf8')).toBe('minimumReleaseAgeExclude:\n  - dsh-crate@1.38.1 || 1.65.1 || 1.65.4\n')
   })
 
   it('repairs a rule appended during the run even when the host\'s error hides pnpm\'s text (#732)', async () => {
@@ -1565,8 +1565,8 @@ describe('host bridge cleanup after removal (#662)', () => {
 
 describe('naming the package pnpm actually refused (#944)', () => {
   it('reads the offender out of the violation line, scoped and plain', () => {
-    expect(refusedReleaseAgePackage('  dsh-shelfry@1.66.44 was published at 2026-10-19T18:21:57.000Z, within the cutoff'))
-      .toEqual({ name: 'dsh-shelfry', version: '1.66.44' })
+    expect(refusedReleaseAgePackage('  dsh-crate@1.66.44 was published at 2026-10-19T18:21:57.000Z, within the cutoff'))
+      .toEqual({ name: 'dsh-crate', version: '1.66.44' })
     expect(refusedReleaseAgePackage('  @liustack/modsearch@5.10.9 was published at 2026-10-18T00:24:18.000Z'))
       .toEqual({ name: '@liustack/modsearch', version: '5.10.9' })
     // A prerelease keeps its whole version string.
@@ -1582,7 +1582,7 @@ describe('naming the package pnpm actually refused (#944)', () => {
     // The whole point of the attribution is that a wrong name is worse than no
     // name — the caller keeps its existing wording when this is null.
     expect(refusedReleaseAgePackage('within the minimumReleaseAge cutoff (2026-10-19T06:02:25.725Z)')).toBeNull()
-    expect(refusedReleaseAgePackage('  dsh-shelfry was published at 2026-10-19T18:21:57.000Z')).toBeNull()
+    expect(refusedReleaseAgePackage('  dsh-crate was published at 2026-10-19T18:21:57.000Z')).toBeNull()
     expect(refusedReleaseAgePackage('')).toBeNull()
     // An unrelated package name that pnpm never attributed to a publish time.
     expect(refusedReleaseAgePackage('dsh-loop@1.2.0 could not be resolved')).toBeNull()

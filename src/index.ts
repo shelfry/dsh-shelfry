@@ -1,5 +1,5 @@
 /**
- * dsh-shelfry host entry: mounts the market's HTTP routes once the profile
+ * dsh-crate host entry: mounts the market's HTTP routes once the profile
  * composes the webServer and shell services.
  */
 
@@ -15,7 +15,7 @@ import { installDesktopMarketSettings, installMarketSettings } from './settings.
 import { MAX_AUTO_REPAIR_ATTEMPTS } from './pending-updates.ts'
 import type { AgentsServiceLike } from './agents.ts'
 
-export const name = 'dsh-shelfry'
+export const name = 'dsh-crate'
 
 /**
  * How long after the market mounts an interrupted update is repaired.
@@ -194,7 +194,7 @@ export function useTrustedHosts(ctx: Context): () => void {
       // The silent version of this is what hid #729: "no service" and "no
       // authorities declared" produced the same fence.
       warned = true
-      console.warn('dsh-shelfry: the host connection service is not available; the origin fence accepts loopback only')
+      console.warn('dsh-crate: the host connection service is not available; the origin fence accepts loopback only')
     }
     return Array.isArray(connection?.trustedHosts)
       ? connection.trustedHosts.filter((entry): entry is string => typeof entry === 'string')
@@ -252,7 +252,7 @@ export function apply(ctx: Context, config?: Config): void {
     const host = hostCtx as unknown as MarketEffectHost
     // Before any branch mounts: every host-version surface reads detection
     // through the anchor, so it has to be in place before those exist.
-    host.effect(() => useLauncherInstallAnchor(ctx), 'dsh-shelfry: launcher install anchor')
+    host.effect(() => useLauncherInstallAnchor(ctx), 'dsh-crate: launcher install anchor')
     const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesLike | undefined
     if (desktopProfiles === undefined) {
       // An explicit `profile:` in cordis.yml is the operator speaking and
@@ -334,7 +334,7 @@ export function apply(ctx: Context, config?: Config): void {
               const abandoned = report.abandoned.length === 0
                 ? ''
                 : `, ${String(report.abandoned.length)} given up on after ${String(MAX_AUTO_REPAIR_ATTEMPTS)} starts — reinstall from Settings → Plugins: ${report.abandoned.join(', ')}`
-              console.warn(`dsh-shelfry: ${String(report.reinstalled.length)} interrupted update(s) reinstalled, ${String(report.failed.length)} still pending${abandoned}`)
+              console.warn(`dsh-crate: ${String(report.reinstalled.length)} interrupted update(s) reinstalled, ${String(report.failed.length)} still pending${abandoned}`)
             })
           }, PENDING_UPDATE_REPAIR_DELAY_MS)
           repairTimer.unref?.()
@@ -344,7 +344,7 @@ export function apply(ctx: Context, config?: Config): void {
             restoreTrustedHosts()
             await runtime.dispose()
           }
-        }, 'dsh-shelfry: official Desktop routes and package operations')
+        }, 'dsh-crate: official Desktop routes and package operations')
         return
       }
       // The launcher's own package manager, when it publishes one. Registering
@@ -383,7 +383,7 @@ export function apply(ctx: Context, config?: Config): void {
           disposeRoutes()
           restoreTrustedHosts()
         }
-      }, 'dsh-shelfry: http routes')
+      }, 'dsh-crate: http routes')
       return
     }
 
@@ -437,7 +437,7 @@ export function apply(ctx: Context, config?: Config): void {
           restoreTrustedHosts()
           await runtime.dispose()
         }
-      }, 'dsh-shelfry: Desktop http routes and package operations')
+      }, 'dsh-crate: Desktop http routes and package operations')
     })
   })
 }

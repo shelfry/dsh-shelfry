@@ -39,14 +39,14 @@ describe.skipIf(!dshAvailable()).sequential('web e2e: the market header in a nar
     await openMarketUi(page)
     await waitMarketCatalog(page)
     await page.setViewportSize({ width: 640, height: 800 })
-    await page.getByRole('button', { name: /插件箱子|Plugin Shelfry/ }).waitFor()
+    await page.getByRole('button', { name: /插件箱子|Plugin Crate/ }).waitFor()
   }, 300_000)
   afterAll(async () => { await browser?.close(); await s?.close() })
 
   it('holds the title on one line and keeps the update buttons inside the panel', async () => {
     const measured = await page.evaluate(() => {
       const doc = (globalThis as any).document
-      const market = doc.querySelector('[data-dsh-shelfry-root]')
+      const market = doc.querySelector('[data-dsh-crate-root]')
       const row = market.querySelector('[class$="_titleRow"]')
       // Since the row-order change the actions are a sibling of the title row,
       // both inside the header container; the header, not the title row, is the

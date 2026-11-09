@@ -42,10 +42,10 @@ const REGISTRY = {
 function stubFetch(): void {
   vi.stubGlobal('fetch', vi.fn((input: unknown) => {
     const path = String(input).split('?')[0]
-    if (path === '/dsh-shelfry/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', hostVersion: '0.1.2-alpha.2', registry: REGISTRY })))
-    if (path === '/dsh-shelfry/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] })))
-    if (path === '/dsh-shelfry/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} })))
-    if (path === '/dsh-shelfry/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} })))
+    if (path === '/dsh-crate/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', hostVersion: '0.1.2-alpha.2', registry: REGISTRY })))
+    if (path === '/dsh-crate/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] })))
+    if (path === '/dsh-crate/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} })))
+    if (path === '/dsh-crate/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} })))
     return Promise.reject(new Error(`unstubbed fetch: ${path}`))
   }))
 }
@@ -91,8 +91,8 @@ describe('the on/off control on a host that has Switch', () => {
     // in the main spec, which runs against 0.1.0-rc.7).
     vi.stubGlobal('fetch', vi.fn((input: unknown) => {
       const path = String(input).split('?')[0]
-      if (path === '/dsh-shelfry/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', hostVersion: '0.1.2-alpha.2', registry: REGISTRY })))
-      if (path === '/dsh-shelfry/installed') {
+      if (path === '/dsh-crate/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', hostVersion: '0.1.2-alpha.2', registry: REGISTRY })))
+      if (path === '/dsh-crate/installed') {
         return Promise.resolve(new Response(JSON.stringify({
           profile: 'web', installed: { 'dsh-tagged': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [],
           // A switch renders only for a state the market can switch: off, or
@@ -101,8 +101,8 @@ describe('the on/off control on a host that has Switch', () => {
           activation: { 'dsh-tagged': { state: 'live' } },
         })))
       }
-      if (path === '/dsh-shelfry/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-tagged': '^1.0.0' } })))
-      if (path === '/dsh-shelfry/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} })))
+      if (path === '/dsh-crate/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-tagged': '^1.0.0' } })))
+      if (path === '/dsh-crate/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} })))
       return Promise.reject(new Error(`unstubbed fetch: ${path}`))
     }))
     render(<MarketSection {...props()} preferredSubsectionId="installed" />)
@@ -120,10 +120,10 @@ describe('labelled checkboxes on a host that has Checkbox', () => {
     // (the export rows) keep native markup — `HostCheckbox` says why.
     vi.stubGlobal('fetch', vi.fn((input: unknown) => {
       const path = String(input).split('?')[0]
-      if (path === '/dsh-shelfry/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', hostVersion: '0.1.2-alpha.2', registry: REGISTRY })))
-      if (path === '/dsh-shelfry/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] })))
-      if (path === '/dsh-shelfry/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} })))
-      if (path === '/dsh-shelfry/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} })))
+      if (path === '/dsh-crate/registry') return Promise.resolve(new Response(JSON.stringify({ source: 'live', hostVersion: '0.1.2-alpha.2', registry: REGISTRY })))
+      if (path === '/dsh-crate/installed') return Promise.resolve(new Response(JSON.stringify({ profile: 'web', installed: {}, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [] })))
+      if (path === '/dsh-crate/status') return Promise.resolve(new Response(JSON.stringify({ active: false, pnpm: true, boot: 'boot-1', restart: true, installed: {} })))
+      if (path === '/dsh-crate/updates') return Promise.resolve(new Response(JSON.stringify({ updates: {} })))
       return Promise.reject(new Error(`unstubbed fetch: ${path}`))
     }))
     render(<MarketSection {...props()} />)

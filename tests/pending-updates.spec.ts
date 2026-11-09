@@ -102,7 +102,7 @@ describe('the pending-update journal', () => {
   it('treats an unreadable journal as empty instead of failing the update', () => {
     const dir = profile()
     const file = pendingUpdatesFile(dir)
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     writeFileSync(file, '{"version":1,"operations":[')
     expect(new PendingUpdateJournal(file).list()).toEqual([])
   })

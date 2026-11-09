@@ -36,7 +36,7 @@ export async function publishedReleaseUpdate(
   name: string,
 ): Promise<{ version: string; target: string } | null> {
   try {
-    const init = { headers: { 'user-agent': 'dsh-shelfry' }, signal: AbortSignal.timeout(10_000) }
+    const init = { headers: { 'user-agent': 'dsh-crate' }, signal: AbortSignal.timeout(10_000) }
     // The ordinary redirect has no REST API quota and cannot advertise an
     // unpublished main-branch version. Keep the published tag in the add target.
     const latest = await marketFetch(`https://github.com/${source.repo}/releases/latest`, { ...init, method: 'HEAD', redirect: 'manual' })

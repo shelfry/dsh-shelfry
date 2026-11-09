@@ -141,7 +141,7 @@ describe('installMarketSettings', () => {
       effect: (run: () => unknown) => { run() },
     }
     installMarketSettings(ctx as never, { allowRestart: true })
-    expect(registered).toEqual(['dsh-shelfry'])
+    expect(registered).toEqual(['dsh-crate'])
   })
 
   it('takes nothing from @deepseek-ai/dsh-settings at runtime', () => {

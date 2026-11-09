@@ -122,9 +122,9 @@ describe('hotMount reads every declared patch file (#792)', () => {
   /** The hot input files still on disk, concatenated. */
   function mountedRows(dir: string): string {
     try {
-      return readdirSync(join(dir, '.dsh-shelfry'))
+      return readdirSync(join(dir, '.dsh-crate'))
         .filter(file => /^hot-\d+\.yml$/.test(file))
-        .map(file => readFileSync(join(dir, '.dsh-shelfry', file), 'utf8'))
+        .map(file => readFileSync(join(dir, '.dsh-crate', file), 'utf8'))
         .join('')
     } catch {
       return ''
@@ -166,9 +166,9 @@ describe('hotMount reads every declared patch file (#792)', () => {
       const result = await hotMount(ctx, dir, 'array-carrier')
       expect(result.ok).toBe(true)
       // Both files contributed, in declaration order, into ONE input file.
-      const rows = readdirSync(join(dir, '.dsh-shelfry'))
+      const rows = readdirSync(join(dir, '.dsh-crate'))
         .filter(file => /^hot-\d+\.yml$/.test(file))
-        .map(file => readFileSync(join(dir, '.dsh-shelfry', file), 'utf8'))
+        .map(file => readFileSync(join(dir, '.dsh-crate', file), 'utf8'))
         .find(text => text.includes('mkt-arr-a'))
       expect(rows).toBeDefined()
       expect(rows!.indexOf('mkt-arr-b')).toBeGreaterThan(rows!.indexOf('mkt-arr-a'))
@@ -384,8 +384,8 @@ describe('mountClientOnlyDeps vs the persisted disable list (#60)', () => {
       clientOnlyPkg(dir, 'dsh-off-plugin')
       // A previous session toggled dsh-off-plugin off; the boot shim must
       // not bring its fiber back up on the next start.
-      mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled: ['dsh-off-plugin'] }))
+      mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled: ['dsh-off-plugin'] }))
 
       const mounted = await mountClientOnlyDeps(ctx, dir)
       expect(mounted).toContain('dsh-free-plugin')
@@ -615,7 +615,7 @@ describe('failed hotMount cleanup — no leftover file, no wedged fiber', () => 
       const failCtx = { plugin: () => ({ await: () => Promise.reject(new Error('Cannot find module')), dispose: () => {} }) }
       const result = await freshHotMount(failCtx, dir, 'dsh-doomed-plugin')
       expect(result.ok).toBe(false)
-      const hotFiles = readdirSync(join(dir, '.dsh-shelfry')).filter(f => f.startsWith('hot-'))
+      const hotFiles = readdirSync(join(dir, '.dsh-crate')).filter(f => f.startsWith('hot-'))
       expect(hotFiles).toEqual([])
       expect(freshList()).not.toContain('dsh-doomed-plugin')
     } finally {

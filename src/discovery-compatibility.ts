@@ -46,7 +46,7 @@ interface CacheEntry {
 }
 
 interface CacheFile {
-  schema: 'dsh-shelfry/discovery-compatibility-cache/v1'
+  schema: 'dsh-crate/discovery-compatibility-cache/v1'
   entries: Record<string, CacheEntry>
 }
 
@@ -55,7 +55,7 @@ type FetchLike = (
   init?: { signal?: AbortSignal; headers?: Record<string, string> },
 ) => Promise<Response>
 
-const CACHE_SCHEMA = 'dsh-shelfry/discovery-compatibility-cache/v1' as const
+const CACHE_SCHEMA = 'dsh-crate/discovery-compatibility-cache/v1' as const
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 const FAILURE_COOLDOWN_MS = 5 * 60 * 1000
 const OUTAGE_COOLDOWN_MS = 30 * 1000
@@ -87,7 +87,7 @@ async function githubManifest(source: GitHubManifestSource, fetcher: FetchLike):
   const json = async (url: string): Promise<unknown> => {
     const response = await fetcher(url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+      headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
     })
     if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
     return await response.json()
@@ -337,7 +337,7 @@ export class DiscoveryManifestIndex {
         const value = await this.withFetchPermit(readManifest ?? (async () => {
           const response = await this.fetcher(`${registry}/${encodeURIComponent(name)}/latest`, {
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-            headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+            headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
           })
           if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
           return await response.json()
@@ -394,7 +394,7 @@ export class DiscoveryManifestIndex {
         `${registry}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`,
         {
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-          headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+          headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
         },
       ))
       if (!response.ok) return null
@@ -490,7 +490,7 @@ export async function findCompatibleVersion(
   try {
     const res = await fetcher(
       `${registry}/${encodeURIComponent(npmName)}`,
-      { signal: AbortSignal.timeout(15_000), headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' } },
+      { signal: AbortSignal.timeout(15_000), headers: { accept: 'application/json', 'user-agent': 'dsh-crate' } },
     )
     if (!res.ok) return null
     doc = await res.json()

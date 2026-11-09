@@ -15,7 +15,7 @@
  * plugin the user has to notice is gone.
  *
  * The file lives beside the market's other per-profile state
- * (`<profile>/.dsh-shelfry/`), not in the market's memory and not in DSH home:
+ * (`<profile>/.dsh-crate/`), not in the market's memory and not in DSH home:
  * a profile copied or reset elsewhere must not inherit another profile's
  * unfinished update, and a test that builds a throwaway profile must not touch
  * the real one.

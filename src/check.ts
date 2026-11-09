@@ -198,7 +198,7 @@ export interface PeerMismatch {
    */
   optional?: boolean
   /**
-   * The directional verdict, attached by `/dsh-shelfry/check` for rows that
+   * The directional verdict, attached by `/dsh-crate/check` for rows that
    * did not match. It is computed on the server because the client cannot
    * read `peerDependenciesMeta` off disk, and the tiering would otherwise
    * have to be guessed from the range string (#201).

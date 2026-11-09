@@ -511,7 +511,7 @@ export function restartHelperSource(
     `const recoveryScript = ${JSON.stringify(recovery?.script ?? null)}`,
     `const recoveryConfig = ${JSON.stringify(recovery?.config ?? null)}`,
     'const sleep = (ms) => new Promise(r => setTimeout(r, ms))',
-    'const note = (line) => { try { fs.appendFileSync(logErr, `[dsh-shelfry] ${line}\n`) } catch {} }',
+    'const note = (line) => { try { fs.appendFileSync(logErr, `[dsh-crate] ${line}\n`) } catch {} }',
     // How the helper itself ended. A restart that fails leaves this file as
     // the only account of what happened, and "the helper vanished" and "the
     // helper exited" are different bugs with the same symptom.
@@ -690,15 +690,15 @@ export function scheduleRestart(port: number | null = null, recovery?: RecoveryH
   const launch = restartLaunch()
   const spawned = respawnInvocation(launch)
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const logOut = join(tmpdir(), `dsh-shelfry-restart-${stamp}.out.log`)
-  const logErr = join(tmpdir(), `dsh-shelfry-restart-${stamp}.err.log`)
+  const logOut = join(tmpdir(), `dsh-crate-restart-${stamp}.out.log`)
+  const logErr = join(tmpdir(), `dsh-crate-restart-${stamp}.err.log`)
   let handoff: { script: string; config: string } | null = null
   const script = recoveryScriptPath()
   // No port means no origin to serve the recovery page on, and no script
   // means no recovery server to serve it with; in both cases the helper keeps
   // its pre-recovery behaviour instead of leaving a config file nobody reads.
   if (recovery !== undefined && port !== null && script !== null) {
-    const configPath = join(tmpdir(), `dsh-shelfry-restart-${stamp}.recovery.json`)
+    const configPath = join(tmpdir(), `dsh-crate-restart-${stamp}.recovery.json`)
     try {
       writeFileSync(configPath, JSON.stringify({
         ...recovery,

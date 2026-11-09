@@ -128,7 +128,7 @@ export function isDeclaredLibraryDsh(dsh: PkgDsh | null | undefined): boolean {
  *
  * The live set (see `liveNames` in routes.ts) holds loader entry names — the
  * `name:` field of each bundle patch row. Bundles usually name the bare
- * package (`dsh-shelfry`, `@scope/pkg`), but may point at a subpath entry
+ * package (`dsh-crate`, `@scope/pkg`), but may point at a subpath entry
  * (`@vectorize-io/hindsight-coding-agents/dsh`, `aegis/extensions/dsh/index.js`).
  * Either form means the package's fiber is up and it must read as live;
  * a different package sharing a name prefix (`@scope/pkg2` vs `@scope/pkg`)
@@ -701,7 +701,7 @@ export function verifyActivation(
  * a running composition does not re-import anything.
  *
  * Measured on a real host rather than reasoned about — updating the market
- * from 1.11.3 to 1.12.2 left `/dsh-shelfry/status` reporting 1.11.3 with an
+ * from 1.11.3 to 1.12.2 left `/dsh-crate/status` reporting 1.11.3 with an
  * unchanged boot id, while the update route called it hot-loaded in the same
  * response. The browser half genuinely does refresh (the host re-serves the
  * client bundle from disk), which is what makes the wrong verdict credible:

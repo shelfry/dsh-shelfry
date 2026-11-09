@@ -122,8 +122,8 @@ describe('loadRegistry', () => {
     expect(registry.plugins[1]?.downloads).toBe(0)
   })
 
-  it('maps a shelfry catalog through the adapter', async () => {
-    // 真实来源换成了 shelfry 的 entries 结构；分派按结构判断，所以这里既
+  it('maps a crate catalog through the adapter', async () => {
+    // 真实来源换成了 crate 的 entries 结构；分派按结构判断，所以这里既
     // 验证适配器被用到，也验证旧夹具仍走旧路径。
     scriptedFetch(ok({
       schemaVersion: 2,
@@ -187,7 +187,7 @@ describe('loadRegistry', () => {
   })
 
   it('gives up after the second attempt rather than hammering', async () => {
-    // shelfry 只有一份目录地址，两次尝试之后就不再重试：失败就是失败，
+    // crate 只有一份目录地址，两次尝试之后就不再重试：失败就是失败，
     // 多打几次只会让「连不上」这三个字来得更慢。
     const stub = scriptedFetch(new Error('fetch failed'))
     await expect(loadRegistry()).rejects.toThrow(/fetch failed/)
@@ -246,17 +246,17 @@ describe('loadRegistry download regions', () => {
     return stub
   }
 
-  it('reads the catalog from shelfry in the global region', async () => {
-    const stub = byUrl([[/shelfry\.app/, ok(CATALOG)]])
+  it('reads the catalog from crate in the global region', async () => {
+    const stub = byUrl([[/dshcrate\.com/, ok(CATALOG)]])
     await loadRegistry('global')
-    expect(String(stub.mock.calls[0]?.[0])).toContain('shelfry.app/data/dsh-shelfry.json')
+    expect(String(stub.mock.calls[0]?.[0])).toContain('dshcrate.com/data/dsh-crate.json')
   })
 
-  it('reads the same shelfry address in the china region', async () => {
+  it('reads the same crate address in the china region', async () => {
     // 目录没有 npm 镜像包可退：地区只影响插件本身的下载线路，不影响目录地址。
-    const stub = byUrl([[/shelfry\.app/, ok(CATALOG)]])
+    const stub = byUrl([[/dshcrate\.com/, ok(CATALOG)]])
     await loadRegistry('china')
-    expect(String(stub.mock.calls[0]?.[0])).toContain('shelfry.app/data/dsh-shelfry.json')
+    expect(String(stub.mock.calls[0]?.[0])).toContain('dshcrate.com/data/dsh-crate.json')
   })
 
   it('reports every attempt it made when the whole list fails', async () => {
@@ -265,7 +265,7 @@ describe('loadRegistry download regions', () => {
   })
 
   it('stops at its own region when that region answers (#891)', async () => {
-    const stub = byUrl([[/shelfry\.app/, ok(CATALOG)]])
+    const stub = byUrl([[/dshcrate\.com/, ok(CATALOG)]])
     await loadRegistry('global')
     expect(stub).toHaveBeenCalledTimes(1)
   })
@@ -274,9 +274,9 @@ describe('loadRegistry download regions', () => {
     // A validator is scoped to the URL that issued it. Carried across a
     // region switch it could earn a 304 from an origin whose body we have
     // never seen, and the market would render a catalog it never received.
-    byUrl([[/shelfry\.app/, okTagged(CATALOG, 'W/"one"')]])
+    byUrl([[/dshcrate\.com/, okTagged(CATALOG, 'W/"one"')]])
     await loadRegistry('global')
-    const stub = byUrl([[/shelfry\.app/, ok(CATALOG)]])
+    const stub = byUrl([[/dshcrate\.com/, ok(CATALOG)]])
     await loadRegistry('china')
     const etagOf = (call: unknown[]): string | undefined =>
       ((call[1] ?? {}) as { headers?: Record<string, string> }).headers?.['if-none-match']

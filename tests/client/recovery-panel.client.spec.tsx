@@ -50,7 +50,7 @@ function view(overrides: Partial<RecoveryView> = {}): RecoveryView {
     ],
     unmatched: [],
     lastErrors: [],
-    logPath: '/tmp/dsh-shelfry-restart.err.log',
+    logPath: '/tmp/dsh-crate-restart.err.log',
     ...overrides,
   }
 }
@@ -167,7 +167,7 @@ describe('RecoveryPanel', () => {
 describe('isRecoveryView', () => {
   it('accepts the recovery payload and rejects the host status payload', () => {
     expect(isRecoveryView(view())).toBe(true)
-    // /dsh-shelfry/status answers with this shape while the host is alive; it
+    // /dsh-crate/status answers with this shape while the host is alive; it
     // has no recovery block, and treating it as one would render an empty
     // panel over a working market.
     expect(isRecoveryView({ ok: true, boot: '1-1', version: '1.46.1' })).toBe(false)
@@ -221,7 +221,7 @@ describe('applyRecovery', () => {
 describe('watchRestart', () => {
   it('reports the new boot when the host comes back', async () => {
     vi.stubGlobal('fetch', (url: string) => {
-      if (String(url).includes('/dsh-shelfry/status')) {
+      if (String(url).includes('/dsh-crate/status')) {
         return Promise.resolve(new Response(JSON.stringify({ ok: true, boot: '2-2' }), { status: 200 }))
       }
       return Promise.reject(new Error('unexpected'))
@@ -237,7 +237,7 @@ describe('watchRestart', () => {
 
   it('reports the recovery surface coming back with a new failure', async () => {
     vi.stubGlobal('fetch', (url: string) => {
-      if (String(url).includes('/dsh-shelfry/recovery')) {
+      if (String(url).includes('/dsh-crate/recovery')) {
         return Promise.resolve(new Response(JSON.stringify(view()), { status: 200 }))
       }
       return Promise.resolve(new Response(

@@ -1,7 +1,7 @@
 # Public plugin update API v1
 
 > **Status: beta.** The shape described here may still change between
-> releases. `GET /dsh-shelfry/api/v1/capabilities` reports
+> releases. `GET /dsh-crate/api/v1/capabilities` reports
 > `"stability": "beta"` while that is true, and `"stable"` once it stops
 > moving — read that field rather than assuming from the `v1` in the path.
 >
@@ -19,13 +19,13 @@ Market UI's private response fields.
 All responses carry:
 
 ```json
-{ "schema": "dsh-shelfry/update-api/v1" }
+{ "schema": "dsh-crate/update-api/v1" }
 ```
 
 Clients must discover the API before enabling mutation controls:
 
 ```http
-GET /dsh-shelfry/api/v1/capabilities
+GET /dsh-crate/api/v1/capabilities
 ```
 
 The response names the Market version, profile, runtime (`web` or `desktop`),
@@ -36,12 +36,12 @@ normally delegate restart to their owning shell or operator.
 ## Count what can be updated
 
 ```http
-GET /dsh-shelfry/api/v1/updates/summary
+GET /dsh-crate/api/v1/updates/summary
 ```
 
 ```json
 {
-  "schema": "dsh-shelfry/update-api/v1",
+  "schema": "dsh-crate/update-api/v1",
   "checked": 12,
   "updatable": 3,
   "packages": [
@@ -60,14 +60,14 @@ returns, and lists only plugins that can be updated. A badge needs
 `updatable`; a panel needs the rows; neither should have to filter the whole
 profile itself.
 
-`GET /dsh-shelfry/api/v1/capabilities` reports this endpoint at
+`GET /dsh-crate/api/v1/capabilities` reports this endpoint at
 `endpoints.updatesSummary` and sets `features.updatesSummary`. Check that
 rather than probing for the path.
 
 ## Check one installed package
 
 ```http
-GET /dsh-shelfry/api/v1/updates?name=dsh-mcp-connector&force=1
+GET /dsh-crate/api/v1/updates?name=dsh-mcp-connector&force=1
 ```
 
 The response includes the installed version, target version, source kind and
@@ -87,7 +87,7 @@ change. A script or tool calling these endpoints from outside the browser is the
 anonymous client this refuses; there is no separate token for it.
 
 ```http
-POST /dsh-shelfry/api/v1/updates
+POST /dsh-crate/api/v1/updates
 Content-Type: application/json
 
 { "packageName": "dsh-mcp-connector" }
@@ -101,7 +101,7 @@ wait; clients should offer it only after the normal operation reports
 Poll the operation by id:
 
 ```http
-GET /dsh-shelfry/api/v1/operations?operationId=<id>
+GET /dsh-crate/api/v1/operations?operationId=<id>
 ```
 
 States are `queued`, `running`, `succeeded`, `failed`, `cancelled` and
@@ -137,7 +137,7 @@ record for a task belonging to the replacement process.
 ## Roll back
 
 ```http
-POST /dsh-shelfry/api/v1/rollback
+POST /dsh-crate/api/v1/rollback
 Content-Type: application/json
 
 { "operationId": "<id>" }
@@ -151,7 +151,7 @@ the same operation record.
 ## Restart
 
 ```http
-POST /dsh-shelfry/api/v1/restart
+POST /dsh-crate/api/v1/restart
 Content-Type: application/json
 
 {}
@@ -204,4 +204,4 @@ anyone else.
 - Existing v1 fields and meanings are not repurposed.
 - A breaking change uses a new path and schema version.
 - When discovery is unavailable, plugin UIs should fall back to opening the
-  Market rather than calling legacy `/dsh-shelfry/*` mutation routes directly.
+  Market rather than calling legacy `/dsh-crate/*` mutation routes directly.

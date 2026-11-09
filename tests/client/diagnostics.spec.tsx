@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Portable render tests for the Diagnostics tab (issue #98, phase 1, updated
- * for #201 tiering). The host boundary is the single /dsh-shelfry/check fetch,
+ * for #201 tiering). The host boundary is the single /dsh-crate/check fetch,
  * stubbed with a synthetic fixture CheckReport (mirroring src/check.ts) — no
  * real profile, no absolute machine paths, so this runs on any environment/CI.
  */
@@ -24,10 +24,10 @@ const REPORT = {
       error: null, entries: ['dsh-base', 'session-title-llm'], parseError: null,
     },
     {
-      name: 'dsh-shelfry', source: '^1.9.0', kind: 'community',
-      directory: '/synthetic/node_modules/dsh-shelfry',
-      patchPath: '/synthetic/node_modules/dsh-shelfry/cordis.patch.yml',
-      error: null, entries: ['dsh-shelfry'], parseError: null,
+      name: 'dsh-crate', source: '^1.9.0', kind: 'community',
+      directory: '/synthetic/node_modules/dsh-crate',
+      patchPath: '/synthetic/node_modules/dsh-crate/cordis.patch.yml',
+      error: null, entries: ['dsh-crate'], parseError: null,
     },
     {
       name: 'broken-bundle', source: '^2.0.0', kind: 'community',
@@ -98,7 +98,7 @@ const t = (key: string) => (en as Record<string, string>)[key] ?? key
 /** Stub the single host boundary and assert the request shape. */
 function stubCheckReport(payload: unknown) {
   const mock = vi.fn((input: unknown, init?: RequestInit) => {
-    expect(String(input)).toBe('/dsh-shelfry/check')
+    expect(String(input)).toBe('/dsh-crate/check')
     expect(init?.cache).toBe('no-store')
     return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))
   })
@@ -170,7 +170,7 @@ describe('Diagnostics (jsdom)', () => {
     expect(bundleBlocks.length).toBe(3)
     const block = (i: number) => bundleBlocks[i] as HTMLElement
     expect(block(0).querySelector('.' + css.nm)?.textContent).toBe('@deepseek-ai/dsh-base')
-    expect(block(1).querySelector('.' + css.nm)?.textContent).toBe('dsh-shelfry')
+    expect(block(1).querySelector('.' + css.nm)?.textContent).toBe('dsh-crate')
     expect(block(2).querySelector('.' + css.nm)?.textContent).toBe('broken-bundle')
     expect(within(block(0)).getByText(t('checkOfficial'))).toBeTruthy()
     expect(within(block(1)).getByText(t('checkCommunity'))).toBeTruthy()
@@ -254,7 +254,7 @@ describe('Diagnostics (jsdom)', () => {
     expect(container.querySelectorAll('.' + css.diagBundle).length).toBe(0)
   })
 
-  it('shows the load-failure state when /dsh-shelfry/check is not ok', async () => {
+  it('shows the load-failure state when /dsh-crate/check is not ok', async () => {
     const mock = vi.fn(() => Promise.resolve(new Response('boom', { status: 500 })))
     vi.stubGlobal('fetch', mock)
     render(<Diagnostics t={t} />)

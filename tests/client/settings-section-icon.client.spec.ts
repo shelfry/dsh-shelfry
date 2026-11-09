@@ -11,7 +11,7 @@ import { createElement } from 'react'
 import { apply } from '../../src/client/index.ts'
 import { MarketLogo } from '../../src/client/MarketSection.tsx'
 
-const STYLESHEET = 'style[data-plugin-css="dsh-shelfry/settings-nav-icon"]'
+const STYLESHEET = 'style[data-plugin-css="dsh-crate/settings-nav-icon"]'
 
 interface Registration {
   options: Record<string, unknown>

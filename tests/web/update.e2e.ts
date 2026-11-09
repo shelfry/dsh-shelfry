@@ -64,7 +64,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real update chain', () => {
    * Older hosts only had that mount — the marker goes.
    */
   const hostComposesInstalledBundles = async (): Promise<boolean> => {
-    const status = await get('/dsh-shelfry/status')
+    const status = await get('/dsh-crate/status')
     // How /status names the 0.1.7+ settings model. `registered` is the
     // pre-0.1.7 host that still has `settings.register`.
     if (status.settingsNamespace === 'unsupported-by-host') return true
@@ -93,19 +93,19 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real update chain', () => {
   }
 
   it('installs the fixture at 1.0.0 and runs it', async () => {
-    const installed = await post('/dsh-shelfry/install', { url: `https://github.com/dshm-e2e/${A}` })
+    const installed = await post('/dsh-crate/install', { url: `https://github.com/dshm-e2e/${A}` })
     expect(installed.status).toBe(200)
     expect(liveVersion()).toBe('1.0.0')
   }, 300_000)
 
   it('offers 2.0.0 as an update once it is published', async () => {
     scaffold.publish(A, '2.0.0')
-    const updates = await get('/dsh-shelfry/updates?force=1')
+    const updates = await get('/dsh-crate/updates?force=1')
     expect(updates.updates[A]).toMatchObject({ kind: 'npm', current: '1.0.0', latest: '2.0.0', updateAvailable: true })
   }, 120_000)
 
   it('replaces the files but leaves the running process on the old module', async () => {
-    const updated = await post('/dsh-shelfry/update', { name: A })
+    const updated = await post('/dsh-crate/update', { name: A })
     expect(updated.status).toBe(200)
     expect(await updated.json()).toMatchObject({ ok: true })
 
@@ -124,7 +124,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real update chain', () => {
     // the marker above flips to 2.0.0 and this suite fails loudly — which is
     // the point of writing the marker with a version rather than a
     // timestamp.
-    const state = await get('/dsh-shelfry/installed')
+    const state = await get('/dsh-crate/installed')
     expect(state.activation[A]?.state).toBe('restart')
     expect(state.activation[A]?.hot).toBe(false)
   }, 120_000)
@@ -134,7 +134,7 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real update chain', () => {
     // reads. Recomputing activation from the loader's inventory alone made
     // the notice disappear on refresh, leaving a plugin that serves its old
     // build looking finished and current.
-    const again = await get('/dsh-shelfry/installed')
+    const again = await get('/dsh-crate/installed')
     expect(again.activation[A]?.state).toBe('restart')
     await expectStillOldBuild()
   }, 120_000)
@@ -146,11 +146,11 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real update chain', () => {
     // serves from its ESM cache — so the old build keeps running. The toggle
     // reply nevertheless said `live`, `restart: false`, because it asked the
     // loader's inventory (the name is there) and not whether the code was new.
-    const off = await post('/dsh-shelfry/toggle', { name: A, enabled: false })
+    const off = await post('/dsh-crate/toggle', { name: A, enabled: false })
     expect(off.status).toBe(200)
     expect(liveVersion(), 'the marker should go when the plugin is unloaded').toBeNull()
 
-    const on = await post('/dsh-shelfry/toggle', { name: A, enabled: true })
+    const on = await post('/dsh-crate/toggle', { name: A, enabled: true })
     expect(on.status).toBe(200)
     const reply = await on.json() as { restart?: boolean; activation?: Record<string, { state?: string; hot?: boolean }> }
 
@@ -166,19 +166,19 @@ describe.skipIf(!HAS_DSH).sequential('web e2e: the real update chain', () => {
 
     // And the listing agrees with the reply, rather than the two telling
     // different stories about the same moment.
-    const state = await get('/dsh-shelfry/installed')
+    const state = await get('/dsh-crate/installed')
     expect(state.activation[A]?.state).toBe('restart')
   }, 300_000)
 
   it('is live on the new build after a restart, with the notice gone', async () => {
     await scaffold.restart()
     expect(liveVersion()).toBe('2.0.0')
-    const state = await get('/dsh-shelfry/installed')
+    const state = await get('/dsh-crate/installed')
     expect(state.activation[A]?.state).toBe('live')
   }, 300_000)
 
   it('treats a second update of the now-current plugin as a skip, not a failure (#495)', async () => {
-    const again = await post('/dsh-shelfry/update', { name: A })
+    const again = await post('/dsh-crate/update', { name: A })
     expect(again.status).toBe(200)
     expect(await again.json()).toMatchObject({ ok: true, skipped: 'current', version: '2.0.0' })
   }, 300_000)

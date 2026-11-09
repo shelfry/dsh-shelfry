@@ -106,7 +106,7 @@ function renderNothing(): null {
 function pickIcon(newer: string, older: string): IconComponent {
   const resolved = resolveIcon(primitives as unknown as Record<string, unknown>, newer, older)
   if (resolved === null) {
-    console.warn(`[dsh-shelfry] host ui-primitives missing ${newer} / ${older} — icon skipped`)
+    console.warn(`[dsh-crate] host ui-primitives missing ${newer} / ${older} — icon skipped`)
     return renderNothing as unknown as IconComponent
   }
   return resolved

@@ -1,6 +1,6 @@
 /**
- * Registry access: shelfry 的目录（dsh-shelfry.json）每次请求都重新拉取。
- * 这里只负责抓取、重试、校验与 304 复用；字段映射见 src/shelfry-catalog.ts。
+ * Registry access: crate 的目录（dsh-crate.json）每次请求都重新拉取。
+ * 这里只负责抓取、重试、校验与 304 复用；字段映射见 src/crate-catalog.ts。
  */
 
 import { BODY_STALL_TIMEOUT_MS, HEADERS_TIMEOUT_MS, readBodyWhileProgressing } from './body-progress.ts'
@@ -8,7 +8,7 @@ import { logEvent } from './log.ts'
 import { configuredProxy, marketFetch } from './net.ts'
 import { catalogFromPackage } from './catalog-npm.ts'
 import { activeRegion, catalogSourcesFor, routesFor, type CatalogSource, type Region } from './regions.ts'
-import { asShelfryRegistry, isShelfryCatalog } from './shelfry-catalog.ts'
+import { asCrateRegistry, isCrateCatalog } from './crate-catalog.ts'
 import { NPM_NAME_RE } from './sources.ts'
 
 export interface RegistryPlugin {
@@ -214,14 +214,14 @@ function sourceKey(source: CatalogSource): string {
 /**
  * 目录载荷分派：按结构选适配器，而不是按地区或地址。
  *
- * shelfry 的载荷带 `entries`，旧的目录带 `plugins`；两套结构各自校验，夹具
+ * crate 的载荷带 `entries`，旧的目录带 `plugins`；两套结构各自校验，夹具
  * 与真实数据都不会误入对方的分支。
  *
  * @param value - 已经 `JSON.parse` 过的目录载荷。
  * @throws 两个适配器都可能因为数据不可用而抛出，异常留给调用方重试。
  */
 function parseCatalog(value: unknown): Registry {
-  return isShelfryCatalog(value) ? asShelfryRegistry(value) : asRegistry(value)
+  return isCrateCatalog(value) ? asCrateRegistry(value) : asRegistry(value)
 }
 
 /** A parsed catalog, or a thrown explanation of why it is not one. */

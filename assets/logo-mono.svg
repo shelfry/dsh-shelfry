@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t">
-  <title id="t">shelfry</title>
+  <title id="t">crate</title>
   <!-- 单色标记：与 logo.svg 同一套几何，颜色交给 currentColor。 -->
   <style>
     .cell{ animation: dshmWave 2.8s cubic-bezier(.4,0,.2,1) infinite; animation-delay: calc(var(--w) * 200ms); }

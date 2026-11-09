@@ -127,7 +127,7 @@ it('adds the market as a tab on the Plugins page when the host declares one', ()
   const tab = host.registrations.find(entry => entry.name === 'plugins.tab')!
   // Placed before the host's Discover (which registers with no order, i.e. 0),
   // so the market sits next to 已安装.
-  expect(tab.id).toBe('dsh-shelfry')
+  expect(tab.id).toBe('dsh-crate')
   expect(tab.order).toBeLessThan(0)
 })
 
@@ -186,7 +186,7 @@ describe('apply() contains a throw from the host (#869)', () => {
       spy.mockRestore()
     }
     expect(logged).toHaveLength(1)
-    expect(String(logged[0][0])).toContain('[dsh-shelfry] mounting failed')
+    expect(String(logged[0][0])).toContain('[dsh-crate] mounting failed')
     // The error object rides along so the console holds the stack, not just
     // a sentence about it.
     expect(logged[0][1]).toBeInstanceOf(Error)
@@ -214,6 +214,6 @@ describe('apply() contains a throw from the host (#869)', () => {
       spy.mockRestore()
     }
     expect(logged).toHaveLength(1)
-    expect(String(logged[0][0])).toContain('[dsh-shelfry] mounting failed')
+    expect(String(logged[0][0])).toContain('[dsh-crate] mounting failed')
   })
 })

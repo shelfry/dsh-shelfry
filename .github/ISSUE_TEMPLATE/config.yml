@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: 插件收录 / 截图提交 — Plugin catalog & screenshots
-    url: https://shelfry.app
-    about: 想让插件、主题出现在市场里，或提交插件截图，请到 shelfry 提交，本仓库不收。/ Plugin, theme and screenshot submissions go to shelfry — not here.
+    url: https://dshcrate.com
+    about: 想让插件、主题出现在市场里，或提交插件截图，请到 crate 提交，本仓库不收。/ Plugin, theme and screenshot submissions go to crate — not here.
   - name: 市场本身的问题 / Problems with the market itself
-    url: https://github.com/shelfry/dsh-shelfry/issues
+    url: https://github.com/dshcrate/dsh-crate/issues
     about: 装不上、界面异常、数据不对等市场自身的问题，请在这里提 issue。/ Report install failures, UI bugs and catalog problems here.

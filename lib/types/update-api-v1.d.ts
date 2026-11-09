@@ -3,10 +3,10 @@
  *
  * The market UI has richer internal response shapes that evolve with its UI.
  * Third-party plugins must not depend on those shapes, so this module owns the
- * small JSON envelope exposed under `/dsh-shelfry/api/v1`.
+ * small JSON envelope exposed under `/dsh-crate/api/v1`.
  */
 import type { InstallProgress } from './dsh-cli.ts';
-export declare const UPDATE_API_V1_SCHEMA: 'dsh-shelfry/update-api/v1';
+export declare const UPDATE_API_V1_SCHEMA: 'dsh-crate/update-api/v1';
 export declare const MAX_UPDATE_OPERATIONS_V1 = 50;
 export type UpdateOperationState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'rolled-back';
 export interface UpdateFailureV1 {

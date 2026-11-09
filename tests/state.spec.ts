@@ -18,19 +18,19 @@ import {
 
 function stateDir(): string {
   const dir = mkdtempSync(join(tmpdir(), 'dshm-state-'))
-  mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+  mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
   return dir
 }
 
 function readRaw(dir: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as Record<string, unknown>
+  return JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as Record<string, unknown>
 }
 
 describe('market state.json (#60)', () => {
   it('loads legacy disabledSkins; new writes use the unified disabled key', () => {
     const dir = stateDir()
     try {
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabledSkins: ['theme-a'] }))
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabledSkins: ['theme-a'] }))
       expect([...readMarketState(dir).disabled]).toEqual(['theme-a'])
       expect([...readDisabled(dir)]).toEqual(['theme-a'])
       expect([...readDisabledThemes(dir)]).toEqual(['theme-a'])
@@ -84,7 +84,7 @@ describe('market state.json (#60)', () => {
 
   it('drops a blank note rather than storing an empty label', () => {
     const dir = stateDir()
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({
       notes: { a: '  ', b: 'real', c: 7 },
     }))
     expect(readMarketState(dir).notes).toEqual({ b: 'real' })
@@ -166,7 +166,7 @@ describe('market state.json (#60)', () => {
       expect(readMarketState(dir).blocked).toEqual(['dsh-loop', 'dsh-notify'])
       expect('blocked' in readRaw(dir)).toBe(true)
 
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({
         blocked: ['ok', 7, null, 'ok', ''],
       }))
       expect(readMarketState(dir).blocked).toEqual(['ok'])
@@ -178,9 +178,9 @@ describe('market state.json (#60)', () => {
   it('readMarketState normalizes malformed payloads to empty state', () => {
     const dir = stateDir()
     try {
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'not json')
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), 'not json')
       expect(readMarketState(dir)).toEqual({ disabled: new Set(), groups: {}, groupOrder: [], notes: {}, favorites: [], blocked: [], updateExempt: [] })
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({
         disabled: ['a', 'a', '', 7],
         groups: { work: ['x', 'x', 3] },
         groupOrder: ['work', 'work', null],
@@ -230,7 +230,7 @@ describe('market state.json (#60)', () => {
       expect(readMarketState(dir).channel).toBeUndefined()
 
       // ...and a junk value on disk is not a choice either.
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ channel: 'nightly' }))
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ channel: 'nightly' }))
       expect(readMarketState(dir).channel).toBeUndefined()
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -260,7 +260,7 @@ describe('market state.json (#60)', () => {
 
       // Names pnpm would never apply, blank values and non-strings are
       // dropped rather than replayed into every future install.
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({
         buildEnv: { CC: '/usr/bin/gcc-11', '1BAD': 'x', 'A-B': 'y', BLANK: '   ', NUM: 7, PATH: '/evil' },
       }))
       expect(readMarketState(dir).buildEnv).toEqual({ CC: '/usr/bin/gcc-11' })
@@ -277,7 +277,7 @@ describe('market state.json (#60)', () => {
       expect(readMarketState(dir).buildEnv).toBeUndefined()
       // An all-junk map on disk reads as "never saved" — the composition
       // keeps inheriting rather than a frozen empty override.
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ buildEnv: { '': '' } }))
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ buildEnv: { '': '' } }))
       expect(readMarketState(dir).buildEnv).toBeUndefined()
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -342,7 +342,7 @@ describe('a partial write must not erase the rest of the state (#435)', () => {
     const dir = stateDir()
     writeMarketState(dir, { disabled: new Set(['a']), groups: {}, groupOrder: [] })
 
-    const written = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as Record<string, unknown>
+    const written = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as Record<string, unknown>
     expect('channel' in written).toBe(false)
     expect('region' in written).toBe(false)
     rmSync(dir, { recursive: true, force: true })
@@ -364,7 +364,7 @@ describe('a partial write must not erase the rest of the state (#435)', () => {
       const current = readMarketState(dir)
       writeMarketState(dir, { ...current, region: 'global', regionAuto: undefined })
 
-      const written = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as Record<string, unknown>
+      const written = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as Record<string, unknown>
       expect(written.region).toBe('global')
       expect('regionAuto' in written).toBe(false)
       expect(readMarketState(dir).regionAuto).toBeUndefined()
@@ -420,7 +420,7 @@ describe('a partial write must not erase the rest of the state (#435)', () => {
     const dir = stateDir()
     try {
       for (const sidebarEntry of ['true', 1, null, {}]) {
-        writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ sidebarEntry }))
+        writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ sidebarEntry }))
         expect(readMarketState(dir).sidebarEntry).toBeUndefined()
       }
     } finally {
@@ -462,7 +462,7 @@ describe('a partial write must not erase the rest of the state (#435)', () => {
     const dir = stateDir()
     try {
       for (const value of ['false', 0, null, {}, true]) {
-        writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ settingsSection: value, pluginsTab: value }))
+        writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ settingsSection: value, pluginsTab: value }))
         expect(readMarketState(dir).settingsSection).toBeUndefined()
         expect(readMarketState(dir).pluginsTab).toBeUndefined()
       }
@@ -480,7 +480,7 @@ describe('a partial write must not erase the rest of the state (#435)', () => {
         'https://mirror.example/?token=secret',
         'not a url',
       ]) {
-        writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ githubProxy }))
+        writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ githubProxy }))
         expect(readMarketState(dir).githubProxy).toBeUndefined()
       }
     } finally {
@@ -496,7 +496,7 @@ describe('group state normalization (#964)', () => {
       // The reported file: four names in the order, one key in the map. The
       // UI lists all four, and every operation on the three ghosts answers
       // group-not-found — including delete.
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({
         groups: { '本地化插件': ['dsh-loop'] },
         groupOrder: ['插件', '工作', '学习', '本地化插件'],
       }))
@@ -511,7 +511,7 @@ describe('group state normalization (#964)', () => {
   it('keeps a group whose order entry is missing', () => {
     const dir = stateDir()
     try {
-      writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({
+      writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({
         groups: { work: [], play: [] },
         groupOrder: ['play'],
       }))
@@ -553,9 +553,9 @@ describe('group CRUD (groups.ts)', () => {
 
   it('set-members keeps only installed unique names and drops the market itself', () => {
     const state = { groups: { work: [] }, groupOrder: ['work'] }
-    const installed = new Set(['dsh-loop', 'dsh-notify', 'dsh-shelfry'])
+    const installed = new Set(['dsh-loop', 'dsh-notify', 'dsh-crate'])
     const themes = new Set(['theme-a'])
-    expect(setGroupMembers(state, 'work', ['dsh-loop', 'dsh-loop', 'ghost', 'dsh-shelfry'], installed, themes).ok).toBe(true)
+    expect(setGroupMembers(state, 'work', ['dsh-loop', 'dsh-loop', 'ghost', 'dsh-crate'], installed, themes).ok).toBe(true)
     expect(state.groups.work).toEqual(['dsh-loop'])
     expect(setGroupMembers(state, 'ghost', [], installed, themes).ok).toBe(false)
     expect(setGroupMembers(state, 'work', 'nope', installed, themes).ok).toBe(false)

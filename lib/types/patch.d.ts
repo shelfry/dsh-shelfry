@@ -95,7 +95,7 @@ export declare function userPatchPackageReferences(patchPath: string, packageNam
  * `EntryOptions.id` is a TypeScript interface, not a runtime check: an
  * unquoted `- id: 1` in `cordis.patch.yml` is parsed by YAML as the NUMBER 1,
  * the host's loader accepts it, and every `.split(':')` on it then throws —
- * `/dsh-shelfry/installed` answered 400 with an empty body and the UI showed
+ * `/dsh-crate/installed` answered 400 with an empty body and the UI showed
  * "no community plugins installed" (#1071). The market's own regex parser
  * only ever produces strings, so this is reachable only through the loader.
  *

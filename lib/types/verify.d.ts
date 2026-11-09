@@ -144,7 +144,7 @@ loaderNeverStarted?: boolean): ActivationResult;
  * a running composition does not re-import anything.
  *
  * Measured on a real host rather than reasoned about — updating the market
- * from 1.11.3 to 1.12.2 left `/dsh-shelfry/status` reporting 1.11.3 with an
+ * from 1.11.3 to 1.12.2 left `/dsh-crate/status` reporting 1.11.3 with an
  * unchanged boot id, while the update route called it hot-loaded in the same
  * response. The browser half genuinely does refresh (the host re-serves the
  * client bundle from disk), which is what makes the wrong verdict credible:

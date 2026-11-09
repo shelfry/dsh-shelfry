@@ -36,7 +36,7 @@ import {
 } from './market-mark.ts'
 
 /** Marks the one nav row this plugin owns. */
-export const NAV_ICON_MARKER = 'data-dsh-shelfry-nav-icon'
+export const NAV_ICON_MARKER = 'data-dsh-crate-nav-icon'
 
 /**
  * The nav rows of the settings dialog. The shell renders each
@@ -139,8 +139,8 @@ export function installSettingsNavIcon(ctx: NavIconContext, resolveLabel: () => 
   let dispose = () => {}
   ctx.effect(() => {
     const tag = document.createElement('style')
-    tag.dataset.plugin = 'dsh-shelfry'
-    tag.dataset.pluginCss = 'dsh-shelfry/settings-nav-icon'
+    tag.dataset.plugin = 'dsh-crate'
+    tag.dataset.pluginCss = 'dsh-crate/settings-nav-icon'
     tag.textContent = navIconCss(marketMaskUrl())
     document.head.appendChild(tag)
 
@@ -178,6 +178,6 @@ export function installSettingsNavIcon(ctx: NavIconContext, resolveLabel: () => 
     }
     dispose = cleanup
     return cleanup
-  }, 'dsh-shelfry: settings nav icon')
+  }, 'dsh-crate: settings nav icon')
   return () => { dispose() }
 }

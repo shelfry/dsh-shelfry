@@ -4,9 +4,9 @@
  * Rendered at the bottom of the Diagnostics tab inside a collapsible section
  * (the parent keeps it mounted and passes `open`, so it lazy-loads on first
  * expand and keeps its state across collapses). Lists profile snapshots
- * (GET /dsh-shelfry/snapshots), creates one (POST /dsh-shelfry/snapshots) and
+ * (GET /dsh-crate/snapshots), creates one (POST /dsh-crate/snapshots) and
  * restores one after an inline double confirmation
- * (POST /dsh-shelfry/restore-snapshot {snapshot}).
+ * (POST /dsh-crate/restore-snapshot {snapshot}).
  *
  * The list payload is read defensively (bare array or {snapshots: [...]});
  * `files` entries are {path, json|lines} objects, from which only `path` is
@@ -18,7 +18,7 @@ import css from './Market.module.css'
 import { api } from './market-data.ts'
 import type { Translate } from './market-data.ts'
 
-/** One snapshot from GET /dsh-shelfry/snapshots. */
+/** One snapshot from GET /dsh-crate/snapshots. */
 export interface Snapshot {
   id: string
   createdAt: string | number
@@ -91,7 +91,7 @@ export function SnapshotPanel(props: SnapshotPanelProps) {
   const loaded = useRef(false)
 
   const load = useCallback(() => {
-    fetch(api('/dsh-shelfry/snapshots'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/snapshots'), { cache: 'no-store' })
       .then(res => res.json())
       .then(body => {
         const list: unknown[] = Array.isArray(body) ? body : Array.isArray(body.snapshots) ? body.snapshots : []
@@ -115,7 +115,7 @@ export function SnapshotPanel(props: SnapshotPanelProps) {
     setBusy('create')
     setMsg(null)
     setError(null)
-    postJson(api('/dsh-shelfry/snapshots'), {})
+    postJson(api('/dsh-crate/snapshots'), {})
       .then(({ status, body }) => {
         if (status >= 200 && status < 300 && body?.ok === true) {
           setMsg(t('snapCreated'))
@@ -136,7 +136,7 @@ export function SnapshotPanel(props: SnapshotPanelProps) {
     setBusy('restore')
     setMsg(null)
     setError(null)
-    postJson(api('/dsh-shelfry/restore-snapshot'), { snapshot: id })
+    postJson(api('/dsh-crate/restore-snapshot'), { snapshot: id })
       .then(({ status, body }) => {
         if (status >= 200 && status < 300 && body?.ok === true) {
           setConfirmId(null)
@@ -159,7 +159,7 @@ export function SnapshotPanel(props: SnapshotPanelProps) {
     setBusy('delete')
     setMsg(null)
     setError(null)
-    postJson(api('/dsh-shelfry/delete-snapshot'), { snapshot: id })
+    postJson(api('/dsh-crate/delete-snapshot'), { snapshot: id })
       .then(({ status, body }) => {
         if (status >= 200 && status < 300 && body?.ok === true) {
           setConfirmDeleteId(null)

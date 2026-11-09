@@ -345,7 +345,7 @@ export async function withHoistRecovery(
     // to a shut door (#982).
     const lockedTarget = pluginArgs.find(argument => !argument.startsWith('-') && argument !== verb) ?? ''
     const lockedName = registryNameOf(lockedTarget) ?? lockedTarget
-    if (lockedName !== 'dsh-shelfry') {
+    if (lockedName !== 'dsh-crate') {
       result = {
         ...result,
         stderr: `${result.stderr}\n\n这是官方桌面端：上面「在命令行执行」这一条在这里用不了，请改在应用自己的「设置 → 插件」里操作（退出重启后，或先停用加载该包的插件再重启）。 / This is the official desktop app: the "run it from the command line" option above is not available here — use the app's own Settings → Plugins instead (after restarting, or after disabling the plugin that loads this package and restarting).`,
@@ -608,7 +608,7 @@ function readReleaseAgeMinutesFromNpmrc(dir: string): number | 'invalid' | null 
  * always: a plugin install can be refused by a DIFFERENT, younger package that
  * is already in the lockfile, because pnpm verifies the whole lockfile before
  * any mutation (#39). #944 hit exactly that — updating `dsh-cost-meter` failed
- * with `dsh-shelfry@1.66.44` named in the error, and the note then told the user
+ * with `dsh-crate@1.66.44` named in the error, and the note then told the user
  * to wait out *the plugin's* version, which was not the version holding them.
  *
  * Only the entry pnpm prints in its violation line is read (`  <name>@<version>

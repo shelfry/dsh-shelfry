@@ -28,7 +28,7 @@ describe.skipIf(!HAS_DSH)('web e2e: release channel', () => {
   beforeAll(async () => { scaffold = await launchMarketScaffold() }, 300_000)
   afterAll(async () => { await scaffold?.close() })
 
-  const statePath = (): string => join(scaffold.home, 'profiles', 'web', '.dsh-shelfry', 'state.json')
+  const statePath = (): string => join(scaffold.home, 'profiles', 'web', '.dsh-crate', 'state.json')
 
   const readState = (): Record<string, unknown> =>
     JSON.parse(readFileSync(statePath(), 'utf8')) as Record<string, unknown>
@@ -44,15 +44,15 @@ describe.skipIf(!HAS_DSH)('web e2e: release channel', () => {
   }
 
   const setChannel = async (channel: string): Promise<number> =>
-    (await post('/dsh-shelfry/channel', { channel })).status
+    (await post('/dsh-crate/channel', { channel })).status
 
   const statusNow = async (): Promise<any> => {
-    const res = await scaffold.api(`/dsh-shelfry/status`, { cache: 'no-store' })
+    const res = await scaffold.api(`/dsh-crate/status`, { cache: 'no-store' })
     return await res.json()
   }
 
   const channelNow = async (): Promise<unknown> => {
-    const res = await scaffold.api(`/dsh-shelfry/status`, { cache: 'no-store' })
+    const res = await scaffold.api(`/dsh-crate/status`, { cache: 'no-store' })
     return ((await res.json()) as { channel?: unknown }).channel
   }
 
@@ -107,7 +107,7 @@ describe.skipIf(!HAS_DSH)('web e2e: the dev channel', () => {
   beforeAll(async () => { scaffold = await launchMarketScaffold() }, 300_000)
   afterAll(async () => { await scaffold?.close() })
 
-  const statePath = (): string => join(scaffold.home, 'profiles', 'web', '.dsh-shelfry', 'state.json')
+  const statePath = (): string => join(scaffold.home, 'profiles', 'web', '.dsh-crate', 'state.json')
   const readState = (): Record<string, unknown> =>
     existsSync(statePath()) ? JSON.parse(readFileSync(statePath(), 'utf8')) as Record<string, unknown> : {}
 
@@ -120,7 +120,7 @@ describe.skipIf(!HAS_DSH)('web e2e: the dev channel', () => {
     return { status: res.status, body: await res.json().catch(() => ({})) }
   }
   const statusNow = async (): Promise<any> =>
-    await (await scaffold.api(`/dsh-shelfry/status`, { cache: 'no-store' })).json()
+    await (await scaffold.api(`/dsh-crate/status`, { cache: 'no-store' })).json()
 
   it('is offered by a real host with no opt-in of any kind', async () => {
     // It was behind a stored developer mode for one version. Nothing has to
@@ -129,7 +129,7 @@ describe.skipIf(!HAS_DSH)('web e2e: the dev channel', () => {
   })
 
   it('is selected, written down, and survives a real restart', async () => {
-    expect((await post('/dsh-shelfry/channel', { channel: 'dev' })).status).toBe(200)
+    expect((await post('/dsh-crate/channel', { channel: 'dev' })).status).toBe(200)
     expect(readState().channel).toBe('dev')
 
     await scaffold.restart()
@@ -137,7 +137,7 @@ describe.skipIf(!HAS_DSH)('web e2e: the dev channel', () => {
   }, 300_000)
 
   it('refuses a channel that does not exist, without writing it', async () => {
-    expect((await post('/dsh-shelfry/channel', { channel: 'nightly' })).status).toBe(400)
+    expect((await post('/dsh-crate/channel', { channel: 'nightly' })).status).toBe(400)
     expect(readState().channel).toBe('dev')
   })
 })

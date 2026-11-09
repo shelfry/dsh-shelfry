@@ -1,8 +1,8 @@
 /**
  * Diagnostics tab — issue #98: renders the profile composition check report
- * served by the host route /dsh-shelfry/check (see src/check.ts). Below the
+ * served by the host route /dsh-crate/check (see src/check.ts). Below the
  * report sit the phase 2/3 action panels: a community-bundle ordering block
- * (reorder locally with ↑/↓, POST to /dsh-shelfry/bundle-order) and a
+ * (reorder locally with ↑/↓, POST to /dsh-crate/bundle-order) and a
  * snapshots & rollback panel (snapshot-panel.tsx) — collapsible, default
  * collapsed, and lazy-fetching on first expand. The plugin presets panel
  * ships in a later stacked PR.
@@ -251,7 +251,7 @@ export function Diagnostics(props: { t: Translate }) {
   /** The built AI-fix prompt when the clipboard path failed — rendered as a
    * selectable text block so the user can still copy it manually. */
   const [fixFallback, setFixFallback] = useState<string | null>(null)
-  /** Bump to re-run the /dsh-shelfry/check fetch after an order/snapshot-restore apply. */
+  /** Bump to re-run the /dsh-crate/check fetch after an order/snapshot-restore apply. */
   const [version, setVersion] = useState(0)
   const refresh = useCallback(() => setVersion(v => v + 1), [])
 
@@ -355,7 +355,7 @@ export function Diagnostics(props: { t: Translate }) {
     setOrderMsg(null)
     setOrderErr(null)
     setOrderDiff(null)
-    fetch(api('/dsh-shelfry/bundle-order'), {
+    fetch(api('/dsh-crate/bundle-order'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ order: target ?? order }),
@@ -402,7 +402,7 @@ export function Diagnostics(props: { t: Translate }) {
     // must not clobber the in-progress ordering draft, which re-syncs from
     // communityNames only when the report actually changes (review M2).
     setError(null)
-    fetch(api('/dsh-shelfry/check'), { cache: 'no-store' })
+    fetch(api('/dsh-crate/check'), { cache: 'no-store' })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
         const body = (await res.json()) as CheckReport

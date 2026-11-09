@@ -44,7 +44,7 @@ describe('respawnInvocation (#40)', () => {
 })
 
 /**
- * The backup export is a GET navigation (`<a href="/dsh-shelfry/backup"
+ * The backup export is a GET navigation (`<a href="/dsh-crate/backup"
  * download>`), and browsers do NOT send an Origin header on same-origin GET
  * navigations — so the download trust check must treat a missing Origin as
  * the normal user-initiated shape, unlike process control.

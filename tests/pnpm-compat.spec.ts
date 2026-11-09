@@ -25,15 +25,15 @@ describe('pluginArgsFor', () => {
   it('injects -w exactly when the profile is a workspace root (#20)', () => {
     // pnpm 9 refuses add/remove at a workspace root without -w…
     const ws = profileFixture(true)
-    expect(pluginArgsFor(ws, ['add', 'dsh-shelfry'])).toEqual(['add', '-w', 'dsh-shelfry'])
-    expect(pluginArgsFor(ws, ['remove', 'dsh-shelfry'])).toEqual(['remove', '-w', 'dsh-shelfry'])
+    expect(pluginArgsFor(ws, ['add', 'dsh-crate'])).toEqual(['add', '-w', 'dsh-crate'])
+    expect(pluginArgsFor(ws, ['remove', 'dsh-crate'])).toEqual(['remove', '-w', 'dsh-crate'])
     // …other subcommands pass through untouched.
     expect(pluginArgsFor(ws, ['install'])).toEqual(['install'])
     rmSync(ws, { recursive: true, force: true })
     // …and every pnpm major hard-errors on -w OUTSIDE a workspace.
     const plain = profileFixture(false)
-    expect(pluginArgsFor(plain, ['add', 'dsh-shelfry'])).toEqual(['add', 'dsh-shelfry'])
-    expect(pluginArgsFor(plain, ['remove', 'dsh-shelfry'])).toEqual(['remove', 'dsh-shelfry'])
+    expect(pluginArgsFor(plain, ['add', 'dsh-crate'])).toEqual(['add', 'dsh-crate'])
+    expect(pluginArgsFor(plain, ['remove', 'dsh-crate'])).toEqual(['remove', 'dsh-crate'])
   })
 })
 
@@ -616,7 +616,7 @@ The lockfile contains entries that the active policies reject.`)
     const failed = classifyPnpmFailure([
       'Error: ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY',
       '  × installing dependencies',
-      "  ╰─▶ Broken lockfile: no entry for 'dsh-shelfry@1.47.0' in pnpm-lock.yaml",
+      "  ╰─▶ Broken lockfile: no entry for 'dsh-crate@1.47.0' in pnpm-lock.yaml",
       '  help: This issue is probably caused by a badly resolved merge conflict.',
       "        To fix the lockfile, run 'pnpm install --fix-lockfile'.",
     ].join('\n'))
@@ -625,7 +625,7 @@ The lockfile contains entries that the active policies reject.`)
     // The entry is named, but not as `pkg`: the repair is in the lockfile, and
     // callers act on `pkg` (the #289 peer retry, the #65 ghost-entry advice).
     expect(failed?.pkg).toBeUndefined()
-    expect(failed?.message).toContain('dsh-shelfry@1.47.0')
+    expect(failed?.message).toContain('dsh-crate@1.47.0')
     expect(failed?.message).toContain('不要删掉整个 pnpm-lock.yaml')
   })
 
@@ -659,10 +659,10 @@ The lockfile contains entries that the active policies reject.`)
     // human sentence matches even though the raw stream holds it escaped.
     // Fields that are machine-specific (time/hostname/pid/stack) are trimmed;
     // everything the classifier reads is verbatim.
-    const record = String.raw`{"level":"error","name":"pnpm","code":"ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY","hint":"This issue is probably caused by a badly resolved merge conflict.\nTo fix the lockfile, run 'pnpm install --no-frozen-lockfile'.","err":{"name":"pnpm","message":"Broken lockfile: no entry for 'dsh-shelfry@1.47.0' in pnpm-lock.yaml","code":"ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY"}}`
+    const record = String.raw`{"level":"error","name":"pnpm","code":"ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY","hint":"This issue is probably caused by a badly resolved merge conflict.\nTo fix the lockfile, run 'pnpm install --no-frozen-lockfile'.","err":{"name":"pnpm","message":"Broken lockfile: no entry for 'dsh-crate@1.47.0' in pnpm-lock.yaml","code":"ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY"}}`
     const failed = classifyPnpmFailure(record)
     expect(failed?.code).toBe('lockfile-broken')
-    expect(failed?.message).toContain('dsh-shelfry@1.47.0')
+    expect(failed?.message).toContain('dsh-crate@1.47.0')
     // pnpm's phrase alone is enough: a record whose message survives but whose
     // `code` field is absent still classifies (the anchor is not one string).
     const phraseOnly = String.raw`{"level":"error","name":"pnpm","err":{"message":"Broken lockfile: no entry for 'dsh-plugin-x@0.4.1' in pnpm-lock.yaml"}}`
@@ -684,7 +684,7 @@ The lockfile contains entries that the active policies reject.`)
       "        specifiers in the lockfile don't match specifiers in package.json:",
       '      * in importers["."]:',
       '      * 1 dependency is mismatched:',
-      '        - dsh-shelfry (lockfile: ^1.46.0, manifest: ^1.47.0)',
+      '        - dsh-crate (lockfile: ^1.46.0, manifest: ^1.47.0)',
       '  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that',
       '        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm',
       '        install --frozen-lockfile`.',
@@ -1116,7 +1116,7 @@ describe('a pnpm that exists on PATH but cannot be started (#502)', () => {
   code: 'EACCES',
   syscall: 'spawnSync pnpm',
   path: 'pnpm',
-  spawnargs: [ 'add', '-w', 'dsh-shelfry@1.41.0' ]
+  spawnargs: [ 'add', '-w', 'dsh-crate@1.41.0' ]
 }`
     const failure = classifyPnpmFailure(EACCES, 1)
     expect(failure?.code).toBe('pnpm-unusable')
@@ -1191,7 +1191,7 @@ describe('ssh authentication failed with the prompt closed (#596)', () => {
 })
 
 describe('pnpm 12 native engine out of memory (#701)', () => {
-  // The reported text, from a Windows dsh-shelfry log: a Rust abort in
+  // The reported text, from a Windows dsh-crate log: a Rust abort in
   // pnpm-native, then dsh's own wrapper line. Exit 3221226505 is 0xC0000409,
   // how a Rust abort ends on Windows.
   const REPORTED = 'memory allocation of 5368709120 bytes failed\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\ndsh: pnpm failed in profile directory C:\\Users\\x\\.dsh\\profiles\\web'

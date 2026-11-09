@@ -751,12 +751,12 @@ const REGISTRY = {
     { name: 'dsh-renamed', owner: 'o', url: 'https://github.com/o/dsh-renamed', category: 'tool', npm: 'dsh-renamed-new', previousNpm: ['dsh-renamed-old'], description: {}, install: '', added: '' },
     // The market's own entry: the release-channel specs need it installed,
     // because the channel applies to this package and no other.
-    { name: 'dsh-shelfry', owner: 'o', url: 'https://github.com/o/dsh-shelfry', category: 'tool', npm: 'dsh-shelfry', description: {}, install: '', added: '' },
+    { name: 'dsh-crate', owner: 'o', url: 'https://github.com/o/dsh-crate', category: 'tool', npm: 'dsh-crate', description: {}, install: '', added: '' },
     { name: 'theme-a', owner: 'o', url: 'https://github.com/o/theme-a', category: 'theme', npm: null, description: {}, install: '', added: '' },
     { name: 'theme-b', owner: 'o', url: 'https://github.com/o/theme-b', category: 'theme', npm: null, description: {}, install: '', added: '' },
     { name: 'skin-pack', owner: 'o', url: 'https://github.com/o/skin-pack', category: 'theme', npm: null, description: {}, install: '', added: '' },
     { name: 'dsh-excel-chat', owner: 'hccccc01333', url: 'https://github.com/hccccc01333/dsh-excel-chat', category: 'tool', npm: null, description: {}, install: '', added: '' },
-    { name: 'dsh-shelfry', owner: 'dsh-shelfry', url: 'https://github.com/dsh-shelfry/dsh-shelfry', category: 'tool', npm: 'dsh-shelfry', description: {}, install: '', added: '' },
+    { name: 'dsh-crate', owner: 'dsh-crate', url: 'https://github.com/dsh-crate/dsh-crate', category: 'tool', npm: 'dsh-crate', description: {}, install: '', added: '' },
     // #27 shape: the same repo listed twice under different names.
     { name: 'dsh-share', owner: 'h', url: 'https://github.com/h/dsh-share', category: 'tool', npm: 'dsh-share', description: {}, install: '', added: '' },
     { name: '@dsh-external/dsh-share', owner: 'h', url: 'https://github.com/h/dsh-share', category: 'tool', npm: null, description: {}, install: '', added: '' },
@@ -863,7 +863,7 @@ function createTestbed(
     },
     loader: { entries: () => loaderEntries },
     plugin: (plugin: unknown) => {
-      // Recorded, not asserted here: `hotMount` creates its `.dsh-shelfry`
+      // Recorded, not asserted here: `hotMount` creates its `.dsh-crate`
       // loader entry through this call, so a count of these IS the count of
       // market-created entries (#551).
       hostPluginCalls.push(plugin)
@@ -1068,7 +1068,7 @@ describe('flat Desktop host consumers (#553)', () => {
     Object.defineProperty(process, 'resourcesPath', { value: resources, configurable: true })
     const expectedVersion = conflict ? 'unknown' : '0.1.0-rc.12'
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
     fake.npm['dsh-loop'].latest = '2.0.0'
     fake.npm['dsh-loop'].versions['2.0.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
@@ -1076,17 +1076,17 @@ describe('flat Desktop host consumers (#553)', () => {
       'dist-tags': { latest: '2.0.0' },
     }), { status: 200 }))
 
-    const registry = await bed.dispatch('GET', '/dsh-shelfry/registry')
+    const registry = await bed.dispatch('GET', '/dsh-crate/registry')
     expect(registry.json.hostVersion).toBe(expectedVersion)
-    const logs = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const logs = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(logs.status).toBe(200)
     expect(logs.text).toContain(`dsh host: ${expectedVersion} (`)
     expect(logs.text).not.toContain('dsh host: not locatable')
-    const discovery = await bed.dispatch('POST', '/dsh-shelfry/discovery-compatibility', { packages: ['dsh-loop'] })
+    const discovery = await bed.dispatch('POST', '/dsh-crate/discovery-compatibility', { packages: ['dsh-loop'] })
     expect(discovery.json.hostVersion).toBe(expectedVersion)
     expect(discovery.json.plugins['dsh-loop'].status).toBe(conflict ? 'unknown' : 'incompatible')
     const callsBeforeUpdate = fake.calls.length
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     if (conflict) {
       expect(updated.status).toBe(200)
       expect(updated.json.hostIncompatible).toBeUndefined()
@@ -1113,7 +1113,7 @@ describe('host-provided profile and package-operation seams', () => {
     fake.profileDir = ordinaryDir
     bed = createTestbed({ profile })
 
-    const installed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const installed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(installed.status).toBe(200)
     expect(installed.json).toMatchObject({ profile, installed: {} })
   })
@@ -1133,15 +1133,15 @@ describe('host-provided profile and package-operation seams', () => {
       { runPlugin: vi.fn() as never, probePnpm: probe, provisionPnpm: provision, cancelActive: cancel },
     )
 
-    const installed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const installed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(installed.json).toMatchObject({
       profile: '工作 profile',
       installed: { 'desktop-only': '1.0.0' },
     })
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     const exportedManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
     expect(exportedManifest.json.dependencies).toEqual({ 'desktop-only': '1.0.0' })
-    const status = await bed.dispatch('GET', '/dsh-shelfry/status')
+    const status = await bed.dispatch('GET', '/dsh-crate/status')
     expect(status.json).toMatchObject({
       pnpm: true, restart: false, selfManaged: false, installed: { 'desktop-only': '1.0.0' },
       // The settings-namespace answer (#677) rides every status read: this
@@ -1149,12 +1149,12 @@ describe('host-provided profile and package-operation seams', () => {
       // `pending` case — the field must be there for a reader to see it.
       settingsNamespace: 'pending',
     })
-    writeFileSync(join(explicitDir, 'package.json'), '{"dependencies":{"desktop-only":"1.0.0","dsh-shelfry":"1.26.0"}}')
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.selfManaged).toBe(true)
+    writeFileSync(join(explicitDir, 'package.json'), '{"dependencies":{"desktop-only":"1.0.0","dsh-crate":"1.26.0"}}')
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.selfManaged).toBe(true)
     expect(probe).toHaveBeenCalledTimes(2)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/setup-pnpm', {})).json.ok).toBe(true)
+    expect((await bed.dispatch('POST', '/dsh-crate/setup-pnpm', {})).json.ok).toBe(true)
     expect(provision).toHaveBeenCalledOnce()
-    expect((await bed.dispatch('POST', '/dsh-shelfry/cancel', {})).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/cancel', {})).status).toBe(200)
     expect(cancel).toHaveBeenCalledOnce()
   })
 
@@ -1171,11 +1171,11 @@ describe('host-provided profile and package-operation seams', () => {
       busy: () => true,
     }
     bed = createTestbed({ profile: 'web' }, runtime as never)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.busy).toBe(true)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.busy).toBe(true)
     bed.dispose()
     const idle = { ...runtime, busy: () => false }
     bed = createTestbed({ profile: 'web' }, idle as never)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.busy).toBe(false)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.busy).toBe(false)
   })
 
   it('answers a bundle’s own declared repository as its code source', async () => {
@@ -1212,25 +1212,25 @@ describe('host-provided profile and package-operation seams', () => {
       writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(manifest))
     }
 
-    const widget = await bed.dispatch('GET', `/dsh-shelfry/source-repo?name=${encodeURIComponent('@acme/widget')}`)
+    const widget = await bed.dispatch('GET', `/dsh-crate/source-repo?name=${encodeURIComponent('@acme/widget')}`)
     expect(widget.status).toBe(200)
     expect(widget.json).toEqual({ url: 'https://github.com/acme/widget' })
     // The spelling pnpm writes back for a GitHub install (#803) is one matching
     // cannot read, so the spec has to answer — no package directory exists here.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=git-widget')).json)
+    expect((await bed.dispatch('GET', '/dsh-crate/source-repo?name=git-widget')).json)
       .toEqual({ url: 'https://github.com/Acme/GitWidget' })
     // Reading the spec is not GitHub-only; the link follows the spec's host.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=gitlab-widget')).json)
+    expect((await bed.dispatch('GET', '/dsh-crate/source-repo?name=gitlab-widget')).json)
       .toEqual({ url: 'https://gitlab.com/Studio/Widget' })
     // A linked checkout draws nothing: its Git origin is a matching hint (#141),
     // not the package's source.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=linked-plugin')).json)
+    expect((await bed.dispatch('GET', '/dsh-crate/source-repo?name=linked-plugin')).json)
       .toEqual({ url: null })
     // A package declaring no repository draws no row — a guessed repository
     // would send the reader to somebody else's code.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo?name=no-source')).json).toEqual({ url: null })
+    expect((await bed.dispatch('GET', '/dsh-crate/source-repo?name=no-source')).json).toEqual({ url: null })
     // And a name that is not installed at all answers the same way.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/source-repo')).json).toEqual({ url: null })
+    expect((await bed.dispatch('GET', '/dsh-crate/source-repo')).json).toEqual({ url: null })
   })
 
   it('maps a generation-wide Desktop package-operation gate to conflict', async () => {
@@ -1249,7 +1249,7 @@ describe('host-provided profile and package-operation seams', () => {
       cancelActive: () => false,
     })
 
-    const result = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const result = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(result.status).toBe(409)
     expect(result.json).toMatchObject({ ok: false, busy: true })
   })
@@ -1266,7 +1266,7 @@ describe('host-provided profile and package-operation seams', () => {
     fake.profileDir = explicitDir
     bed = createTestbed({ profile: '工作 profile', profileDirectory: explicitDir, allowRestart: false })
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-blue-whale'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-blue-whale'] })
     expect(approve.status).toBe(200)
     expect(approve.json.approved).toContain('dsh-blue-whale')
     expect(approve.json.approved).toContain('dsh-blue-whale@git+https://github.com/o/blue-whale.git')
@@ -1289,7 +1289,7 @@ describe('host-provided profile and package-operation seams', () => {
     fake.failAfterWriteStderrOnce = '[ERR_PNPM_FETCH_404] GET https://registry.npmjs.org/ghost: Not Found - 404'
     bed = createTestbed({ profile: '工作 profile', profileDirectory: explicitDir, allowRestart: false })
 
-    const result = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const result = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(result.status).toBe(502)
     const desktopManifest = JSON.parse(readFileSync(join(explicitDir, 'package.json'), 'utf8'))
     expect(desktopManifest.dependencies).toEqual({ 'desktop-only': '1.0.0' })
@@ -1318,7 +1318,7 @@ describe('host-provided profile and package-operation seams', () => {
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
     bed = createTestbed({ profile: '工作 profile', profileDirectory: explicitDir, allowRestart: false })
 
-    const result = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const result = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(result.status).toBe(502)
     const desktopManifest = JSON.parse(readFileSync(join(explicitDir, 'package.json'), 'utf8'))
     expect(desktopManifest.dependencies).toEqual({ 'dsh-loop': '^1.0.0' })
@@ -1339,7 +1339,7 @@ describe('host-provided profile and package-operation seams', () => {
     fake.profileDir = explicitDir
     bed = createTestbed({ profile: '工作 profile', profileDirectory: explicitDir, allowRestart: false })
 
-    const result = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/a2/dsh-usage-stats' })
+    const result = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/a2/dsh-usage-stats' })
     expect(result.status).toBe(400)
     expect(String(result.json.error)).toContain('同名冲突')
     expect(fake.calls).toEqual([])
@@ -1351,13 +1351,13 @@ describe('host-provided profile and package-operation seams', () => {
 describe('backup and restore (#55)', () => {
   it('exports profile config, restores it, and reinstalls the dependency list', async () => {
     writeFileSync(join(profileDir('web'), 'cordis.patch.yml'), '- config: original')
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     expect(exported.status).toBe(200)
     expect(exported.json.format).toBe('dsh-profile-backup')
     expect(exported.json.files.some((file: { path: string }) => file.path === 'pnpm-lock.yaml')).toBe(false)
 
     writeFileSync(join(profileDir('web'), 'cordis.patch.yml'), '- config: changed')
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
     expect(restored.status).toBe(200)
     expect(restored.json.ok).toBe(true)
     expect(readFileSync(join(profileDir('web'), 'cordis.patch.yml'), 'utf8')).toBe('- config: original')
@@ -1372,13 +1372,13 @@ describe('backup and restore (#55)', () => {
    * than the state they were escaping, and naming the packages is the part
    * they cannot do themselves. */
   it('names what the restored profile still cannot boot without', async () => {
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     // A user patch that loads a package no one installed here.
     writeFileSync(
       join(profileDir('web'), 'cordis.patch.yml'),
       '- insert:\n    - id: from-the-other-machine\n      name: "@dsh-rp/missing-plugin"\n',
     )
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
 
     expect(restored.status).toBe(200)
     expect(restored.json.ok, 'the restore itself still succeeds').toBe(true)
@@ -1389,8 +1389,8 @@ describe('backup and restore (#55)', () => {
   })
 
   it('says nothing about booting when the restored profile is fine', async () => {
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
     expect(restored.status).toBe(200)
     expect(restored.json.bootErrors).toBeUndefined()
   })
@@ -1406,7 +1406,7 @@ describe('backup and restore (#55)', () => {
     manifest.dsh = { profile: { bundles: [...(manifest.dsh?.profile?.bundles ?? []), 'ghost-bundle'] } }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const r = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const r = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(r.status).toBe(200)
     const text = r.text
     expect(text).toContain('## profile state')
@@ -1421,7 +1421,7 @@ describe('backup and restore (#55)', () => {
    * newer than the Desktop build it was installed on. The export never
    * carried it, so every such question had to be asked by hand. */
   it('names the host version in the export, or says plainly that it could not find one', async () => {
-    const r = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const r = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(r.status).toBe(200)
     const line = r.text.split('\n').find(row => row.startsWith('dsh host: '))
     expect(line, `no "dsh host" line in:\n${r.text.slice(0, 400)}`).toBeDefined()
@@ -1450,7 +1450,7 @@ describe('backup and restore (#55)', () => {
     }))
     try {
       fake.failNextAddStderrOnce = 'ERR_PNPM_FETCH_404 some unhelpful resolver message'
-      const r = await bed.dispatch('POST', '/dsh-shelfry/install', {
+      const r = await bed.dispatch('POST', '/dsh-crate/install', {
         url: 'https://github.com/m/mono/tree/main/packages/plug-a',
       })
       expect(r.status).toBe(502)
@@ -1463,11 +1463,11 @@ describe('backup and restore (#55)', () => {
   })
 
   it('rejects cross-origin restore requests', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: {} }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/restore', { backup: {} }, { crossOrigin: true })).status).toBe(403)
   })
 
   it('continues with remaining plugins when one dependency fails', async () => {
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     const manifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json').json
     manifest.dependencies = { missing: '^1.0.0', 'dsh-loop': '^1.0.0' }
     manifest.dsh = { profile: { bundles: ['missing', 'dsh-loop'] } }
@@ -1475,7 +1475,7 @@ describe('backup and restore (#55)', () => {
     fake.failInstallOnce = true
     fake.captureBundlesOnNextAdd = true
 
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
     expect(restored.status).toBe(200)
     expect(restored.json.errors).toEqual([expect.objectContaining({ name: 'missing' })])
     expect(installedSpec('missing')).toBeUndefined()
@@ -1496,47 +1496,47 @@ describe('backup and restore (#55)', () => {
   it('keeps the running market version instead of installing the backup\'s', async () => {
     const manifestPath = join(profileDir('web'), 'package.json')
     writeFileSync(manifestPath, JSON.stringify({
-      dependencies: { 'dsh-shelfry': '1.73.11' },
-      dsh: { profile: { bundles: ['dsh-shelfry'] } },
+      dependencies: { 'dsh-crate': '1.73.11' },
+      dsh: { profile: { bundles: ['dsh-crate'] } },
     }))
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     const backupManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
-    backupManifest.json.dependencies['dsh-shelfry'] = '1.73.12'
+    backupManifest.json.dependencies['dsh-crate'] = '1.73.12'
 
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
 
     expect(restored.status).toBe(200)
     // Reported, because the operator's question is "why is it still the old
     // version?" — and the update flow is where that gets answered.
-    expect(restored.json.pinned).toEqual([{ name: 'dsh-shelfry', from: '1.73.12', to: '1.73.11' }])
-    expect(installedSpec('dsh-shelfry')).toBe('1.73.11')
+    expect(restored.json.pinned).toEqual([{ name: 'dsh-crate', from: '1.73.12', to: '1.73.11' }])
+    expect(installedSpec('dsh-crate')).toBe('1.73.11')
   })
 
   it('keeps the running market in the manifest while the per-plugin retry runs', async () => {
     const manifestPath = join(profileDir('web'), 'package.json')
     writeFileSync(manifestPath, JSON.stringify({
-      dependencies: { 'dsh-shelfry': '1.73.11' },
-      dsh: { profile: { bundles: ['dsh-shelfry'] } },
+      dependencies: { 'dsh-crate': '1.73.11' },
+      dsh: { profile: { bundles: ['dsh-crate'] } },
     }))
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     const backupManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
     backupManifest.json.dependencies = { missing: '^1.0.0', 'dsh-loop': '^1.0.0' }
-    backupManifest.json.dsh = { profile: { bundles: ['dsh-shelfry', 'missing', 'dsh-loop'] } }
+    backupManifest.json.dsh = { profile: { bundles: ['dsh-crate', 'missing', 'dsh-loop'] } }
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     fake.failInstallOnce = true
     fake.captureBundlesOnNextAdd = true
 
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
 
     expect(restored.status).toBe(200)
     expect(restored.json.errors).toEqual([expect.objectContaining({ name: 'missing' })])
     // Dropping it here is what unmounts the plugin answering this request.
-    expect(fake.bundlesBeforeFallbackAdd).toEqual(['dsh-shelfry'])
+    expect(fake.bundlesBeforeFallbackAdd).toEqual(['dsh-crate'])
     const finalManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    expect(finalManifest.dependencies['dsh-shelfry']).toBe('1.73.11')
+    expect(finalManifest.dependencies['dsh-crate']).toBe('1.73.11')
     expect(finalManifest.dependencies['dsh-loop']).toBe('^1.0.0')
     expect(finalManifest.dependencies.missing).toBeUndefined()
-    expect(finalManifest.dsh.profile.bundles).toEqual(['dsh-shelfry', 'dsh-loop'])
+    expect(finalManifest.dsh.profile.bundles).toEqual(['dsh-crate', 'dsh-loop'])
   })
 
   /** The retry deletes what failed, so the manifest it leaves behind cannot
@@ -1544,14 +1544,14 @@ describe('backup and restore (#55)', () => {
    * can: the generic pnpm error is the only thing an operator would otherwise
    * see for a `link:/Users/…` spec that was never satisfiable here. */
   it('names the machine-specific path among the retry failures', async () => {
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/backup')
+    const exported = await bed.dispatch('GET', '/dsh-crate/backup')
     const backupManifest = exported.json.files.find((file: { path: string }) => file.path === 'package.json')
     backupManifest.json.dependencies = { 'dev-plugin': 'link:/Users/rudy/dev/dev-plugin', 'dsh-loop': '^1.0.0' }
     backupManifest.json.dsh = { profile: { bundles: [] } }
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     fake.failInstallOnce = true
 
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/restore', { backup: exported.json })
+    const restored = await bed.dispatch('POST', '/dsh-crate/restore', { backup: exported.json })
 
     expect(restored.status).toBe(200)
     expect(restored.json.errors).toEqual([expect.objectContaining({ name: 'dev-plugin' })])
@@ -1574,7 +1574,7 @@ describe('install flow', () => {
     // 1.2.0, exit 0, and write ^1.2.0; the exact target installs 1.3.0.
     fake.releaseHold = { mature: '1.2.0', strict: false }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1601,7 +1601,7 @@ describe('install flow', () => {
     // not, and the bypass would be what installs it over the user's policy.
     fake.releaseHold = { mature: '1.2.0', strict: true }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1622,7 +1622,7 @@ describe('install flow', () => {
     }
     fake.releaseHold = { mature: '1.2.0', strict: true }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     // Success, because it IS installed — the plugin works, it is simply not
     // the newest one — and the hold is named so the row can say so.
@@ -1641,7 +1641,7 @@ describe('install flow', () => {
     }
     fake.releaseHold = { mature: '1.2.0', strict: true }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop', force: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', force: true })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1660,7 +1660,7 @@ describe('install flow', () => {
   it('pins a scoped package under its npm name, not the catalog display name (#594)', async () => {
     fake.npm['@changfenhuang/dsh-genui'] = { latest: '1.4.0', versions: { '1.4.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/omdsh-dev/dsh-genui' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-genui' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1687,7 +1687,7 @@ describe('install flow', () => {
       '  help: The latest release of dsh-loop is "1.2.0".',
     ].join('\n')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.json.ok).toBe(true)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.3.0'], ['add', 'dsh-loop']])
@@ -1705,7 +1705,7 @@ describe('install flow', () => {
     fake.releaseHold = { mature: '1.2.0', strict: false }
     fake.failNextAddStderrOnce = 'ERR_PNPM_FETCH_404  GET https://registry.npmmirror.com/dsh-loop/-/dsh-loop-1.3.0.tgz: Not Found - 404'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.json.ok).toBe(true)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.3.0'], ['add', 'dsh-loop']])
@@ -1719,7 +1719,7 @@ describe('install flow', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     fake.failNextAddStderrOnce = stderr
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.json.ok).toBe(false)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.0.0']])
@@ -1730,7 +1730,7 @@ describe('install flow', () => {
     // Lag cleared between the two attempts (the reporter's later retry).
     fake.failNextAddStderrOnce = 'ERR_PNPM_NO_MATCHING_VERSION  No matching version found for dsh-loop@1.3.0 while fetching it from https://registry.npmmirror.com/'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1759,7 +1759,7 @@ describe('install flow', () => {
     ].join('\n')
     fake.failNextAddStderrTimes = 2
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1776,7 +1776,7 @@ describe('install flow', () => {
   it('leaves a non-semver latest and a github target alone (#594)', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ version: 'latest' }), { status: 200 }))))
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    const npm = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const npm = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(npm.json.ok).toBe(true)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop']])
 
@@ -1784,7 +1784,7 @@ describe('install flow', () => {
     const fetchMock = globalThis.fetch as unknown as { mock: { calls: unknown[][] } }
     const before = fetchMock.mock.calls.length
     fake.repos['github:o/blue-whale'] = { name: 'dsh-blue-whale', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-    const git = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })
+    const git = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })
     expect(git.json.ok).toBe(true)
     expect(fetchMock.mock.calls.slice(before).map(call => String(call[0])).filter(url => url.endsWith('/latest'))).toEqual([])
     expect(fake.calls.filter(call => call[0] === 'add').at(-1)).toEqual(['add', 'github:o/blue-whale'])
@@ -1794,7 +1794,7 @@ describe('install flow', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('registry unreachable'))))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -1804,7 +1804,7 @@ describe('install flow', () => {
 
   it('installs a curated plugin end to end and reports it installed', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(r.json.installed['dsh-loop']).toBe('^1.0.0')
@@ -1813,7 +1813,7 @@ describe('install flow', () => {
     expect(r.json.hot).toBe(true)
     // P0-2: the operation response carries the per-package activation state.
     expect(r.json.activation['dsh-loop']).toMatchObject({ state: 'live', hot: true })
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.installed['dsh-loop']).toBe('^1.0.0')
     expect(listed.json.activation['dsh-loop'].state).toBe('live')
   })
@@ -1825,10 +1825,10 @@ describe('install flow', () => {
     // it as "no community plugins installed" — pointing the user at the wrong
     // thing entirely.
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     bed.loaderEntries.push({ options: { id: 1, name: 'dsh-qqbot' } as never, fiber: {}, update: vi.fn() })
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
 
     expect(listed.status).toBe(200)
     expect(listed.json.installed['dsh-loop']).toBe('^1.0.0')
@@ -1841,7 +1841,7 @@ describe('install flow', () => {
       'Plugins waiting for services: client-hmr',
       'Full diagnostics: C:\\Users\\u\\.dsh\\logs\\startup-2026-10-22T05-05-40.541Z-37a0b6ec-b8f2-4699-82ce-c53428afc403.log',
     ].join('\n')
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBe('^1.0.0')
@@ -1852,7 +1852,7 @@ describe('install flow', () => {
   it('still rolls an install back when the failure is not a host port collision (#975)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     fake.failAfterWriteStderrOnce = '[ERR_PNPM_FETCH_404] GET https://registry.npmjs.org/ghost: Not Found - 404'
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     expect(installedSpec('dsh-loop')).toBeUndefined()
@@ -1866,7 +1866,7 @@ describe('install flow', () => {
       // The fast path is the point of the field; a fix that quietly stopped
       // using it would pass the next test and cost every install the speed.
       fake.tarballs[TARBALL] = archivePackage
-      const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-prebuilt' })
+      const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-prebuilt' })
       expect(r.json.ok).toBe(true)
       expect(installedSpec('dsh-prebuilt')).toBe(TARBALL)
       expect(fake.calls.filter(call => call[0] === 'add').map(call => call[call.length - 1])).toEqual([TARBALL])
@@ -1880,7 +1880,7 @@ describe('install flow', () => {
       fake.tarballWithoutIntegrity = true
       fake.repos['github:o/dsh-prebuilt'] = { name: 'dsh-prebuilt', manifest: archivePackage.manifest, artifacts: ['index.js'] }
 
-      const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-prebuilt' })
+      const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-prebuilt' })
 
       expect(r.status).toBe(200)
       expect(r.json.ok).toBe(true)
@@ -1900,7 +1900,7 @@ describe('install flow', () => {
       // so the request runs inline and must behave like an ordinary install.
       const drainBed = createTestbed({}, undefined, agentsService([]))
       try {
-        const r = await drainBed.dispatch('POST', '/dsh-shelfry/install', {
+        const r = await drainBed.dispatch('POST', '/dsh-crate/install', {
           url: 'https://github.com/o/dsh-prebuilt',
           busyPolicy: 'drain',
         })
@@ -1917,7 +1917,7 @@ describe('install flow', () => {
       fake.tarballFailsWith = 'ERR_PNPM_FETCH_404  GET https://github.com/o/dsh-prebuilt/releases/download/v1.0.0/dsh-prebuilt.tgz: Not Found - 404'
       fake.repos['github:o/dsh-prebuilt'] = { name: 'dsh-prebuilt', manifest: archivePackage.manifest, artifacts: ['index.js'] }
 
-      const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-prebuilt' })
+      const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-prebuilt' })
 
       expect(r.json.ok).not.toBe(true)
       expect(fake.calls.filter(call => call[0] === 'add')).toHaveLength(1)
@@ -1963,7 +1963,7 @@ describe('install flow', () => {
     }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
 
     expect(listed.status).toBe(200)
     expect(listed.json.activation['@univer/engine-binding']).toMatchObject({
@@ -1996,7 +1996,7 @@ describe('install flow', () => {
     manifest.dependencies = { ...(manifest.dependencies ?? {}), 'stray-package': '1.0.0' }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
 
     expect(listed.json.activation['stray-package']).toMatchObject({ state: 'inert', bundle: false })
     expect(listed.json.activation['stray-package'].dependencyOf).toBeUndefined()
@@ -2009,12 +2009,12 @@ describe('install flow', () => {
     bed = createTestbed({}, undefined, undefined, { activate })
     const before = bed.hostPluginCalls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(true)
     expect(activate).toHaveBeenCalledOnce()
-    // `hotMount` creates the market's own `.dsh-shelfry` loader entry through
+    // `hotMount` creates the market's own `.dsh-crate` loader entry through
     // `host.plugin()`. In host-owned mode it must not run at all: one plugin,
     // one activation source. This is what the duplicate prefix-route
     // collision was made of.
@@ -2032,7 +2032,7 @@ describe('install flow', () => {
       bed.loaderEntries.push({ options: { id: 'dsh-loop', name: 'dsh-loop' } as never, fiber: {}, update: vi.fn() })
     }, 600)
     try {
-      const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+      const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
       expect(r.status).toBe(200)
       expect(r.json.hot).toBe(true)
       expect(hot.mounts).not.toContain('dsh-loop')
@@ -2046,7 +2046,7 @@ describe('install flow', () => {
     bed.dispose()
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     bed = createTestbed({ hostReplayWaitMs: 300 })
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(true)
     expect(hot.mounts).toContain('dsh-loop')
@@ -2070,7 +2070,7 @@ describe('install flow', () => {
       bed.loaderEntries.push({ options: { id: 'dsh-patchy', name: 'dsh-patchy' } as never, fiber: {}, update: vi.fn() })
     }, 600)
     try {
-      const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-patchy' })
+      const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-patchy' })
       expect(r.status).toBe(200)
       expect(r.json.hot).toBe(true)
       expect(hot.mounts).not.toContain('dsh-patchy')
@@ -2085,7 +2085,7 @@ describe('install flow', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     bed.loaderEntries.push(profileHmr())
     const started = Date.now()
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(hot.mounts).toContain('dsh-loop')
     expect(Date.now() - started).toBeLessThan(2000)
@@ -2098,7 +2098,7 @@ describe('install flow', () => {
     bed = createTestbed({}, undefined, undefined, { activate })
     const before = bed.hostPluginCalls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(false)
@@ -2126,7 +2126,7 @@ describe('install flow', () => {
       },
     }
 
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', {
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', {
       url: 'https://github.com/o/dsh-loop',
     })
     expect(installed.status).toBe(200)
@@ -2147,8 +2147,8 @@ describe('install flow', () => {
     const pluginPath = join(fake.profileDir, 'node_modules', 'dsh-loop', 'package.json')
     const profileBefore = readFileSync(profilePath)
     const pluginBefore = readFileSync(pluginPath)
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
-    expect(listed.json.diagnostics.schema).toBe('dsh-shelfry/diagnostics/v1')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
+    expect(listed.json.diagnostics.schema).toBe('dsh-crate/diagnostics/v1')
     expect(listed.json.diagnostics.findings).toHaveLength(4)
     expect(listed.json.diagnostics.findings).toContainEqual(expect.objectContaining({
       code: 'shared-host-package-dependency',
@@ -2181,7 +2181,7 @@ describe('install flow', () => {
       dependencies: { '@deepseek-ai/dsh-tools': '0.1.0-rc.6' },
     }))
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.installed['@deepseek-ai/dsh-base']).toBeUndefined()
     expect(listed.json.diagnostics.findings).toEqual([])
   })
@@ -2189,7 +2189,7 @@ describe('install flow', () => {
   it('reports inert activation for a client-only plugin the host cannot hot-mount (P0-2)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: { client: {} }, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     hot.failNext = true
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(r.json.hot).toBe(false)
@@ -2198,9 +2198,9 @@ describe('install flow', () => {
   })
 
   it('refuses sources outside the curated registry and cross-origin posts', async () => {
-    const outside = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/evil/mal' })
+    const outside = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/evil/mal' })
     expect(outside.status).toBe(400)
-    const cross = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' }, { crossOrigin: true })
+    const cross = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' }, { crossOrigin: true })
     expect(cross.status).toBe(403)
   })
 
@@ -2215,7 +2215,7 @@ describe('install flow', () => {
     // does NOT prevent the fetch — the flag is the only thing that works.
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     fake.failNextAddStderrOnce = '[ERR_PNPM_FETCH_404] GET https://registry.npmjs.org/@deepseek-ai%2Fdsh-type-meta: Not Found - 404\n\nThis error happened while installing a direct dependency of /home/u/.dsh/profiles/web'
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(installed.status).toBe(200)
     const retried = fake.calls.find(call => call.includes('--config.auto-install-peers=false'))
     expect(retried, 'the install was not retried with peers off').toBeDefined()
@@ -2243,7 +2243,7 @@ describe('install flow', () => {
     // the fake pnpm only does it when asked (same flag #65 uses).
     fake.profileBundleOnNextAdd = 'dsh-loop'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(hot.mounts).not.toContain('dsh-loop')
@@ -2263,7 +2263,7 @@ describe('install flow', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-patchy' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-patchy' })
     writeFileSync(join(profileDir('web'), 'node_modules', 'dsh-patchy', 'cordis.patch.yml'),
       "- insert:\n    - id: dsh-patchy\n      name: 'dsh-patchy'\n")
     // The boot-time shape: the package is in the profile's bundle layer, so
@@ -2276,19 +2276,19 @@ describe('install flow', () => {
     // The host's own row: created, never started.
     const hostRow = { options: { id: 'dsh-patchy', name: 'dsh-patchy' } as never, fiber: undefined, update: vi.fn() }
     bed.loaderEntries.push(hostRow as never)
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.activation['dsh-patchy']).toMatchObject({ state: 'failed', bundle: true, hot: false })
 
     // The same package, but the row is the MARKET's own hot mount that failed
     // in this session: a restart really does retry that one (#575).
     bed.loaderEntries.length = 0
     bed.loaderEntries.push({ options: { id: 'mkt-dsh-patchy', name: 'dsh-patchy' } as never, fiber: undefined, update: vi.fn() } as never)
-    const again = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const again = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(again.json.activation['dsh-patchy']).toMatchObject({ state: 'restart', bundle: true })
 
     // A row that IS up is live, whatever else the route was told (#135).
     bed.loaderEntries[0]!.fiber = {}
-    const live = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const live = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(live.json.activation['dsh-patchy']).toMatchObject({ state: 'live', hot: true })
   })
 
@@ -2303,9 +2303,9 @@ describe('install flow', () => {
       },
     }
     gateFacts.runtimeVersion = '0.2.0'
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
 
     expect(on.status).toBe(409)
     expect(on.json.incompatible).toBe(true)
@@ -2333,7 +2333,7 @@ describe('install flow', () => {
     }
     gateFacts.runtimeVersion = '0.2.0'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(hot.mounts).toContain('dsh-loop')
@@ -2351,9 +2351,9 @@ describe('install flow', () => {
       },
     }
     gateFacts.runtimeVersion = '0.2.0'
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
 
     expect(on.status).toBe(200)
     expect(on.json.incompatible).not.toBe(true)
@@ -2373,7 +2373,7 @@ describe('install flow', () => {
     writeFileSync(ghostPath, JSON.stringify(ghosted))
     fake.profileBundleOnNextAdd = 'dsh-loop'
     fake.failAfterWriteStderrOnce = '[ERR_PNPM_FETCH_404] GET https://registry.npmjs.org/@deepseek-ai%2Fdsh-client-ui-theme-toggle: Not Found - 404'
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(502)
     // The failed run's manifest write is rolled back — no ghost entry left
     // to break every later pnpm operation.
@@ -2399,20 +2399,20 @@ describe('install flow', () => {
     manifest.dsh = { profile: { bundles: [...(manifest.dsh?.profile?.bundles ?? []), 'ghost-bundle'] } }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect((r.json.orphanBundles ?? []) as string[]).toContain('ghost-bundle')
   })
 
   it('says nothing about orphan bundles when every declared bundle resolves', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.json.orphanBundles).toBeUndefined()
   })
 
   it('auto-recovers when the modules dir was built by another pnpm major (#20)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     fake.hoistDiffTimes = 1
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     // add(fail) → install --no-frozen-lockfile → add(retry) … — the add is
@@ -2428,7 +2428,7 @@ describe('install flow', () => {
     fake.repos['github:o/skin-pack#path:/whale-skin'] = {
       name: 'whale-skin', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'],
     }
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/skin-pack' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/skin-pack' })
     expect(r.status).toBe(200)
     expect(installedSpec('whale-skin')).toBeDefined()
     expect(installedSpec('skin-pack')).toBeUndefined()
@@ -2468,15 +2468,15 @@ describe('install flow', () => {
       artifacts: ['dist/index.js'],
     }
 
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', {
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', {
       url: 'https://github.com/hccccc01333/dsh-excel-chat',
     })
     expect(installed.status).toBe(200)
     expect(installedSpec('vera')).toBeUndefined()
     expect(installedSpec('dsh-excel-chat')).toBeDefined()
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
-    expect(listed.json.diagnostics.schema).toBe('dsh-shelfry/diagnostics/v1')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
+    expect(listed.json.diagnostics.schema).toBe('dsh-crate/diagnostics/v1')
     expect(listed.json.diagnostics.findings).toEqual([])
   })
 
@@ -2498,10 +2498,10 @@ describe('install flow', () => {
       '  - other@2.0.0',
       '',
     ].join('\n'))
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(installed.status).toBe(200)
 
-    const removed = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const removed = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(removed.status).toBe(200)
     const workspace = readFileSync(workspacePath, 'utf8')
@@ -2555,7 +2555,7 @@ describe('official Desktop download region (#862)', () => {
       }), { status: 200 })
     }))
 
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(installed.status).toBe(200)
     expect(service.installBundle).toHaveBeenLastCalledWith('dsh-loop@1.0.0', { requestId: expect.any(String) })
     expect(installedSpec('dsh-loop')).toBe('^1.0.0')
@@ -2565,11 +2565,11 @@ describe('official Desktop download region (#862)', () => {
     // independent of pnpm's transitive dependency handling.
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeStrict: true\nminimumReleaseAgeIgnoreMissingTime: false\n')
 
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })).status).toBe(200)
     fake.npm['dsh-loop'].latest = '1.2.0'
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: failed after replacing the package directory'
     service.installBundle.mockClear()
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(failed.status).toBe(502)
     expect(service.installBundle.mock.calls).toEqual([
       ['dsh-loop@1.2.0', { requestId: expect.any(String), registry: routesFor('china', {}).npmRegistry }],
@@ -2578,12 +2578,12 @@ describe('official Desktop download region (#862)', () => {
     expect(installedSpec('dsh-loop')).toBe('^1.0.0')
     expect(JSON.parse(readFileSync(join(fake.profileDir, 'node_modules', 'dsh-loop', 'package.json'), 'utf8')).version).toBe('1.0.0')
 
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'global' })).status).toBe(200)
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'global' })).status).toBe(200)
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(updated.status).toBe(200)
     expect(service.installBundle).toHaveBeenLastCalledWith('dsh-loop@1.2.0', { requestId: expect.any(String) })
     expect(installedSpec('dsh-loop')).toBe('^1.2.0')
-    const removed = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const removed = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(removed.status).toBe(200)
     expect(service.removeBundle.mock.calls).toEqual([['dsh-loop']])
     expect(installedSpec('dsh-loop')).toBeUndefined()
@@ -2595,7 +2595,7 @@ describe('update flow — no npm publishing required', () => {
   beforeEach(async () => {
     // Seed: dsh-loop 1.0.0 installed; fake npm later advances latest.
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
   })
 
   function advanceNpmLatest(version: string, publishedHoursAgo = 1): void {
@@ -2631,7 +2631,7 @@ describe('update flow — no npm publishing required', () => {
       return Promise.reject(new Error(`unexpected fetch: ${u}`))
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -2661,7 +2661,7 @@ describe('update flow — no npm publishing required', () => {
     fake.failNextAddStderrOnce = '[ERR_PNPM_FETCH_404] 404 Not Found - GET https://registry.npmjs.org/dsh-loop'
     fake.failNextAddStderrTimes = 2
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     // Nobody asked for this row to go, and the package is still on disk, so
@@ -2690,10 +2690,10 @@ describe('update flow — no npm publishing required', () => {
     advanceNpmLatest('1.2.0')
     fake.dropBundleRowAfterAdd = 'dsh-manual'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.json.droppedBundles).toEqual(['dsh-manual'])
-    const logs = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const logs = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(logs.text).toContain('update-bundles-dropped')
     expect(logs.text).toContain('dsh-manual')
     // Read-only: it reported the loss and did NOT write the row back.
@@ -2713,7 +2713,7 @@ describe('update flow — no npm publishing required', () => {
       '    at resolveDependencies2 (/opt/pnpm/dist/pnpm.mjs:177458:5)',
     ].join('\n')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(String(r.json.error)).toContain('patchedDependencies')
@@ -2730,7 +2730,7 @@ describe('update flow — no npm publishing required', () => {
     advanceNpmLatest('1.2.0')
     fake.failNextAddStderrOnce = '[ERR_PNPM_IGNORED_BUILDS]\nIgnored build scripts: dsh-loop@1.2.0.'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.ignoredBuilds).toEqual(['dsh-loop'])
@@ -2739,11 +2739,11 @@ describe('update flow — no npm publishing required', () => {
 
   it('says nothing about bundles on an ordinary update (#720)', async () => {
     advanceNpmLatest('1.2.0')
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.json.droppedBundles).toBeUndefined()
     // The log buffer outlives a test, so this checks what THIS operation wrote,
     // not what an earlier case left in the shared buffer.
-    const after = (await bed.dispatch('GET', '/dsh-shelfry/logs')).text
+    const after = (await bed.dispatch('GET', '/dsh-crate/logs')).text
     expect(after.slice(after.lastIndexOf(' update dsh-loop'))).not.toContain('update-bundles-dropped')
   })
 
@@ -2761,7 +2761,7 @@ describe('update flow — no npm publishing required', () => {
     }))
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'mnemon' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'mnemon' })
 
     expect(r.status).toBe(400)
     expect(r.json.notAPlugin).toBe(true)
@@ -2789,7 +2789,7 @@ describe('update flow — no npm publishing required', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: bundleManifest, artifacts: ['lib/index.js', 'cordis.patch.yml'], artifactContents: { 'cordis.patch.yml': bundlePatch } } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     const manifestPath = join(fake.profileDir, 'package.json')
     const manifest = readManifestAt(fake.profileDir)
     manifest.dsh = { ...(manifest.dsh ?? {}), profile: { bundles: ['dsh-loop'] } }
@@ -2799,7 +2799,7 @@ describe('update flow — no npm publishing required', () => {
     advanceNpmLatest('1.2.0')
     fake.npm['dsh-loop'].versions['1.2.0'] = { manifest: bundleManifest, artifacts: ['lib/index.js', 'cordis.patch.yml'], artifactContents: { 'cordis.patch.yml': bundlePatch } }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status, JSON.stringify(r.json)).toBe(200)
     // The mount is gone BEFORE pnpm runs: it points at files about to be
@@ -2809,7 +2809,7 @@ describe('update flow — no npm publishing required', () => {
 
   it('still updates a plugin that declares a dsh surface — the refusal is not a blanket one (#793)', async () => {
     advanceNpmLatest('1.2.0')
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.json.notAPlugin).toBeUndefined()
     expect(r.status).toBe(200)
   })
@@ -2821,7 +2821,7 @@ describe('update flow — no npm publishing required', () => {
     fake.hostHoldsOpen = { name: 'dsh-loop' }
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -2855,7 +2855,7 @@ describe('update flow — no npm publishing required', () => {
     fake.profileBundleOnNextAdd = 'dsh-loop'
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -2880,10 +2880,10 @@ describe('update flow — no npm publishing required', () => {
     expect(existsSync(join(fake.profileDir, 'node_modules', 'dsh-loop'))).toBe(true)
     // The record outlives the reply: the plugin is gone from the installed
     // list, so /status is the only place left that can say why.
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.brokenPlugins['dsh-loop']).toMatchObject({ spec: specBefore, reason: 'incomplete-build-locked' })
     expect(Object.keys(listed.json.installed)).not.toContain('dsh-loop')
-    const logs = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const logs = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(logs.text).toContain('update-removed-declaration')
   })
 
@@ -2898,14 +2898,14 @@ describe('update flow — no npm publishing required', () => {
     fake.cancelNext = true
     fake.cancelClears = { name: 'dsh-loop', cleared: ['package.json', 'lib/index.js'] }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.json).toMatchObject({ ok: false, cancelled: true })
     expect(r.json.removedDeclaration).toMatchObject({ name: 'dsh-loop', spec: specBefore, reason: 'incomplete-build-cancelled' })
     expect(readManifestAt(fake.profileDir).dependencies?.['dsh-loop']).toBeUndefined()
     // The record says it was a cancel: no cause was observed, so the notice
     // must not claim one.
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.brokenPlugins['dsh-loop']).toMatchObject({ spec: specBefore, reason: 'incomplete-build-cancelled' })
   })
 
@@ -2916,12 +2916,12 @@ describe('update flow — no npm publishing required', () => {
     const specBefore = installedSpec('dsh-loop')
     fake.cancelNext = true
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.json).toMatchObject({ ok: false, cancelled: true })
     expect(r.json.removedDeclaration).toBeUndefined()
     expect(installedSpec('dsh-loop')).toBe(specBefore)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.brokenPlugins?.['dsh-loop']).toBeUndefined()
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.brokenPlugins?.['dsh-loop']).toBeUndefined()
   })
 
   it('drops a broken declaration even when the lockfile cannot be put back (#663 review)', async () => {
@@ -2941,7 +2941,7 @@ describe('update flow — no npm publishing required', () => {
     fake.profileBundleOnNextAdd = 'dsh-loop'
     fake.wreckLockOnLockedFailure = true
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     // Still a failure, and the previous build is still the thing we could not
     // keep — but the declaration goes, so the next start can compose.
@@ -2954,7 +2954,7 @@ describe('update flow — no npm publishing required', () => {
     expect(manifest.dsh?.profile?.bundles ?? []).not.toContain('dsh-loop')
     // The lockfile's own reason survives onto the record, so "why was nothing
     // restored" is still answerable from the log.
-    const logs = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const logs = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(logs.text).toContain('update-removed-declaration')
     expect(logs.text).toContain('could not be restored')
   })
@@ -2969,23 +2969,23 @@ describe('update flow — no npm publishing required', () => {
       },
     }
     fake.hostHoldsOpen = { name: 'dsh-loop', cleared: ['lib/index.js'] }
-    await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.brokenPlugins['dsh-loop']).toBeDefined()
+    await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.brokenPlugins['dsh-loop']).toBeDefined()
 
     fake.hostHoldsOpen = null
-    const reinstalled = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const reinstalled = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(reinstalled.json).toMatchObject({ ok: true })
     // Absent, not merely empty: the notice is driven by the key existing.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.brokenPlugins['dsh-loop']).toBeUndefined()
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.brokenPlugins['dsh-loop']).toBeUndefined()
     expect(readManifestAt(fake.profileDir).dependencies?.['dsh-loop']).toBeDefined()
   })
 
   it('flags the update and applies it', async () => {
     advanceNpmLatest('1.2.0')
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(updates.json.updates['dsh-loop']).toMatchObject({ kind: 'npm', current: '1.0.0', latest: '1.2.0', updateAvailable: true })
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBe('^1.2.0')
@@ -2996,7 +2996,7 @@ describe('update flow — no npm publishing required', () => {
     // "live" while the OLD build is what answers requests.
     //
     // Measured — the market updated from 1.11.3 to 1.12.2 with 1.12.2 on
-    // disk, `/dsh-shelfry/status` still reporting 1.11.3, an unchanged boot
+    // disk, `/dsh-crate/status` still reporting 1.11.3, an unchanged boot
     // id, and this route calling it hot-loaded in the same response.
     expect(r.json.activation['dsh-loop']).toMatchObject({ state: 'restart', hot: false })
   })
@@ -3009,9 +3009,9 @@ describe('update flow — no npm publishing required', () => {
     // finished while the old build was still answering. Measured against a
     // real host in tests/web/update.e2e.ts.
     advanceNpmLatest('1.2.0')
-    await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.activation['dsh-loop']).toMatchObject({ state: 'restart', hot: false })
   })
 
@@ -3029,13 +3029,13 @@ describe('update flow — no npm publishing required', () => {
     // is a plain super.import), so the hot-mount branch this case exercises
     // is in the same position as the bundle branch the e2e measures.
     advanceNpmLatest('1.2.0')
-    await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
 
     expect(on.json.activation['dsh-loop']?.state).toBe('restart')
     expect(on.json.restart).toBe(true)
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.activation['dsh-loop']?.state).toBe('restart')
   })
 
@@ -3048,7 +3048,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(manifestPath, malformed)
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(500)
     expect(String(r.json.error)).toMatch(/dsh\.profile field is malformed|无法安全读取/)
@@ -3061,7 +3061,7 @@ describe('update flow — no npm publishing required', () => {
     fake.npm['dsh-loop'].versions['0.9.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     fake.resolvedNpmVersionOnce = '0.9.0'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json).toMatchObject({ ok: false, failureCode: 'DOWNGRADE_DETECTED' })
@@ -3079,7 +3079,7 @@ describe('update flow — no npm publishing required', () => {
     // would report a good, newer build as a failure.
     fake.resolvedNpmVersionOnce = '1.2.1'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.json).toMatchObject({ ok: true })
     const installed = JSON.parse(readFileSync(join(fake.profileDir, 'node_modules', 'dsh-loop', 'package.json'), 'utf8')) as { version?: string }
@@ -3091,7 +3091,7 @@ describe('update flow — no npm publishing required', () => {
     fake.npm['dsh-loop'].versions['1.1.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     fake.resolvedNpmVersionOnce = '1.1.0'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json).toMatchObject({ ok: false, failureCode: 'RESOLVED_VERSION_MISMATCH' })
@@ -3106,7 +3106,7 @@ describe('update flow — no npm publishing required', () => {
     advanceNpmLatest('1.2.0')
     // The seed install is pinned too (#594), so only the update's own add counts.
     const callsBefore = fake.calls.length
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.json).toMatchObject({ ok: true })
     // One registry resolution, one install target: Desktop's install boundary
     // must not get `@latest` and fetch again (that drift was the false
@@ -3141,7 +3141,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(String(r.json.error)).toMatch(/already-installed/)
@@ -3181,7 +3181,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     // body.error is what the client shows (#919): the desktop wait note, not
@@ -3199,7 +3199,7 @@ describe('update flow — no npm publishing required', () => {
 
   it('names the package pnpm actually refused when it is not the one being installed (#944)', async () => {
     // #944: the user updates dsh-cost-meter, pnpm refuses — and names
-    // `dsh-shelfry@1.66.44`, a DIFFERENT package, left inside the wait by the
+    // `dsh-crate@1.66.44`, a DIFFERENT package, left inside the wait by the
     // self-update the market itself recommended. The note said "this plugin's
     // new version is too young" and sent the user to wait out the WRONG
     // version's publish time. The wait fragment is derived from the timestamp
@@ -3215,7 +3215,7 @@ describe('update flow — no npm publishing required', () => {
           exitCode: 1,
           timedOut: false,
           stdout: '',
-          stderr: `✗ Lockfile failed supply-chain policy check (216 entries in 3.3s)\n[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] 1 lockfile entries failed verification:\n  dsh-shelfry@1.66.44 was published at ${published}, within the minimumReleaseAge cutoff`,
+          stderr: `✗ Lockfile failed supply-chain policy check (216 entries in 3.3s)\n[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] 1 lockfile entries failed verification:\n  dsh-crate@1.66.44 was published at ${published}, within the minimumReleaseAge cutoff`,
           cancelled: false,
           wroteNothing: false,
         }
@@ -3226,13 +3226,13 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     const error = String(r.json.error)
     // The offender is named as itself, so "wait" is attached to the right
     // version — and the user can see the remedy applies to that package.
-    expect(error).toContain('dsh-shelfry@1.66.44')
+    expect(error).toContain('dsh-crate@1.66.44')
     expect(error).toMatch(/拦住|blocking you|is holding/i)
     // The remedy is offered here too: #944's reporter fixed it in one line
     // rather than waiting out the window. Scoped names are written quoted in
@@ -3267,7 +3267,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     const error = String(r.json.error)
     expect(error).toMatch(/这个插件的新版本比本机的新版本等待期还新/)
@@ -3299,7 +3299,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json).toMatchObject({ ok: false, failureCode: 'market-self-update' })
@@ -3350,7 +3350,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     // The refusal really came from the fake manager, not from an earlier stop.
@@ -3366,10 +3366,10 @@ describe('update flow — no npm publishing required', () => {
     // what lets the log answer "where did my plugin go".
     advanceNpmLatest('1.2.0')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
-    const logs = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const logs = await bed.dispatch('GET', '/dsh-crate/logs')
     expect(logs.text).toContain('update-start')
     expect(logs.text).toContain('dsh-loop -> dsh-loop@1.2.0')
   })
@@ -3409,7 +3409,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json).toMatchObject({ ok: false, failureCode: 'RESOLVED_VERSION_MISMATCH' })
@@ -3462,7 +3462,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json).toMatchObject({ ok: true })
@@ -3504,7 +3504,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json).toMatchObject({ ok: false, failureCode: 'RESOLVED_VERSION_MISMATCH' })
@@ -3519,7 +3519,7 @@ describe('update flow — no npm publishing required', () => {
     advanceNpmLatest('1.0.0')
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json).toMatchObject({ ok: true, skipped: 'current', name: 'dsh-loop', version: '1.0.0' })
@@ -3532,11 +3532,11 @@ describe('update flow — no npm publishing required', () => {
     // was moved back to a previous release, so updating would walk the
     // profile backwards. That one the user has to see.
     advanceNpmLatest('1.2.0')
-    expect((await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })).json.ok).toBe(true)
+    expect((await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })).json.ok).toBe(true)
     advanceNpmLatest('0.9.0')
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toMatch(/更新会降级|would downgrade/)
@@ -3550,7 +3550,7 @@ describe('update flow — no npm publishing required', () => {
     // directory alone must not flip these bits.
     bed.dispose()
     bed = createTestbed({ profileDirectory: fake.profileDir, allowRestart: false })
-    const launched = await bed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')
+    const launched = await bed.dispatch('GET', '/dsh-crate/api/v1/capabilities')
     // Restart is off, so who manages it is answered by the same signal: an
     // operator disabled it here, no shell took it over.
     expect(launched.json).toMatchObject({
@@ -3560,7 +3560,7 @@ describe('update flow — no npm publishing required', () => {
 
     bed.dispose()
     bed = createTestbed({ profileDirectory: fake.profileDir, desktopHost: true, allowRestart: false })
-    const shell = await bed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')
+    const shell = await bed.dispatch('GET', '/dsh-crate/api/v1/capabilities')
     expect(shell.json).toMatchObject({
       runtime: 'desktop',
       restart: { supported: false, managedBy: 'desktop-host' },
@@ -3569,10 +3569,10 @@ describe('update flow — no npm publishing required', () => {
 
   it('exposes a versioned capability and update-check contract for plugin-owned UIs', async () => {
     advanceNpmLatest('1.2.0')
-    const capabilities = await bed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')
+    const capabilities = await bed.dispatch('GET', '/dsh-crate/api/v1/capabilities')
     expect(capabilities.status).toBe(200)
     expect(capabilities.json).toMatchObject({
-      schema: 'dsh-shelfry/update-api/v1',
+      schema: 'dsh-crate/update-api/v1',
       apiVersion: 1,
       // The compatibility promise is machine-readable, because one that lives
       // only in a markdown file is one no client ever reads. A release that
@@ -3584,13 +3584,13 @@ describe('update flow — no npm publishing required', () => {
       restart: { supported: true, managedBy: 'market' },
       operationRetention: 'current-process',
       operationLimit: 50,
-      endpoints: { updates: '/dsh-shelfry/api/v1/updates', updatesSummary: '/dsh-shelfry/api/v1/updates/summary' },
+      endpoints: { updates: '/dsh-crate/api/v1/updates', updatesSummary: '/dsh-crate/api/v1/updates/summary' },
     })
 
-    const check = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates?name=dsh-loop&force=1')
+    const check = await bed.dispatch('GET', '/dsh-crate/api/v1/updates?name=dsh-loop&force=1')
     expect(check.status).toBe(200)
     expect(check.json).toMatchObject({
-      schema: 'dsh-shelfry/update-api/v1',
+      schema: 'dsh-crate/update-api/v1',
       package: {
         name: 'dsh-loop',
         source: 'npm',
@@ -3608,10 +3608,10 @@ describe('update flow — no npm publishing required', () => {
     // capability bit. Both put the host's badge at the mercy of a shape that
     // was never promised to it.
     advanceNpmLatest('1.2.0')
-    const summary = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates/summary')
+    const summary = await bed.dispatch('GET', '/dsh-crate/api/v1/updates/summary')
     expect(summary.status).toBe(200)
     expect(summary.json).toMatchObject({
-      schema: 'dsh-shelfry/update-api/v1',
+      schema: 'dsh-crate/update-api/v1',
       updatable: 1,
       packages: [{
         name: 'dsh-loop',
@@ -3626,12 +3626,12 @@ describe('update flow — no npm publishing required', () => {
 
     // The aggregate and the single check must agree — they share one
     // implementation of the inputs precisely so they cannot drift.
-    const single = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates?name=dsh-loop&force=1')
+    const single = await bed.dispatch('GET', '/dsh-crate/api/v1/updates?name=dsh-loop&force=1')
     expect(single.json.package).toMatchObject(summary.json.packages[0])
   })
 
   it('says nothing is updatable rather than staying silent when it is true', async () => {
-    const summary = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates/summary')
+    const summary = await bed.dispatch('GET', '/dsh-crate/api/v1/updates/summary')
     expect(summary.status).toBe(200)
     expect(summary.json).toMatchObject({ updatable: 0, packages: [] })
     expect(summary.json.checked).toBeGreaterThan(0)
@@ -3642,25 +3642,25 @@ describe('update flow — no npm publishing required', () => {
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
 
-    const accepted = await bed.dispatch('POST', '/dsh-shelfry/api/v1/updates', {
+    const accepted = await bed.dispatch('POST', '/dsh-crate/api/v1/updates', {
       packageName: 'dsh-loop',
     })
     expect(accepted.status).toBe(202)
     expect(accepted.json.operation).toMatchObject({
-      schema: 'dsh-shelfry/update-api/v1',
+      schema: 'dsh-crate/update-api/v1',
       packageName: 'dsh-loop',
       state: 'running',
       beforeVersion: '1.0.0',
     })
     const operationId = String(accepted.json.operation.operationId)
 
-    const concurrent = await bed.dispatch('POST', '/dsh-shelfry/api/v1/updates', {
+    const concurrent = await bed.dispatch('POST', '/dsh-crate/api/v1/updates', {
       packageName: 'dsh-loop',
     })
     expect(concurrent.status).toBe(409)
     expect(concurrent.json.failure).toMatchObject({ code: 'OPERATION_BUSY', retryable: true })
 
-    const during = await bed.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+    const during = await bed.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
     expect(during.status).toBe(200)
     expect(during.json.operation.state).toBe('running')
 
@@ -3669,7 +3669,7 @@ describe('update flow — no npm publishing required', () => {
     let completed = during
     for (let attempt = 0; attempt < 30 && completed.json.operation.state === 'running'; attempt += 1) {
       await new Promise(resolvePromise => setTimeout(resolvePromise, 5))
-      completed = await bed.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+      completed = await bed.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
     }
     expect(completed.json.operation).toMatchObject({
       state: 'succeeded',
@@ -3685,15 +3685,15 @@ describe('update flow — no npm publishing required', () => {
     const guarded = createTestbed({}, undefined, {
       list: () => [{ id: 'main', status: 'running' }],
     })
-    const accepted = await guarded.dispatch('POST', '/dsh-shelfry/api/v1/updates', {
+    const accepted = await guarded.dispatch('POST', '/dsh-crate/api/v1/updates', {
       packageName: 'dsh-loop',
     })
     expect(accepted.status).toBe(202)
     const operationId = String(accepted.json.operation.operationId)
-    let completed = await guarded.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+    let completed = await guarded.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
     for (let attempt = 0; attempt < 30 && completed.json.operation.state === 'running'; attempt += 1) {
       await new Promise(resolvePromise => setTimeout(resolvePromise, 5))
-      completed = await guarded.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+      completed = await guarded.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
     }
     expect(completed.json.operation).toMatchObject({
       state: 'failed',
@@ -3721,12 +3721,12 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const accepted = await bed.dispatch('POST', '/dsh-shelfry/api/v1/updates', { packageName: 'dsh-loop' })
+    const accepted = await bed.dispatch('POST', '/dsh-crate/api/v1/updates', { packageName: 'dsh-loop' })
     const operationId = String(accepted.json.operation.operationId)
-    let completed = await bed.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+    let completed = await bed.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
     for (let attempt = 0; attempt < 30 && completed.json.operation.state === 'running'; attempt += 1) {
       await new Promise(resolvePromise => setTimeout(resolvePromise, 5))
-      completed = await bed.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+      completed = await bed.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
     }
     expect(completed.json.operation).toMatchObject({
       state: 'succeeded',
@@ -3735,7 +3735,7 @@ describe('update flow — no npm publishing required', () => {
     })
     expect(JSON.stringify(completed.json)).not.toContain('rollbackId')
 
-    const rolledBack = await bed.dispatch('POST', '/dsh-shelfry/api/v1/rollback', { operationId })
+    const rolledBack = await bed.dispatch('POST', '/dsh-crate/api/v1/rollback', { operationId })
     expect(rolledBack.status).toBe(200)
     expect(rolledBack.json.operation).toMatchObject({
       state: 'rolled-back',
@@ -3756,7 +3756,7 @@ describe('update flow — no npm publishing required', () => {
     const sha = 'b0e6c57ebeeb4796017864f5cd5c66e6ba0899ec'
     const proxied = `https://gh-proxy.com/https://codeload.github.com/o/r/tar.gz/${sha}`
     fake.repos['github:o/r'] = { name: 'plug-b', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/r' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/r' })
 
     // Rewrite the manifest to the legacy China-region spelling.
     const manifestPath = join(profileDir('web'), 'package.json')
@@ -3765,7 +3765,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
     fake.calls = []
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-b' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-b' })
     expect(updated.status).toBe(200)
     const ran = fake.calls.at(-1)?.join(' ') ?? ''
     expect(ran, 'the update went to npm instead of the repo').toContain('github:o/r')
@@ -3803,7 +3803,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(join(profileDir('web'), 'node_modules', 'themer', 'index.js'), 'export {}\n')
 
     fake.calls = []
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
     expect(updated.status).toBe(200)
     // The remote stays the source: the update re-resolves the existing
     // specifier in place (#562), and the manifest still names the Gitea URL.
@@ -3866,7 +3866,7 @@ describe('update flow — no npm publishing required', () => {
     bed = createTestbed({}, createOfficialDesktopRuntime(() => manager, 'web', profileDir('web')))
 
     fake.calls = []
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
     expect(updated.status).toBe(200)
     expect(fake.calls.at(-1)?.[0], 'this host takes `add`; `update` is refused before pnpm runs').toBe('add')
     expect(fake.calls.at(-1)).toContain(gitea)
@@ -3953,7 +3953,7 @@ describe('update flow — no npm publishing required', () => {
     bed = createTestbed({}, createOfficialDesktopRuntime(() => manager, 'web', profileDir('web')))
 
     fake.calls = []
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(updated.status, 'the update must not fail as ambiguous-install').toBe(200)
     expect(fake.calls.at(-1)?.[0]).toBe('add')
@@ -4034,7 +4034,7 @@ describe('update flow — no npm publishing required', () => {
     bed = createTestbed({}, createOfficialDesktopRuntime(() => manager, 'web', profileDir('web')))
 
     fake.calls = []
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(updated.status, 'the update must not fail as ambiguous-install').toBe(200)
     // The host still takes `add`, and it is the shortcut the market sends.
@@ -4113,7 +4113,7 @@ describe('update flow — no npm publishing required', () => {
     bed = createTestbed({}, createOfficialDesktopRuntime(() => manager, 'web', profileDir('web')))
 
     fake.calls = []
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(updated.status, 'the subpath update must not fail as ambiguous-install').toBe(200)
     // The host still receives the BARE floating spec: the pin is a profile
@@ -4131,13 +4131,13 @@ describe('update flow — no npm publishing required', () => {
     fake.repos[target] = {
       name: 'plug-a', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'],
     }
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', {
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', {
       url: 'https://github.com/m/mono/tree/main/packages/plug-a',
     })
     expect(installed.status).toBe(200)
     expect(installedSpec('plug-a')).toBe(target)
 
-    const direct = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-a' })
+    const direct = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-a' })
     expect(direct.status).toBe(200)
     // Nothing to change in the specifier, so it is re-resolved in place
     // rather than re-added byte-for-byte (#562); the subpath lives on in
@@ -4155,7 +4155,7 @@ describe('update flow — no npm publishing required', () => {
     manifest.dependencies['plug-a'] = `github:m/mono#${pin}&path:/packages/plug-a`
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const refreshed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-a' })
+    const refreshed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-a' })
     expect(refreshed.status).toBe(200)
     expect(fake.calls.at(-1)).toContain(target)
     expect(fake.calls.at(-1)).not.toContain(pin)
@@ -4175,7 +4175,7 @@ describe('update flow — no npm publishing required', () => {
     fake.repos['github:m/mono#path:/packages/plug-b'] = {
       name: 'plug-b', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'],
     }
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', {
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', {
       url: 'https://github.com/m/mono/tree/main/packages/plug-b',
     })
     expect(installed.status).toBe(200)
@@ -4185,7 +4185,7 @@ describe('update flow — no npm publishing required', () => {
     manifest.dependencies['plug-b'] = target
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const refreshed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-b' })
+    const refreshed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-b' })
     expect(refreshed.status).toBe(200)
     // The branch is kept by leaving the specifier alone: the update
     // re-resolves in place (#562) instead of re-adding a target, so both
@@ -4200,7 +4200,7 @@ describe('update flow — no npm publishing required', () => {
     fake.repos['github:o/blue-whale'] = {
       name: 'dsh-blue-whale', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'], lockCommit: OLD,
     }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })).status).toBe(200)
     expect(installedSpec('dsh-blue-whale')).toBe('github:o/blue-whale')
     // A new commit lands upstream. The specifier in the manifest cannot
     // change, so `add github:o/blue-whale` would be byte-identical to what
@@ -4210,7 +4210,7 @@ describe('update flow — no npm publishing required', () => {
     }
     const callsBefore = fake.calls.length
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-blue-whale' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-blue-whale' })
 
     expect(updated.status, JSON.stringify(updated.json)).toBe(200)
     expect(updated.json.stale).toBeUndefined()
@@ -4228,7 +4228,7 @@ describe('update flow — no npm publishing required', () => {
     fake.repos[target] = {
       name: 'plug-a', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'],
     }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', {
+    expect((await bed.dispatch('POST', '/dsh-crate/install', {
       url: 'https://github.com/m/mono/tree/main/packages/plug-a',
     })).status).toBe(200)
     writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), `lockfileVersion: 9\n  resolution: {tarball: https://codeload.github.com/m/mono/tar.gz/${OLD}}\n`)
@@ -4246,7 +4246,7 @@ describe('update flow — no npm publishing required', () => {
       lockCommit: NEW,
     }
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-a' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-a' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({
@@ -4268,7 +4268,7 @@ describe('update flow — no npm publishing required', () => {
         { id: 'helper', status: 'idle' },
       ],
     })
-    const r = await busyBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await busyBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(409)
     expect(r.json.agentsBusy).toBe(true)
     expect(r.json.runningAgents).toEqual(['main'])
@@ -4279,13 +4279,13 @@ describe('update flow — no npm publishing required', () => {
   })
 
   it('exposes running agents in /status so the client can drain its install queue', async () => {
-    const defaultStatus = await bed.dispatch('GET', '/dsh-shelfry/status')
+    const defaultStatus = await bed.dispatch('GET', '/dsh-crate/status')
     expect(defaultStatus.json.agentGuardAvailable).toBe(false)
     expect(defaultStatus.json.runningAgents).toEqual([])
     const busyBed = createTestbed({}, undefined, {
       list: () => [{ id: 'main', status: 'running' }],
     })
-    const busyStatus = await busyBed.dispatch('GET', '/dsh-shelfry/status')
+    const busyStatus = await busyBed.dispatch('GET', '/dsh-crate/status')
     expect(busyStatus.json.agentGuardAvailable).toBe(true)
     expect(busyStatus.json.runningAgents).toEqual(['main'])
     busyBed.dispose()
@@ -4299,12 +4299,12 @@ describe('update flow — no npm publishing required', () => {
     try {
       const callsBefore = fake.calls.length
       for (const confirmAgentsRunning of [false, 'true']) {
-        const refused = await busyBed.dispatch('POST', `/dsh-shelfry/${operation}`, { name: 'dsh-loop', confirmAgentsRunning })
+        const refused = await busyBed.dispatch('POST', `/dsh-crate/${operation}`, { name: 'dsh-loop', confirmAgentsRunning })
         expect(refused.status).toBe(409)
         expect(refused.json).toMatchObject({ agentsBusy: true, runningAgents: ['main'] })
         expect(fake.calls.length).toBe(callsBefore)
       }
-      const confirmed = await busyBed.dispatch('POST', `/dsh-shelfry/${operation}`, { name: 'dsh-loop', confirmAgentsRunning: true })
+      const confirmed = await busyBed.dispatch('POST', `/dsh-crate/${operation}`, { name: 'dsh-loop', confirmAgentsRunning: true })
       expect(confirmed.status, JSON.stringify(confirmed.json)).toBe(200)
       expect(confirmed.json.ok).toBe(true)
       expect(fake.calls.length).toBeGreaterThan(callsBefore)
@@ -4312,10 +4312,10 @@ describe('update flow — no npm publishing required', () => {
 
       // A confirmed request never authorizes another mutation on this mount.
       if (operation === 'uninstall') {
-        expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
+        expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
       }
       const afterConfirmed = fake.calls.length
-      const next = await busyBed.dispatch('POST', `/dsh-shelfry/${operation}`, { name: 'dsh-loop' })
+      const next = await busyBed.dispatch('POST', `/dsh-crate/${operation}`, { name: 'dsh-loop' })
       expect(next.status).toBe(409)
       expect(next.json.agentsBusy).toBe(true)
       expect(fake.calls.length).toBe(afterConfirmed)
@@ -4323,7 +4323,7 @@ describe('update flow — no npm publishing required', () => {
   })
 
   it('allows a fresh install while agents run without confirmation (#779)', async () => {
-    fake.npm['dsh-shelfry'] = {
+    fake.npm['dsh-crate'] = {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] } },
     }
@@ -4331,27 +4331,27 @@ describe('update flow — no npm publishing required', () => {
       list: () => [{ id: 'main', status: 'running' }],
     })
     try {
-      expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.agentGuardAvailable).toBe(false)
-      expect((await busyBed.dispatch('GET', '/dsh-shelfry/status')).json.agentGuardAvailable).toBe(true)
+      expect((await bed.dispatch('GET', '/dsh-crate/status')).json.agentGuardAvailable).toBe(false)
+      expect((await busyBed.dispatch('GET', '/dsh-crate/status')).json.agentGuardAvailable).toBe(true)
       const callsBefore = fake.calls.length
-      expect((await busyBed.dispatch('POST', '/dsh-shelfry/install', { url: 'file:///untrusted' })).status).toBe(400)
+      expect((await busyBed.dispatch('POST', '/dsh-crate/install', { url: 'file:///untrusted' })).status).toBe(400)
       expect(fake.calls.length).toBe(callsBefore)
-      const installed = await busyBed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-shelfry' })
+      const installed = await busyBed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-crate' })
       expect(installed.status, JSON.stringify(installed.json)).toBe(200)
       expect(installed.json.ok).toBe(true)
-      expect(installedSpec('dsh-shelfry')).toBe('^1.0.0')
-      expect(fake.calls.some(call => call[0] === 'add' && call.includes('dsh-shelfry@1.0.0'))).toBe(true)
+      expect(installedSpec('dsh-crate')).toBe('^1.0.0')
+      expect(fake.calls.some(call => call[0] === 'add' && call.includes('dsh-crate@1.0.0'))).toBe(true)
 
       fake.npm['dsh-share'] = {
         latest: '1.0.0',
         versions: { '1.0.0': { manifest: { dsh: {}, main: 'missing.js' }, artifacts: [] } },
       }
-      const failed = await busyBed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/h/dsh-share' })
+      const failed = await busyBed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/h/dsh-share' })
       expect(failed.json.ok).toBe(false)
       expect(String(failed.json.error)).toMatch(/nothing installable|prebuilt artifacts/)
       expect(installedSpec('dsh-share')).toBeUndefined()
       expect(existsSync(join(fake.profileDir, 'node_modules', 'dsh-share'))).toBe(false)
-      expect(installedSpec('dsh-shelfry')).toBe('^1.0.0')
+      expect(installedSpec('dsh-crate')).toBe('^1.0.0')
     } finally { busyBed.dispose() }
   })
 
@@ -4364,7 +4364,7 @@ describe('update flow — no npm publishing required', () => {
         { id: 'mystery', status: undefined },
       ],
     })
-    const r = await idleBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await idleBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(r.json.agentsBusy).toBeUndefined()
@@ -4389,7 +4389,7 @@ describe('update flow — no npm publishing required', () => {
     fake.npm['dsh-loop'].versions['1.3.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: [] }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.3.0' }), { status: 200 })))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.json.ok).toBe(false)
     expect(String(r.json.error)).toMatch(/入口|entry/)
     // The pin is rolled back AND the previous files are rematerialized —
@@ -4413,7 +4413,7 @@ describe('update flow — no npm publishing required', () => {
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.3.0' }), { status: 200 })))
 
     const callsBefore = fake.calls.length
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -4429,7 +4429,7 @@ describe('update flow — no npm publishing required', () => {
   it('restores the captured GitHub commit when a successful update has no entry artifact', async () => {
     const OLD = 'a'.repeat(40)
     const NEW = 'b'.repeat(40)
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     fake.repos['github:owner/dsh-loop'] = {
       name: 'dsh-loop',
       manifest: { name: 'dsh-loop', version: '2.0.0', dsh: {}, main: 'lib/index.js' },
@@ -4450,7 +4450,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(join(pkgDir, 'lib', 'index.js'), 'old-git-build')
     writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), `lockfileVersion: 9\n  resolution: {tarball: https://codeload.github.com/owner/dsh-loop/tar.gz/${OLD}}\n`)
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -4469,7 +4469,7 @@ describe('update flow — no npm publishing required', () => {
     const OLD = 'a'.repeat(40)
     const NEW = 'b'.repeat(40)
     const oldUrl = `https://codeload.github.com/owner/dsh-loop/tar.gz/${OLD}`
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     fake.repos['github:owner/dsh-loop'] = {
       name: 'dsh-loop',
       manifest: { name: 'dsh-loop', version: '2.0.0', dsh: {}, main: 'lib/index.js' },
@@ -4491,7 +4491,7 @@ describe('update flow — no npm publishing required', () => {
     // captured bytes after the exact re-add would discard the repair.
     writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -4505,7 +4505,7 @@ describe('update flow — no npm publishing required', () => {
 
   it('refuses an update whose new patch would duplicate a loader entry id and boots would fail', async () => {
     // Start over with a bundle-shaped install: the patch declares one row.
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     fake.npm['dsh-loop'] = {
       latest: '1.0.0',
       versions: {
@@ -4518,7 +4518,7 @@ describe('update flow — no npm publishing required', () => {
         },
       },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     // The real dsh plugin command reconciles the bundle layer; FakeDsh does
     // not, so write what the host would have written.
     const manifest = JSON.parse(readFileSync(join(fake.profileDir, 'package.json'), 'utf8')) as Record<string, unknown>
@@ -4538,7 +4538,7 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.4.0' }), { status: 200 })))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     expect(String(r.json.error)).toMatch(/duplicate|重复/)
@@ -4550,7 +4550,7 @@ describe('update flow — no npm publishing required', () => {
   })
 
   it('tells the truth when the rollback of a duplicate-id update cannot restore the files', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     fake.npm['dsh-loop'] = {
       latest: '1.0.0',
       versions: {
@@ -4563,7 +4563,7 @@ describe('update flow — no npm publishing required', () => {
         },
       },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     const manifest = JSON.parse(readFileSync(join(fake.profileDir, 'package.json'), 'utf8')) as Record<string, unknown>
     manifest.dsh = { profile: { bundles: ['dsh-loop'] } }
     writeFileSync(join(fake.profileDir, 'package.json'), JSON.stringify(manifest))
@@ -4578,7 +4578,7 @@ describe('update flow — no npm publishing required', () => {
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.4.0' }), { status: 200 })))
     fake.failAddTargetOnce = { target: 'dsh-loop@1.0.0', stderr: 'ELIFECYCLE: exact rollback failed' }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     expect(String(r.json.error)).toMatch(/未能恢复|could not restore/)
@@ -4610,7 +4610,7 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(r.json.compatibility).toMatchObject({
@@ -4620,7 +4620,7 @@ describe('update flow — no npm publishing required', () => {
     expect(readFileSync(join(fake.profileDir, 'node_modules', 'dsh-loop', 'lib', 'index.js'), 'utf8')).toBe('incompatible-build')
 
     const callsBeforeRollback = fake.calls.length
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: r.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: r.json.compatibility.rollbackId })
     expect(rollback.status).toBe(200)
     expect(rollback.json.rolledBack).toBe(true)
     const rollbackAdds = fake.calls.slice(callsBeforeRollback).filter(call => call[0] === 'add')
@@ -4654,13 +4654,13 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
     fake.failAddTargetOnce = { target: 'dsh-loop@1.0.0', stderr: 'ELIFECYCLE: exact rollback failed' }
     const callsBeforeRollback = fake.calls.length
 
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: updated.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: updated.json.compatibility.rollbackId })
 
     expect(rollback.status).toBe(502)
     expect(rollback.json.rolledBack).toBe(false)
@@ -4691,7 +4691,7 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
     expect(updated.json.compatibility.rollbackId).toBeUndefined()
@@ -4723,7 +4723,7 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility.rollbackId).toBeUndefined()
@@ -4755,7 +4755,7 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
@@ -4791,7 +4791,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(manifestPath, JSON.stringify(manifest))
     // A real lockfile for this host: the profile's own packages, and no
     // importer entry for the generation-managed one.
-    writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), npmLockFixture('dsh-shelfry', '1.66.22', '1.66.22'))
+    writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), npmLockFixture('dsh-crate', '1.66.22', '1.66.22'))
     fake.npm['dsh-loop'].latest = '1.2.0'
     fake.npm['dsh-loop'].versions['1.2.0'] = {
       manifest: {
@@ -4802,7 +4802,7 @@ describe('update flow — no npm publishing required', () => {
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
@@ -4823,7 +4823,7 @@ describe('update flow — no npm publishing required', () => {
       artifacts: ['lib/index.js'],
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     const rollbackId = updated.json.compatibility.rollbackId as string
     expect(rollbackId).toMatch(/^rollback-/)
 
@@ -4835,7 +4835,7 @@ describe('update flow — no npm publishing required', () => {
     manifest.dependencies['external-plugin'] = '1.0.0'
     writeFileSync(manifestPath, JSON.stringify(manifest))
     const callsBeforeRollback = fake.calls.length
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId })
 
     expect(rollback.status).toBe(400)
     expect(String(rollback.json.error)).toMatch(/profile changed|配置已发生变化/)
@@ -4856,16 +4856,16 @@ describe('update flow — no npm publishing required', () => {
       artifacts: ['lib/index.js'],
     }
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     const rollbackId = updated.json.compatibility.rollbackId as string
     expect(rollbackId).toMatch(/^rollback-/)
 
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
-    const rollback = bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId })
+    const rollback = bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId })
     await new Promise(resolvePromise => setTimeout(resolvePromise, 20))
 
-    const toggle = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    const toggle = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(toggle.status).toBe(409)
     expect(hot.disabled.has('dsh-loop')).toBe(false)
 
@@ -4926,7 +4926,7 @@ describe('update flow — no npm publishing required', () => {
     registryModule.loadRegistry.mockImplementation(() => Promise.resolve(authorized))
 
     const callsBefore = fake.calls.length
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-prebuilt' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-prebuilt' })
     registryModule.loadRegistry.mockImplementation(() => Promise.resolve(REGISTRY))
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
@@ -4981,7 +4981,7 @@ describe('update flow — no npm publishing required', () => {
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '2.0.0' }), { status: 200 })))
 
     const callsBefore = fake.calls.length
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-prebuilt' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-prebuilt' })
 
     expect(updated.status).toBe(400)
     expect(String(updated.json.error)).toContain(' / ')
@@ -5005,7 +5005,7 @@ describe('update flow — no npm publishing required', () => {
     }))
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '2.0.0' }), { status: 200 })))
 
-    const page = await bed.dispatch('GET', '/dsh-shelfry/updates')
+    const page = await bed.dispatch('GET', '/dsh-crate/updates')
 
     expect(page.status).toBe(200)
     expect(page.json.updates['dsh-prebuilt']).toMatchObject({ updateAvailable: false, latest: null })
@@ -5030,7 +5030,7 @@ describe('update flow — no npm publishing required', () => {
     vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify({ version: '1.2.0' }), { status: 200 })))
 
     const callsBefore = fake.calls.length
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
@@ -5047,7 +5047,7 @@ describe('update flow — no npm publishing required', () => {
     // (`user-memory-evolve` vs `bundle-memory-evolve`), so the existing
     // duplicate-ID guard has nothing to catch — but the NAME now resolves
     // from two layers and only one wins after a restart.
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     writeFileSync(
       join(fake.profileDir, 'cordis.patch.yml'),
       '- insert:\n    - id: user-memory-evolve\n      name: memory-evolve\n',
@@ -5073,7 +5073,7 @@ describe('update flow — no npm publishing required', () => {
     preManifest.dsh = { profile: { bundles: ['dsh-loop'] } }
     writeFileSync(join(fake.profileDir, 'package.json'), JSON.stringify(preManifest))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     // No duplicate-ID conflict — the ids are distinct, which is exactly why
@@ -5093,7 +5093,7 @@ describe('update flow — no npm publishing required', () => {
   })
 
   it('flags a soft host-incompatible install and rolls back the newly added plugin (#195)', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     const hostPeerDir = join(fake.profileDir, 'node_modules', '@deepseek-ai', 'dsh-settings')
     mkdirSync(hostPeerDir, { recursive: true })
     writeFileSync(join(hostPeerDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-settings', version: '0.1.0-rc.6' }))
@@ -5110,11 +5110,11 @@ describe('update flow — no npm publishing required', () => {
         },
       },
     }
-    const install = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const install = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(install.status).toBe(200)
     expect(install.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
 
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: install.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: install.json.compatibility.rollbackId })
     expect(rollback.status).toBe(200)
     expect(rollback.json.rolledBack).toBe(true)
     expect(installedSpec('dsh-loop')).toBeUndefined()
@@ -5154,7 +5154,7 @@ describe('update flow — no npm publishing required', () => {
       { status: 200 },
     )))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -5196,7 +5196,7 @@ describe('update flow — no npm publishing required', () => {
       { status: 200 },
     )))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name })
 
     expect(r.json.renamedTo).toBeUndefined()
     expect(String(r.json.error ?? '')).not.toContain('renamed upstream')
@@ -5205,7 +5205,7 @@ describe('update flow — no npm publishing required', () => {
   it('rolls a github update back to the captured commit (#195)', async () => {
     const OLD = 'a'.repeat(40)
     const NEW = 'b'.repeat(40)
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     fake.repos['github:owner/dsh-loop'] = {
       name: 'dsh-loop',
@@ -5242,12 +5242,12 @@ describe('update flow — no npm publishing required', () => {
     bed.dispose()
     bed = createTestbed({ region: 'china' })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
     expect(r.json.compatibility.risks[0]).toMatchObject({ direction: 'belowMin' })
 
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: r.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: r.json.compatibility.rollbackId })
     expect(rollback.status).toBe(200)
     expect(rollback.json.rolledBack).toBe(true)
     expect(installedSpec('dsh-loop')).toBe(`github:owner/dsh-loop#${OLD}`)
@@ -5276,7 +5276,7 @@ describe('update flow — no npm publishing required', () => {
     // ways of writing the spec.
     const OLD = 'a'.repeat(40)
     const NEW = 'b'.repeat(40)
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     fake.repos['github:owner/dsh-loop'] = {
       name: 'dsh-loop',
@@ -5314,7 +5314,7 @@ describe('update flow — no npm publishing required', () => {
     bed.dispose()
     bed = createTestbed({ region: 'china' })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     // The commit is in the lockfile, so the rollback exists. This is the
     // assertion #851 is about: before the fix this was undefined, with
@@ -5323,7 +5323,7 @@ describe('update flow — no npm publishing required', () => {
     expect(typeof r.json.compatibility?.rollbackId, 'the lockfile already records the commit').toBe('string')
     expect(r.json.compatibility?.rollbackUnavailable).toBeUndefined()
 
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: r.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: r.json.compatibility.rollbackId })
     expect(rollback.status).toBe(200)
     expect(rollback.json.rolledBack).toBe(true)
     // The declaration is floating again, pinned only for the rollback add.
@@ -5336,10 +5336,10 @@ describe('update flow — no npm publishing required', () => {
     // prereleases shipped: latest 0.0.1 is BELOW the installed 1.0.0.
     advanceNpmLatest('0.0.1')
     const specBefore = installedSpec('dsh-loop')
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(updates.json.updates['dsh-loop']).toMatchObject({ kind: 'npm', current: '1.0.0', latest: '0.0.1', updateAvailable: false })
     // Even called directly, the route refuses rather than rewriting the pin to `@latest`.
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toContain('0.0.1')
     expect(installedSpec('dsh-loop')).toBe(specBefore)
@@ -5349,7 +5349,7 @@ describe('update flow — no npm publishing required', () => {
   it('surfaces the silent fresh-release hold as an actionable error, and force applies it (#22)', async () => {
     advanceNpmLatest('1.2.0') // published 1h ago — inside the safety window
     fake.staleUpdates = true // pnpm keeps 1.0.0 and exits 0
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     expect(r.json.stale).toBe(true)
@@ -5360,7 +5360,7 @@ describe('update flow — no npm publishing required', () => {
 
     // The user clicks 「立即更新」: force bypasses the wait for THIS command only.
     fake.staleUpdates = false
-    const forced = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', force: true })
+    const forced = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', force: true })
     expect(forced.status).toBe(200)
     expect(installedSpec('dsh-loop')).toBe('^1.2.0')
     const lastAdd = fake.calls[fake.calls.length - 1]
@@ -5370,7 +5370,7 @@ describe('update flow — no npm publishing required', () => {
   it('restores the previous build when an update fails after pnpm wrote new files (#65 follow-up)', async () => {
     advanceNpmLatest('1.2.0')
     fake.failAfterWriteStderrOnce = '[ERR_PNPM_FETCH_404] GET https://registry.npmjs.org/some-ghost-dep: Not Found - 404'
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     // pnpm had already bumped the spec and replaced the package files before
     // failing. A rollback is only complete when both return to the previous
@@ -5390,7 +5390,7 @@ describe('update flow — no npm publishing required', () => {
       'Full diagnostics: C:\\Users\\u\\.dsh\\logs\\startup-2026-10-22T05-05-40.541Z-37a0b6ec-b8f2-4699-82ce-c53428afc403.log',
     ].join('\n')
     const callsBefore = fake.calls.length
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBe('^1.2.0')
@@ -5405,7 +5405,7 @@ describe('update flow — no npm publishing required', () => {
     // the new build back the way #975 did for npm.
     const OLD = 'a'.repeat(40)
     const NEW = 'b'.repeat(40)
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     fake.repos['github:owner/dsh-loop'] = {
       name: 'dsh-loop',
       manifest: { name: 'dsh-loop', version: '1.0.0', dsh: {}, main: 'lib/index.js' },
@@ -5429,7 +5429,7 @@ describe('update flow — no npm publishing required', () => {
     ].join('\n')
 
     const callsBefore = fake.calls.length
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBe('github:owner/dsh-loop')
@@ -5442,7 +5442,7 @@ describe('update flow — no npm publishing required', () => {
     fake.preserveManifestOnNextAdd = true
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: postinstall failed after replacing the package directory'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(installedSpec('dsh-loop')).toBe('^1.0.0')
@@ -5464,7 +5464,7 @@ describe('update flow — no npm publishing required', () => {
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: failed after replacing same-version bytes'
 
     const callsBefore = fake.calls.length
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(readFileSync(entry, 'utf8')).toBe('verified-old-bytes')
@@ -5484,7 +5484,7 @@ describe('update flow — no npm publishing required', () => {
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: update build failed after writing files'
     fake.failAddTargetOnce = { target: 'dsh-loop@1.0.0', stderr: 'ELIFECYCLE: rollback build failed' }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(String(r.json.error)).toMatch(/未能验证|could not be verified/)
@@ -5525,7 +5525,7 @@ describe('update flow — no npm publishing required', () => {
       `lockfileVersion: 9\n  resolution: {commit: ${OLD}, repo: https://gitea.example.com/me/themer.git, type: git}\n`)
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: git update failed after replacing files'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(r.status).toBe(502)
     expect(r.json.error, 'the rollback must be verified, not just attempted').toBeUndefined()
@@ -5569,7 +5569,7 @@ describe('update flow — no npm publishing required', () => {
       `lockfileVersion: 9\n  resolution: {commit: ${OLD}, repo: ${gitea}, type: git}\n`)
     fake.failNextAddStderrOnce = 'ERR_PNPM_GIT_FETCH  fatal: unable to access the remote'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'codearts' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'codearts' })
 
     expect(r.status).toBe(502)
     expect(r.json.error, 'the rollback must be verified, not just attempted').toBeUndefined()
@@ -5600,7 +5600,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'),
       `lockfileVersion: 9\n  resolution: {commit: ${OLD}, repo: https://gitea.example.com/me/themer.git, type: git}\n`)
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
@@ -5649,7 +5649,7 @@ describe('update flow — no npm publishing required', () => {
       `lockfileVersion: 9\n  resolution: {tarball: https://codeload.github.com/me/themer/tar.gz/${OLD}}\n`)
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: git update failed after replacing files'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(r.status).toBe(502)
     expect(r.json.error, 'the rollback must be verified, not just attempted').toBeUndefined()
@@ -5690,7 +5690,7 @@ describe('update flow — no npm publishing required', () => {
       `lockfileVersion: 9\n  resolution: {gitHosted: true, tarball: https://gitlab.com/me/themer/-/archive/${OLD}/themer-${OLD}.tar.gz}\n`)
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: git update failed after replacing files'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'themer' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'themer' })
 
     expect(r.status).toBe(502)
     expect(r.json.error, 'the rollback must be verified, not just attempted').toBeUndefined()
@@ -5734,7 +5734,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(join(fake.profileDir, 'node_modules', 'plug-a', 'package.json'), JSON.stringify({ name: 'plug-a', version: '1.0.0', dsh: {}, main: 'index.js' }))
     writeFileSync(join(fake.profileDir, 'node_modules', 'plug-a', 'index.js'), '')
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-a' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-a' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({
@@ -5767,7 +5767,7 @@ describe('update flow — no npm publishing required', () => {
     // No git resolution for this remote in the lock: nothing to roll back to.
     writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n')
 
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'plug-b' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'plug-b' })
 
     expect(updated.status).toBe(200)
     expect(updated.json.compatibility).toMatchObject({
@@ -5781,7 +5781,7 @@ describe('update flow — no npm publishing required', () => {
   it('restores the captured GitHub commit after an update command fails post-write', async () => {
     const OLD = 'a'.repeat(40)
     const NEW = 'b'.repeat(40)
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     fake.repos['github:owner/dsh-loop'] = {
       name: 'dsh-loop',
       manifest: { name: 'dsh-loop', version: '2.0.0', dsh: {}, main: 'lib/index.js' },
@@ -5802,7 +5802,7 @@ describe('update flow — no npm publishing required', () => {
     writeFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), `lockfileVersion: 9\n  resolution: {tarball: https://codeload.github.com/owner/dsh-loop/tar.gz/${OLD}}\n`)
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: git update failed after replacing files'
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(502)
     expect(r.json.error).toBeUndefined()
@@ -5834,7 +5834,7 @@ describe('update flow — no npm publishing required', () => {
       cancelActive: () => false,
     })
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(409)
     expect(r.json).toMatchObject({ ok: false, busy: true })
@@ -5850,7 +5850,7 @@ describe('update flow — no npm publishing required', () => {
     fake.cancelNext = true
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json).toMatchObject({ ok: false, cancelled: true })
@@ -5863,7 +5863,7 @@ describe('update flow — no npm publishing required', () => {
     // A leftover invalid allowBuilds entry (pnpm's placeholder bug, #56)
     // makes the update's `add` re-evaluate a git-hosted dep and hard-fail.
     fake.failNextAddStderrOnce = '[ERR_PNPM_IGNORED_BUILDS]\nIgnored build scripts: dsh-github-intelligence@https://codeload.github.com/zoahdev/dsh-github-intelligence/tar.gz/abc123.'
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     // The blocked package (bare name), so the client shows approve-and-retry.
@@ -5875,7 +5875,7 @@ describe('update flow — no npm publishing required', () => {
   it('does NOT blame the safety wait when the target release is old — honest unknown-cause message (#45)', async () => {
     advanceNpmLatest('1.2.0', 27) // published 27h ago — OUTSIDE the ~24h window
     fake.staleUpdates = true // version still did not move
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.stale).toBe(true)
     expect(r.json.staleReason).toBe('unknown')
@@ -5890,7 +5890,7 @@ describe('theme flow', () => {
   beforeEach(async () => {
     for (const name of ['theme-a', 'theme-b']) {
       fake.repos[`github:o/${name}`] = { name, manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-      await bed.dispatch('POST', '/dsh-shelfry/install', { url: `https://github.com/o/${name}` })
+      await bed.dispatch('POST', '/dsh-crate/install', { url: `https://github.com/o/${name}` })
     }
   })
 
@@ -5899,7 +5899,7 @@ describe('theme flow', () => {
     expect(hot.mounts).toEqual(['theme-b'])
     expect(hot.disabled.has('theme-a')).toBe(true)
     // Switch back to theme-a via the UI.
-    const r = await bed.dispatch('POST', '/dsh-shelfry/use-skin', { name: 'theme-a' })
+    const r = await bed.dispatch('POST', '/dsh-crate/use-skin', { name: 'theme-a' })
     expect(r.status).toBe(200)
     expect(hot.mounts).toEqual(['theme-a'])
     expect(hot.disabled.has('theme-b')).toBe(true)
@@ -5916,7 +5916,7 @@ describe('theme flow', () => {
     // undefined".
     expect(hot.mounts).toEqual(['theme-b'])
     hot.failNext = true
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/use-skin', { name: 'theme-a' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/use-skin', { name: 'theme-a' })
     expect(failed.status).toBe(502)
     expect(failed.json.ok).toBe(false)
     // The theme that was live is live again…
@@ -5928,15 +5928,15 @@ describe('theme flow', () => {
     expect(hot.disabled.has('theme-a')).toBe(false)
 
     // The chatty path works once the host can mount again.
-    const ok = await bed.dispatch('POST', '/dsh-shelfry/use-skin', { name: 'theme-a' })
+    const ok = await bed.dispatch('POST', '/dsh-crate/use-skin', { name: 'theme-a' })
     expect(ok.status).toBe(200)
     expect(hot.mounts).toEqual(['theme-a'])
     expect(hot.disabled.has('theme-b')).toBe(true)
   })
 
   it('rejects use-skin for non-theme or uninstalled packages', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/use-skin', { name: 'dsh-loop' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/use-skin', { name: 'ghost' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/use-skin', { name: 'dsh-loop' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/use-skin', { name: 'ghost' })).status).toBe(400)
   })
 })
 
@@ -5946,7 +5946,7 @@ describe('local-dev restore flow', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     fake.npm['dsh-loop'].latest = '1.2.0'
     fake.npm['dsh-loop'].versions['1.2.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     const manifestPath = join(fake.profileDir, 'package.json')
@@ -5954,12 +5954,12 @@ describe('local-dev restore flow', () => {
     manifest.dependencies['dsh-loop'] = 'link:../dsh-loop-dev'
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const blocked = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const blocked = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(blocked.status).toBe(400)
     expect(String(blocked.json.error)).toMatch(/locally linked/)
     expect(installedSpec('dsh-loop')).toBe('link:../dsh-loop-dev')
 
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', restore: true })
+    const restored = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', restore: true })
     expect(restored.status, String(restored.json.error ?? '')).toBe(200)
     expect(restored.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBe('^1.2.0')
@@ -5989,7 +5989,7 @@ describe('local-dev restore flow', () => {
       repository: { type: 'git', url: 'https://github.com/o/theme-a.git', directory: 'packages/skin' },
     }))
 
-    await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'theme-a', restore: true })
+    await bed.dispatch('POST', '/dsh-crate/update', { name: 'theme-a', restore: true })
     expect(fake.calls.some(call => call[0] === 'add' && call.some(arg => String(arg).includes('github:o/theme-a#path:/packages/skin')))).toBe(true)
   })
 
@@ -6016,7 +6016,7 @@ describe('local-dev restore flow', () => {
       dependencies: { '@dsh-cowork/core': 'workspace:^' },
       repository: { type: 'git', url: 'https://github.com/o/theme-a.git', directory: 'packages/skin' },
     }))
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'theme-a', restore: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'theme-a', restore: true })
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toMatch(/workspace/)
     expect(installedSpec('theme-a')).toBe(`link:${checkout}`)
@@ -6026,7 +6026,7 @@ describe('local-dev restore flow', () => {
     writeFileSync(join(fake.profileDir, 'package.json'), JSON.stringify({
       dependencies: { 'mystery-plug': 'link:../mystery' },
     }))
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'mystery-plug', restore: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'mystery-plug', restore: true })
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toMatch(/No catalog entry/)
   })
@@ -6065,7 +6065,7 @@ describe('local-dev restore flow', () => {
         },
       ],
     }))
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-humanizer', restore: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-humanizer', restore: true })
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toMatch(/No catalog entry/)
     expect(installedSpec('dsh-humanizer')).toBe(`link:${checkout}`)
@@ -6089,7 +6089,7 @@ describe('local-dev restore flow', () => {
       manifest: { name: 'dsh-prebuilt', version: '1.0.0', main: 'index.js', dsh: {} },
       artifacts: ['index.js'],
     }
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-prebuilt', restore: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-prebuilt', restore: true })
     expect(r.status, String(r.json.error ?? '')).toBe(200)
     const added = fake.calls.filter(call => call[0] === 'add').flat().map(String)
     expect(added.some(arg => arg === 'https://github.com/o/dsh-prebuilt/releases/download/v1.0.0/dsh-prebuilt.tgz')).toBe(true)
@@ -6100,7 +6100,7 @@ describe('local-dev restore flow', () => {
     writeFileSync(join(fake.profileDir, 'package.json'), JSON.stringify({
       dependencies: { 'dsh-loop': '^1.0.0' },
     }))
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', restore: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', restore: true })
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toMatch(/Restore only applies/)
     expect(installedSpec('dsh-loop')).toBe('^1.0.0')
@@ -6108,12 +6108,12 @@ describe('local-dev restore flow', () => {
 
   it('keeps the market development link local', async () => {
     writeFileSync(join(fake.profileDir, 'package.json'), JSON.stringify({
-      dependencies: { 'dsh-shelfry': 'link:../dsh-shelfry-dev' },
+      dependencies: { 'dsh-crate': 'link:../dsh-crate-dev' },
     }))
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-shelfry', restore: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-crate', restore: true })
     expect(r.status).toBe(400)
     expect(String(r.json.error)).toMatch(/local development link/)
-    expect(installedSpec('dsh-shelfry')).toBe('link:../dsh-shelfry-dev')
+    expect(installedSpec('dsh-crate')).toBe('link:../dsh-crate-dev')
   })
 
   it('rolls a #path: restore back to the local spec when the catalog build introduces risks', async () => {
@@ -6141,12 +6141,12 @@ describe('local-dev restore flow', () => {
     mkdirSync(hostPeerDir, { recursive: true })
     writeFileSync(join(hostPeerDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-settings', version: '0.1.0-rc.6' }))
 
-    const restored = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'theme-a', restore: true })
+    const restored = await bed.dispatch('POST', '/dsh-crate/update', { name: 'theme-a', restore: true })
     expect(restored.status, String(restored.json.error ?? '')).toBe(200)
     expect(restored.json.compatibility).toMatchObject({ code: 'soft-incompatible' })
     expect(installedSpec('theme-a')).toContain('#path:/packages/skin')
 
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: restored.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: restored.json.compatibility.rollbackId })
     expect(rollback.status).toBe(200)
     expect(rollback.json.rolledBack).toBe(true)
     expect(installedSpec('theme-a')).toBe(`link:${checkout}`)
@@ -6161,7 +6161,7 @@ describe('uninstall flow', () => {
     // Windows the next install of the same plugin then fails renaming over
     // the copy this process is still holding, which is what @yandidan1 hit.
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     // The plugin is JavaScript; the addon is a dependency hoisted beside it.
     const installedManifest = join(fake.profileDir, 'node_modules', 'dsh-loop', 'package.json')
     const manifest = JSON.parse(readFileSync(installedManifest, 'utf8')) as Record<string, unknown>
@@ -6169,7 +6169,7 @@ describe('uninstall flow', () => {
     mkdirSync(join(fake.profileDir, 'node_modules', 'node-hid', 'build', 'Release'), { recursive: true })
     writeFileSync(join(fake.profileDir, 'node_modules', 'node-hid', 'package.json'), '{"name":"node-hid","version":"3.4.0"}')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(false)
@@ -6180,14 +6180,14 @@ describe('uninstall flow', () => {
     // SinglePlayer keeps node-hid in optionalDependencies. The same
     // uninstall must not report hot: the files are still held until exit.
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     const installedManifest = join(fake.profileDir, 'node_modules', 'dsh-loop', 'package.json')
     const manifest = JSON.parse(readFileSync(installedManifest, 'utf8')) as Record<string, unknown>
     writeFileSync(installedManifest, JSON.stringify({ ...manifest, optionalDependencies: { 'node-hid': '3.4.0' } }))
     mkdirSync(join(fake.profileDir, 'node_modules', 'node-hid', 'build', 'Release'), { recursive: true })
     writeFileSync(join(fake.profileDir, 'node_modules', 'node-hid', 'package.json'), '{"name":"node-hid","version":"3.4.0"}')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(false)
@@ -6196,15 +6196,15 @@ describe('uninstall flow', () => {
 
   it('removes the plugin (live when hot mounted) and protects the market itself', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(true)
     expect(installedSpec('dsh-loop')).toBeUndefined()
     expect(hot.mounts).toEqual([])
 
-    expect((await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-shelfry' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'ghost' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-crate' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'ghost' })).status).toBe(400)
   })
 
   it('clears the patch rows an uninstall would otherwise leave behind (#799)', async () => {
@@ -6219,7 +6219,7 @@ describe('uninstall flow', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-patchy' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-patchy' })
     hot.mounts = [] // bundle-layer: loaded by the loader, never a hot mount
     // The fake install writes an EMPTY patch artifact; give it the real row.
     // The row id deliberately DIFFERS from the package name: an entry named
@@ -6231,11 +6231,11 @@ describe('uninstall flow', () => {
     )
     const userPatch = join(profileDir('web'), 'cordis.patch.yml')
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     expect(readFileSync(userPatch, 'utf8')).toContain('- id: dsh-patchy-row\n  disabled: true\n')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-patchy' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-patchy' })
 
     expect(r.status).toBe(200)
     // The package is gone, so a row left behind names nothing that can ever
@@ -6252,7 +6252,7 @@ describe('uninstall flow', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-patchy' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-patchy' })
     hot.mounts = []
     writeFileSync(
       join(profileDir('web'), 'node_modules', 'dsh-patchy', 'cordis.patch.yml'),
@@ -6261,11 +6261,11 @@ describe('uninstall flow', () => {
     const userPatch = join(profileDir('web'), 'cordis.patch.yml')
     writeFileSync(userPatch, '- id: dsh-patchy-row\n  disabled: false\n')
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     expect(readFileSync(userPatch, 'utf8')).toBe('- id: dsh-patchy-row\n  disabled: true\n')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-patchy' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-patchy' })
     expect(r.status).toBe(200)
     expect(readFileSync(userPatch, 'utf8')).not.toContain('dsh-patchy-row')
   })
@@ -6277,7 +6277,7 @@ describe('uninstall flow', () => {
     const hostDeploy = join(home, 'host-deploy')
     const desktop = createTestbed({ dshInstallDir: hostDeploy })
     try {
-      await desktop.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+      await desktop.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
       // The boot-time projection dsh-app-boot performs: the host's own
       // node_modules keeps a link (junction on Windows, dir symlink
       // elsewhere) pointing at the profile copy of the plugin.
@@ -6285,7 +6285,7 @@ describe('uninstall flow', () => {
       mkdirSync(join(hostDeploy, 'node_modules'), { recursive: true })
       symlinkSync(join(fake.profileDir, 'node_modules', 'dsh-loop'), bridge, process.platform === 'win32' ? 'junction' : 'dir')
 
-      const r = await desktop.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+      const r = await desktop.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
       expect(r.status).toBe(200)
       expect(r.json.ok).toBe(true)
@@ -6305,7 +6305,7 @@ describe('uninstall flow', () => {
     const hostDeploy = join(home, 'host-deploy')
     const desktop = createTestbed({ dshInstallDir: hostDeploy })
     try {
-      await desktop.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+      await desktop.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
       const bridge = join(hostDeploy, 'node_modules', 'dsh-loop')
       mkdirSync(join(hostDeploy, 'node_modules'), { recursive: true })
       symlinkSync(join(fake.profileDir, 'node_modules', 'dsh-loop'), bridge, process.platform === 'win32' ? 'junction' : 'dir')
@@ -6313,7 +6313,7 @@ describe('uninstall flow', () => {
       // manifest entry left behind, exit 1.
       fake.failNextRemoveHalfGone = true
 
-      const r = await desktop.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+      const r = await desktop.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
       // Same shape as the existing half-uninstall contract (#65): the CLI
       // failed, so the status is 502, but disk truth reconciled the removal
@@ -6330,7 +6330,7 @@ describe('uninstall flow', () => {
   it('rejects a package name that is not an npm name before any bridge path is built (#662)', async () => {
     // The bridge cleanup joins the name into a host node_modules path; a
     // hand-edited manifest carrying `../../evil` must not reach that join.
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: '../../evil' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: '../../evil' })
     expect(r.status).toBe(400)
     expect(fake.calls.some(call => call[0] === 'remove')).toBe(false)
   })
@@ -6340,7 +6340,7 @@ describe('uninstall flow', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     const activate = vi.fn().mockResolvedValue({ ok: true as const })
     bed = createTestbed({}, undefined, undefined, { activate })
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     activate.mockClear()
     expect(hot.mounts).toEqual([])
 
@@ -6357,7 +6357,7 @@ describe('uninstall flow', () => {
     }
     bed.loaderEntries.push(entry)
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.hot).toBe(true)
@@ -6373,7 +6373,7 @@ describe('uninstall flow', () => {
 
   it('refuses to remove a package still inserted by the user patch (#165)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     const patch = join(fake.profileDir, 'cordis.patch.yml')
     const patchText = [
       '- insert:',
@@ -6384,7 +6384,7 @@ describe('uninstall flow', () => {
     writeFileSync(patch, patchText)
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(r.status).toBe(409)
     expect(r.json).toMatchObject({
@@ -6399,7 +6399,7 @@ describe('uninstall flow', () => {
 
   it('does not confuse a neighbouring package name for a user-patch reference (#165)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     writeFileSync(join(fake.profileDir, 'cordis.patch.yml'), [
       '- insert:',
       '    - id: neighbour',
@@ -6407,7 +6407,7 @@ describe('uninstall flow', () => {
       '',
     ].join('\n'))
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -6416,13 +6416,13 @@ describe('uninstall flow', () => {
 
   it('refuses to uninstall when the user patch cannot be inspected safely (#165)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     const patch = join(fake.profileDir, 'cordis.patch.yml')
     const patchText = '- insert:\n    - id: broken\n      name: [\n'
     writeFileSync(patch, patchText)
     const callsBefore = fake.calls.length
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
 
     expect(r.status).toBe(409)
     expect(r.json.userPatchInspectionFailed).toBe(true)
@@ -6438,13 +6438,13 @@ describe('uninstall flow', () => {
 
   it('lets an unreadable user patch be forced past, but never a definite reference (#165)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     const patch = join(fake.profileDir, 'cordis.patch.yml')
 
     // Unreadable: forceable, and the user patch is still left untouched.
     const unreadable = '- insert:\n    - id: broken\n      name: [\n'
     writeFileSync(patch, unreadable)
-    const forced = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop', force: true })
+    const forced = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop', force: true })
     expect(forced.status, String(forced.json.error ?? '')).toBe(200)
     expect(installedSpec('dsh-loop')).toBeUndefined()
     expect(readFileSync(patch, 'utf8')).toBe(unreadable)
@@ -6452,9 +6452,9 @@ describe('uninstall flow', () => {
     // A patch that DEFINITELY names the package is not forceable: there the
     // user has a concrete row to remove, so an override would only help them
     // break the next boot.
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     writeFileSync(patch, '- insert:\n    - id: mine\n      name: dsh-loop\n')
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop', force: true })
+    const refused = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop', force: true })
     expect(refused.status).toBe(409)
     expect(refused.json.userPatchReferenced).toBe(true)
     expect(refused.json.forceable).toBeUndefined()
@@ -6463,12 +6463,12 @@ describe('uninstall flow', () => {
 
   it('uninstall succeeds even when the lockfile holds a too-young release (#39)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     // pnpm 11 verifies the WHOLE lockfile before any mutation; a package
     // published inside the safety window fails that check and bricks every
     // later add/remove until the one-shot override is passed.
     fake.youngLockfile = true
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBeUndefined()
@@ -6478,13 +6478,13 @@ describe('uninstall flow', () => {
 
   it('reconciles the manifest when a remove fails halfway (half-uninstall)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(installedSpec('dsh-loop')).toBeDefined()
     // pnpm dies AFTER deleting node_modules but BEFORE saving package.json
     // — disk truth and the manifest disagree; the next boot would fail to
     // activate the ghost dependency. The market must finish the removal.
     fake.failNextRemoveHalfGone = true
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     expect(r.json.reconciled).toBe(true)
@@ -6496,14 +6496,14 @@ describe('uninstall flow', () => {
 
   it('reports uninstall success when the package is gone and the host boot hit EADDRINUSE (#975)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     fake.failNextRemoveHalfGone = true
     fake.failNextRemoveHalfGoneStderr = [
       'webserver (required) listen EADDRINUSE: address already in use 127.0.0.1:3080',
       'Plugins waiting for services: client-hmr',
       'Full diagnostics: C:\\Users\\u\\.dsh\\logs\\startup-2026-10-22T05-05-40.541Z-37a0b6ec-b8f2-4699-82ce-c53428afc403.log',
     ].join('\n')
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(installedSpec('dsh-loop')).toBeUndefined()
@@ -6511,11 +6511,11 @@ describe('uninstall flow', () => {
 
   it('keeps the manifest when a failed remove left the package intact', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     // pnpm fails without touching anything (a non-retryable EPERM): disk
     // intact → the user may simply retry, so the manifest must stay as it was.
     fake.failNextRemoveOnce = 'EPERM: operation not permitted, rename …\\node_modules\\dsh-loop'
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(r.status).toBe(502)
     expect(r.json.ok).toBe(false)
     expect(r.json.reconciled).toBeUndefined()
@@ -6526,22 +6526,22 @@ describe('uninstall flow', () => {
 describe('duplicate alias guard (#27)', () => {
   it('refuses installing the same repo again under another catalog name', async () => {
     fake.npm['dsh-share'] = { latest: '0.2.0', versions: { '0.2.0': { manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] } } }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/h/dsh-share' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/h/dsh-share' })).status).toBe(200)
     // The alias entry (same repo, different display name) must be rejected —
     // a second install would create a duplicate loader entry id and brick boot.
-    const dup = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/h/dsh-share' })
+    const dup = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/h/dsh-share' })
     expect(dup.status).toBe(400)
     expect(String(dup.json.error)).toContain('dsh-share')
   })
 
   it('refuses a same-named plugin from a DIFFERENT repo with an honest name-conflict error (#66)', async () => {
     fake.repos['github:a1/dsh-usage-stats'] = { name: 'dsh-usage-stats', manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/a1/dsh-usage-stats' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/a1/dsh-usage-stats' })
     expect(first.json.ok).toBe(true)
     // The other same-named plugin is NOT "the same plugin already installed"
     // (that message would be a lie) — but pnpm would silently replace a1's
     // dependency entry, so the install is refused as a name conflict.
-    const second = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/a2/dsh-usage-stats' })
+    const second = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/a2/dsh-usage-stats' })
     expect(second.status).toBe(400)
     expect(String(second.json.error)).toContain('同名冲突')
     // a1's install is untouched.
@@ -6551,8 +6551,8 @@ describe('duplicate alias guard (#27)', () => {
   it('does NOT block sibling subpackages of one monorepo', async () => {
     fake.repos['github:m/mono#path:/packages/plug-a'] = { name: 'plug-a', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
     fake.repos['github:m/mono#path:/packages/plug-b'] = { name: 'plug-b', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/m/mono/tree/main/packages/plug-a' })).status).toBe(200)
-    const second = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/m/mono/tree/main/packages/plug-b' })
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/m/mono/tree/main/packages/plug-a' })).status).toBe(200)
+    const second = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/m/mono/tree/main/packages/plug-b' })
     expect(second.status).toBe(200)
     expect(installedSpec('plug-a')).toBeDefined()
     expect(installedSpec('plug-b')).toBeDefined()
@@ -6561,70 +6561,70 @@ describe('duplicate alias guard (#27)', () => {
 
 describe('market self-update', () => {
   it('switches a locally packaged market to its newer online release', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'stable' })
-    fake.npm['dsh-shelfry'] = {
+    await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'stable' })
+    fake.npm['dsh-crate'] = {
       latest: '1.0.3',
       versions: { '1.0.3': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/dsh-shelfry/dsh-shelfry' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/dsh-crate/dsh-crate' })
     const manifestPath = join(fake.profileDir, 'package.json')
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dependencies: Record<string, string> }
-    manifest.dependencies['dsh-shelfry'] = 'file:/packages/dsh-shelfry-1.0.3.tgz'
+    manifest.dependencies['dsh-crate'] = 'file:/packages/dsh-crate-1.0.3.tgz'
     writeFileSync(manifestPath, JSON.stringify(manifest))
-    const packagePath = join(fake.profileDir, 'node_modules', 'dsh-shelfry', 'package.json')
+    const packagePath = join(fake.profileDir, 'node_modules', 'dsh-crate', 'package.json')
     const installedPackage = JSON.parse(readFileSync(packagePath, 'utf8')) as Record<string, unknown>
-    installedPackage.repository = { type: 'git', url: 'https://github.com/dsh-shelfry/dsh-shelfry.git' }
+    installedPackage.repository = { type: 'git', url: 'https://github.com/dsh-crate/dsh-crate.git' }
     writeFileSync(packagePath, JSON.stringify(installedPackage))
-    fake.npm['dsh-shelfry'].latest = '1.2.3'
-    fake.npm['dsh-shelfry'].versions['1.2.3'] = {
+    fake.npm['dsh-crate'].latest = '1.2.3'
+    fake.npm['dsh-crate'].versions['1.2.3'] = {
       manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'],
     }
     vi.stubGlobal('fetch', (url: string) => String(url).includes('registry.npmjs.org')
       ? Promise.resolve(new Response(JSON.stringify({ version: '1.2.3' }), { status: 200 }))
       : Promise.reject(new Error('unexpected fetch')))
 
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
-    expect(updates.json.updates['dsh-shelfry']).toMatchObject({
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
+    expect(updates.json.updates['dsh-crate']).toMatchObject({
       current: '1.0.3', latest: '1.2.3', updateAvailable: true, restoreRequired: true,
     })
-    const result = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-shelfry', restore: true })
+    const result = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-crate', restore: true })
     expect(result.status, String(result.json.error ?? '')).toBe(200)
-    expect(installedSpec('dsh-shelfry')).toBe('^1.2.3')
+    expect(installedSpec('dsh-crate')).toBe('^1.2.3')
   })
 
   it('names a newer release for a generation the desktop host linked in, without offering it (#497)', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'stable' })
-    fake.npm['dsh-shelfry'] = {
+    await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'stable' })
+    fake.npm['dsh-crate'] = {
       latest: '1.0.3',
       versions: { '1.0.3': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/dsh-shelfry/dsh-shelfry' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/dsh-crate/dsh-crate' })
     // The desktop host's layout: the package lives in a generation directory
     // beside the profile, and the profile links to it.
-    const generation = join(fake.profileDir, '..', '.generations', 'live', 'dsh-shelfry+1.0.3+7aba605c3145', 'node_modules', 'dsh-shelfry')
+    const generation = join(fake.profileDir, '..', '.generations', 'live', 'dsh-crate+1.0.3+7aba605c3145', 'node_modules', 'dsh-crate')
     mkdirSync(generation, { recursive: true })
-    const packagePath = join(fake.profileDir, 'node_modules', 'dsh-shelfry', 'package.json')
+    const packagePath = join(fake.profileDir, 'node_modules', 'dsh-crate', 'package.json')
     const installedPackage = JSON.parse(readFileSync(packagePath, 'utf8')) as Record<string, unknown>
-    installedPackage.repository = { type: 'git', url: 'https://github.com/dsh-shelfry/dsh-shelfry.git' }
+    installedPackage.repository = { type: 'git', url: 'https://github.com/dsh-crate/dsh-crate.git' }
     writeFileSync(packagePath, JSON.stringify(installedPackage))
     writeFileSync(join(generation, 'package.json'), JSON.stringify(installedPackage))
     const manifestPath = join(fake.profileDir, 'package.json')
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dependencies: Record<string, string> }
-    manifest.dependencies['dsh-shelfry'] = 'link:../.generations/live/dsh-shelfry+1.0.3+7aba605c3145/node_modules/dsh-shelfry'
+    manifest.dependencies['dsh-crate'] = 'link:../.generations/live/dsh-crate+1.0.3+7aba605c3145/node_modules/dsh-crate'
     writeFileSync(manifestPath, JSON.stringify(manifest))
     vi.stubGlobal('fetch', (url: string) => String(url).includes('registry.npmjs.org')
       ? Promise.resolve(new Response(JSON.stringify({ version: '1.2.3' }), { status: 200 }))
       : Promise.reject(new Error('unexpected fetch')))
 
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
-    expect(updates.json.updates['dsh-shelfry']).toMatchObject({
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
+    expect(updates.json.updates['dsh-crate']).toMatchObject({
       kind: 'generation', current: '1.0.3', latest: '1.2.3', updateAvailable: false,
     })
-    expect(updates.json.updates['dsh-shelfry'].restoreRequired).toBeUndefined()
+    expect(updates.json.updates['dsh-crate'].restoreRequired).toBeUndefined()
 
     // The desktop host asks the versioned API the same question and gets
     // the same answer: the release is named, nothing is offered.
-    const v1 = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates?name=dsh-shelfry&force=1')
+    const v1 = await bed.dispatch('GET', '/dsh-crate/api/v1/updates?name=dsh-crate&force=1')
     expect(v1.status).toBe(200)
     expect(v1.json.package).toMatchObject({ source: 'generation', installedVersion: '1.0.3', latestVersion: '1.2.3', updateAvailable: false })
   })
@@ -6634,24 +6634,24 @@ describe('market self-update', () => {
     // RUNNING build, and this repo carries a prerelease version while a beta
     // is in flight — which would send this test down the beta dist-tag it
     // has no fixture for. The channel's own behaviour is covered separately.
-    await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'stable' })
-    fake.npm['dsh-shelfry'] = { latest: '1.0.3', versions: { '1.0.3': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/dsh-shelfry/dsh-shelfry' })
-    fake.npm['dsh-shelfry'].latest = '1.2.3'
-    fake.npm['dsh-shelfry'].versions['1.2.3'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
+    await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'stable' })
+    fake.npm['dsh-crate'] = { latest: '1.0.3', versions: { '1.0.3': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/dsh-crate/dsh-crate' })
+    fake.npm['dsh-crate'].latest = '1.2.3'
+    fake.npm['dsh-crate'].versions['1.2.3'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     vi.stubGlobal('fetch', (url: string) => String(url).includes('registry.npmjs.org')
       ? Promise.resolve(new Response(JSON.stringify({ version: '1.2.3' }), { status: 200 }))
       : Promise.reject(new Error('unexpected fetch')))
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
-    expect(updates.json.updates['dsh-shelfry'].updateAvailable).toBe(true)
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
+    expect(updates.json.updates['dsh-crate'].updateAvailable).toBe(true)
     const workspace = join(fake.profileDir, 'pnpm-workspace.yaml')
-    const initial = 'minimumReleaseAge: 1440\nminimumReleaseAgeExclude:\n  - dsh-shelfry@1.0.3\n'
+    const initial = 'minimumReleaseAge: 1440\nminimumReleaseAgeExclude:\n  - dsh-crate@1.0.3\n'
     writeFileSync(workspace, initial)
     bed.dispose()
     bed = createTestbed({}, {
       runPlugin: async (profile, args) => {
         const result = await runDshPlugin(profile, args) as InstallResult
-        if (result.exitCode === 0) writeFileSync(workspace, `${initial}  - dsh-shelfry@1.2.3\n`)
+        if (result.exitCode === 0) writeFileSync(workspace, `${initial}  - dsh-crate@1.2.3\n`)
         return result
       },
       probePnpm: () => Promise.resolve(true),
@@ -6659,22 +6659,22 @@ describe('market self-update', () => {
       cancelActive: () => false,
     })
     const callsBefore = fake.calls.length
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-shelfry' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-crate' })
     expect(r.status).toBe(200)
-    expect(installedSpec('dsh-shelfry')).toBe('^1.2.3')
-    expect(fake.calls.slice(callsBefore)).toEqual([['add', 'dsh-shelfry@1.2.3']])
-    expect(readFileSync(workspace, 'utf8')).toBe(initial.replace('dsh-shelfry@1.0.3', 'dsh-shelfry@1.0.3 || 1.2.3'))
+    expect(installedSpec('dsh-crate')).toBe('^1.2.3')
+    expect(fake.calls.slice(callsBefore)).toEqual([['add', 'dsh-crate@1.2.3']])
+    expect(readFileSync(workspace, 'utf8')).toBe(initial.replace('dsh-crate@1.0.3', 'dsh-crate@1.0.3 || 1.2.3'))
   })
 })
 
 describe('theme update and uninstall', () => {
   beforeEach(async () => {
     fake.repos['github:o/theme-a'] = { name: 'theme-a', manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/theme-a' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/theme-a' })
   })
 
   it('updates a github-installed theme by re-resolving its repo', async () => {
-    const r = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'theme-a' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'theme-a' })
     expect(r.status).toBe(200)
     expect(fake.calls[fake.calls.length - 1]?.[0]).toBe('update')
     expect(installedSpec('theme-a')).toBe('github:o/theme-a')
@@ -6682,7 +6682,7 @@ describe('theme update and uninstall', () => {
 
   it('uninstalls the active theme and clears its live mount', async () => {
     expect(hot.mounts).toEqual(['theme-a'])
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'theme-a' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'theme-a' })
     expect(r.status).toBe(200)
     expect(hot.mounts).toEqual([])
     expect(installedSpec('theme-a')).toBeUndefined()
@@ -6694,9 +6694,9 @@ describe('concurrency', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
-    const first = bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const first = bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     await new Promise(resolvePromise => setTimeout(resolvePromise, 20)) // let it enter the executor
-    const second = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/theme-a' })
+    const second = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/theme-a' })
     expect(second.status).toBe(409)
     release()
     fake.gate = null
@@ -6707,17 +6707,17 @@ describe('concurrency', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
-    const install = bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const install = bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     await new Promise(resolvePromise => setTimeout(resolvePromise, 20))
     // The window #91 hit: the fake runner is "idle" from the progress
     // tracker's view, but the route still holds the lock — status must say
     // busy so the client neither offers restart nor declares the install done.
-    const during = await bed.dispatch('GET', '/dsh-shelfry/status')
+    const during = await bed.dispatch('GET', '/dsh-crate/status')
     expect(during.json.busy).toBe(true)
     release()
     fake.gate = null
     await install
-    const after = await bed.dispatch('GET', '/dsh-shelfry/status')
+    const after = await bed.dispatch('GET', '/dsh-crate/status')
     expect(after.json.busy).toBe(false)
   })
 })
@@ -6727,9 +6727,9 @@ describe('cancel flow (#6)', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
-    const install = bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const install = bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     await new Promise(resolvePromise => setTimeout(resolvePromise, 20))
-    const cancel = await bed.dispatch('POST', '/dsh-shelfry/cancel', {})
+    const cancel = await bed.dispatch('POST', '/dsh-crate/cancel', {})
     expect(cancel.status).toBe(200)
     expect(cancel.json.cancelled).toBe(true)
     release()
@@ -6745,7 +6745,7 @@ describe('cancel flow (#6)', () => {
   })
 
   it('cancel with nothing running is a 400', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/cancel', {})).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/cancel', {})).status).toBe(400)
   })
 })
 
@@ -6766,7 +6766,7 @@ describe('the approve-and-retry banner is offered only for the failure it clears
       'ERR_PNPM_FETCH_404  GET https://registry.example/@types/retry/-/retry-0.12.0.tgz: Not Found - 404',
     ].join('\n')
 
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(failed.status).toBe(502)
     // No approval affordance for a failure approval cannot clear.
@@ -6790,7 +6790,7 @@ describe('the approve-and-retry banner is offered only for the failure it clears
     }
     fake.failNextAddStderrOnce = '[ERR_PNPM_IGNORED_BUILDS]\nIgnored build scripts: dsh-loop@1.0.0.'
 
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(failed.json.ignoredBuilds).toEqual(['dsh-loop'])
   })
@@ -6800,13 +6800,13 @@ describe('the approve-and-retry banner is offered only for the failure it clears
       latest: '1.2.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     fake.failNextAddStderrOnce = [
       'Ignored build scripts: @types/retry@0.12.0.',
       'ERR_PNPM_FETCH_404  GET https://registry.example/@types/retry/-/retry-0.12.0.tgz: Not Found - 404',
     ].join('\n')
 
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(failed.status).toBe(502)
     expect(failed.json.ignoredBuilds).toBeUndefined()
@@ -6837,7 +6837,7 @@ describe('a recognized pnpm failure is shown as its own sentence (#848)', () => 
     seedInstallable()
     fake.failNextAddStderrOnce = unusedPatch
 
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(failed.status).toBe(502)
     expect(String(failed.json.error)).toContain('patchedDependencies')
@@ -6856,7 +6856,7 @@ describe('a recognized pnpm failure is shown as its own sentence (#848)', () => 
     seedInstallable()
     fake.failNextAddStderrOnce = '[ERR_PNPM_IGNORED_BUILDS]\nIgnored build scripts: dsh-loop@1.0.0.'
 
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(failed.status).toBe(502)
     expect(failed.json.ignoredBuilds).toEqual(['dsh-loop'])
@@ -6913,11 +6913,11 @@ describe('a store mismatch across pnpm majors reaches the user as one (#1100)', 
     leaveRecord(record)
     fake.failNextAddStderrOnce = NDJSON
 
-    expectNamed(await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' }))
+    expectNamed(await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' }))
   })
 
   it.each(RECORDS)('on update, from a %s record', async (_shape, record) => {
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     fake.npm['dsh-loop'].latest = '1.2.0'
     fake.npm['dsh-loop'].versions['1.2.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     const publishedAt = new Date(Date.now() - 3_600_000).toISOString()
@@ -6929,15 +6929,15 @@ describe('a store mismatch across pnpm majors reaches the user as one (#1100)', 
     leaveRecord(record)
     fake.failNextAddStderrOnce = NDJSON
 
-    expectNamed(await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' }))
+    expectNamed(await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' }))
   })
 
   it.each(RECORDS)('on uninstall, from a %s record', async (_shape, record) => {
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     leaveRecord(record)
     fake.failNextRemoveOnce = NDJSON
 
-    expectNamed(await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' }))
+    expectNamed(await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' }))
   })
 })
 
@@ -6948,11 +6948,11 @@ describe('build-script approval flow (#6)', () => {
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
     fake.buildScriptOutputOnce = 'Ignored build scripts: dsh-loop@1.0.0.'
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(first.json.ignoredBuilds).toEqual(['dsh-loop'])
 
     // Approval writes allowBuilds into the profile's pnpm-workspace.yaml…
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-loop', 'ghost-package'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-loop', 'ghost-package'] })
     expect(approve.status).toBe(200)
     expect(approve.json.approved).toContain('dsh-loop')
     expect(approve.json.approved).not.toContain('ghost-package')
@@ -6964,13 +6964,13 @@ describe('build-script approval flow (#6)', () => {
 
   it('approves TRANSITIVE build deps — in node_modules but not in package.json (#56)', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     // pnpm's blocked build scripts are usually transitive deps (cloudflared,
     // ssh2, cpu-features…) — hoisted into node_modules, absent from the
     // profile's dependencies map.
     mkdirSync(join(profileDir('web'), 'node_modules', 'cloudflared'), { recursive: true })
     writeFileSync(join(profileDir('web'), 'node_modules', 'cloudflared', 'package.json'), '{"name":"cloudflared"}')
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['cloudflared', '../evil', 'ghost-package'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['cloudflared', '../evil', 'ghost-package'] })
     expect(approve.status).toBe(200)
     expect(approve.json.approved).toContain('cloudflared')
     expect(approve.json.approved).not.toContain('../evil')
@@ -6996,7 +6996,7 @@ describe('build-script approval flow (#6)', () => {
     manifest.dependencies = { ...manifest.dependencies, 'plug-c': proxied }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['plug-c'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['plug-c'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
     expect(yaml).toContain('plug-c@git+https://github.com/o/r.git: true')
@@ -7025,7 +7025,7 @@ describe('build-script approval flow (#6)', () => {
     // The installed pin is authoritative; an approval must not need the network.
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['better-sidebar'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['better-sidebar'] })
 
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
@@ -7052,7 +7052,7 @@ describe('build-script approval flow (#6)', () => {
     // The installed pin is authoritative; an approval must not need the network.
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['plug-gl'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['plug-gl'] })
 
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
@@ -7079,7 +7079,7 @@ describe('build-script approval flow (#6)', () => {
       text: async () => `001e# service=git-upload-pack\n00000155${sha} HEAD\0multi_ack\n`,
     })))
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['plug-gitea'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['plug-gitea'] })
 
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
@@ -7099,7 +7099,7 @@ describe('build-script approval flow (#6)', () => {
     writeFileSync(manifestPath, JSON.stringify(manifest))
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['plug-nogit'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['plug-nogit'] })
 
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
@@ -7120,7 +7120,7 @@ describe('build-script approval flow (#6)', () => {
     // An exact installed pin must be enough even when HEAD cannot be reached.
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['plug-pinned'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['plug-pinned'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
     expect(yaml).toContain('plug-pinned@git+https://github.com/o/r.git: true')
@@ -7131,7 +7131,7 @@ describe('build-script approval flow (#6)', () => {
     // pnpm's fetcher rejects a git-hosted package with a prepare script
     // BEFORE it lands in node_modules — nothing to existsSync against.
     fake.failNextAddStderrOnce = '[ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED] Failed to prepare git-hosted package fetched from "https://codeload.github.com/omdsh-dev/dsh-security-audit/tar.gz/abc123": The git-hosted package "dsh-security-audit@2.8.0" needs to execute build scripts but is not in the "allowBuilds" allowlist.'
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
     expect(first.status).toBe(502)
     expect(first.json.ignoredBuilds).toEqual(['dsh-security-audit'])
     // The bilingual classification replaces the raw stack as the lead hint.
@@ -7140,7 +7140,7 @@ describe('build-script approval flow (#6)', () => {
     // Approval is anchored to the curated registry (the package exists in
     // neither node_modules nor package.json) and writes the stable git key —
     // the only form pnpm matches for a git-hosted dep.
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-security-audit'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-security-audit'] })
     expect(approve.status).toBe(200)
     expect(approve.json.approved).toContain('dsh-security-audit@git+https://github.com/omdsh-dev/dsh-security-audit.git')
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
@@ -7150,7 +7150,7 @@ describe('build-script approval flow (#6)', () => {
     fake.repos['github:omdsh-dev/dsh-security-audit'] = {
       name: 'dsh-security-audit', manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'],
     }
-    const retry = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
+    const retry = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
     expect(retry.status).toBe(200)
     expect(retry.json.ok).toBe(true)
   })
@@ -7164,7 +7164,7 @@ describe('build-script approval flow (#6)', () => {
     writeFileSync(lockPath, before)
     fake.lockOnFailure = "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    dependencies:\n      dsh-blue-whale:\n        specifier: github:o/blue-whale\n"
     fake.failNextAddStderrOnce = 'memory allocation of 5368709120 bytes failed'
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })
     fake.lockOnFailure = null
     expect(r.status).toBe(502)
     expect(readFileSync(lockPath, 'utf8')).toBe(before)
@@ -7180,11 +7180,11 @@ describe('build-script approval flow (#6)', () => {
     fake.failNextAddStderrOnce = '[ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED] Failed to prepare git-hosted package fetched from "https://codeload.github.com/omdsh-dev/dsh-security-audit/tar.gz/195273352f23bff7f9023ebe2ec0cdbdf9c98f10": The git-hosted package "@dsh-external/dsh-super-injector@0.3.3" needs to execute build scripts but is not in the "allowBuilds" allowlist.\n'
       + 'Add the package to "allowBuilds" in your project\'s pnpm-workspace.yaml to allow it to run scripts. For example:\n'
       + `allowBuilds:\n  ${printed}: true\n`
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
     expect(first.status).toBe(502)
     expect(first.json.ignoredBuilds).toEqual(['@dsh-external/dsh-super-injector'])
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['@dsh-external/dsh-super-injector'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['@dsh-external/dsh-super-injector'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
     // The bare name (what pnpm 10.26+ and 11.0–11.5 match) and the printed
@@ -7207,10 +7207,10 @@ describe('build-script approval flow (#6)', () => {
     writeFileSync(join(dir, 'node_modules', 'dsh-purge', 'package.json'), JSON.stringify({ name: 'dsh-purge', version: '1.0.0' }))
     const printed = 'dsh-purge@https://codeload.github.com/YuJunZhiXue/dsh-purge/tar.gz/refs/heads/master'
     fake.failNextAddStderrOnce = `[ERR_PNPM_IGNORED_BUILDS]\nIgnored build scripts: ${printed}.\n`
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(first.status).toBe(502)
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-purge'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-purge'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')
     expect(yaml).toContain(printed)
@@ -7221,15 +7221,15 @@ describe('build-script approval flow (#6)', () => {
     // thing the approve button could not derive. It used to live in an
     // in-memory map, so a DSH restart between the failure and the click
     // dropped it. The write side is asserted here: the refusal below must
-    // land in <dsh-home>/dsh-shelfry/printed-build-keys.json, from where the
+    // land in <dsh-home>/dsh-crate/printed-build-keys.json, from where the
     // (lazily loaded) map serves it to a later approve.
     const printed = 'dsh-keep-key@https://codeload.github.com/omdsh-dev/dsh-security-audit/tar.gz/b0e6c57ebeeb4796017864f5cd5c66e6ba0899ec'
     fake.failNextAddStderrOnce = '[ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED] Failed to prepare git-hosted package fetched from "https://codeload.github.com/omdsh-dev/dsh-security-audit/tar.gz/b0e6c57ebeeb4796017864f5cd5c66e6ba0899ec": The git-hosted package "dsh-keep-key@0.3.3" needs to execute build scripts but is not in the "allowBuilds" allowlist.\n'
       + 'Add the package to "allowBuilds" in your project\'s pnpm-workspace.yaml to allow it to run scripts. For example:\n'
       + `allowBuilds:\n  ${printed}: true\n`
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
     expect(first.status).toBe(502)
-    const persisted = JSON.parse(readFileSync(join(home, 'dsh-shelfry', 'printed-build-keys.json'), 'utf8')) as Record<string, string>
+    const persisted = JSON.parse(readFileSync(join(home, 'dsh-crate', 'printed-build-keys.json'), 'utf8')) as Record<string, string>
     expect(persisted['dsh-keep-key']).toBe(printed)
   })
 
@@ -7272,11 +7272,11 @@ describe('build-script approval flow (#6)', () => {
       + 'Add the package to "allowBuilds" in your project\'s pnpm-workspace.yaml to allow it to run scripts. For example:\n'
       + `allowBuilds:\n  ${printed}: true\n`
 
-    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-codearts-auth' })
+    const update = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-codearts-auth' })
     expect(update.status).toBe(502)
     expect(update.json.ignoredBuilds).toEqual(['dsh-codearts-auth'])
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-codearts-auth'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-codearts-auth'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'utf8')
     // This is the regression pin: the key pnpm demanded for the PENDING commit
@@ -7302,10 +7302,10 @@ describe('build-script approval flow (#6)', () => {
     fake.repos[target] = { name, manifest: { name, version: '0.0.4', dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
     fake.failNextAddStderrOnce = `[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: ${printed}\n`
 
-    const first = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/m/mono/tree/main/packages/plug-a' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/m/mono/tree/main/packages/plug-a' })
     expect(first.status).toBe(502)
     expect(first.json.ignoredBuilds).toEqual([name])
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: [name] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: [name] })
     expect(approve.status).toBe(200)
     // The fake failure is one-shot; this exact persisted key is the assertion
     // that proves approval worked rather than merely retrying a transient error.
@@ -7348,11 +7348,11 @@ describe('build-script approval flow (#6)', () => {
     fake.failNextAddStderrOnce = '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: '
       + `${ignored}\n\nRun "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.\n`
 
-    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-codearts-auth' })
+    const update = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-codearts-auth' })
     expect(update.status).toBe(502)
     expect(update.json.ignoredBuilds).toEqual(['dsh-codearts-auth'])
 
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-codearts-auth'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-codearts-auth'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'utf8')
     // The regression pin. Reverting src/routes.ts leaves only the keys derived
@@ -7362,18 +7362,18 @@ describe('build-script approval flow (#6)', () => {
   })
 
   it('still refuses a name pnpm never refused, so the approval is not free input', async () => {
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['@evil/anything'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['@evil/anything'] })
     expect(approve.status).toBe(400)
   })
 
   it('writes the stable git allowBuilds key for an installed github-sourced dependency (#69)', async () => {
     fake.repos['github:o/blue-whale'] = { name: 'dsh-blue-whale', manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })
     expect(installedSpec('dsh-blue-whale')).toBe('github:o/blue-whale')
     // Approving the bare name (what pnpm's error reports) must also write
     // the `name@git+https://…` key — a bare entry does not authorize a
     // git-hosted dep (verified against pnpm 11.21 in #68/#69).
-    const approve = await bed.dispatch('POST', '/dsh-shelfry/approve-builds', { packages: ['dsh-blue-whale'] })
+    const approve = await bed.dispatch('POST', '/dsh-crate/approve-builds', { packages: ['dsh-blue-whale'] })
     expect(approve.status).toBe(200)
     const yaml = readFileSync(join(profileDir('web'), 'pnpm-workspace.yaml'), 'utf8')
     expect(yaml).toMatch(/allowBuilds:[\s\S]*  dsh-blue-whale: true/)
@@ -7388,11 +7388,11 @@ describe('official-scope community plugins (#28)', () => {
       manifest: { name: '@deepseek-ai/dsh-security-audit', dsh: {}, main: 'lib/index.js' },
       artifacts: ['lib/index.js'],
     }
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-security-audit' })
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
     expect(r.json.installed['@deepseek-ai/dsh-security-audit']).toBeDefined()
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.installed['@deepseek-ai/dsh-security-audit']).toBeDefined()
   })
 })
@@ -7400,7 +7400,7 @@ describe('official-scope community plugins (#28)', () => {
 describe('externally removed hot mounts (#29)', () => {
   it('drops a live mount whose package was removed outside the market', async () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(hot.mounts).toEqual(['dsh-loop'])
     // Simulate `dsh plugin remove` outside the market: dep + files gone,
     // the in-memory hot mount left behind.
@@ -7409,7 +7409,7 @@ describe('externally removed hot mounts (#29)', () => {
     writeFileSync(join(profileDir('web'), 'package.json'), JSON.stringify(manifest))
     rmSync(join(profileDir('web'), 'node_modules', 'dsh-loop'), { recursive: true, force: true })
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.live).toEqual([])
     expect(hot.mounts).toEqual([])
   })
@@ -7430,7 +7430,7 @@ describe('every market route sits behind the host\'s own login (#603)', () => {
   it('refuses an install from a client with no session, before pnpm is ever run', async () => {
     installGate()
     fake.calls = []
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
 
     expect(r.status).toBe(401)
     expect(fake.calls).toEqual([])
@@ -7439,14 +7439,14 @@ describe('every market route sits behind the host\'s own login (#603)', () => {
 
   it('refuses the reads too — the report could list the market\'s state with no session', async () => {
     installGate()
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).status).toBe(401)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).status).toBe(401)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')).status).toBe(401)
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).status).toBe(401)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).status).toBe(401)
+    expect((await bed.dispatch('GET', '/dsh-crate/api/v1/capabilities')).status).toBe(401)
   })
 
   it('changes nothing on a host that publishes no gate', async () => {
     // No installGate(): the 0.1.0-rc.8 shape. The bed's own flows above all run here.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).status).toBe(200)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).status).toBe(200)
   })
 
   it('is not applied on a Desktop host yet', async () => {
@@ -7456,7 +7456,7 @@ describe('every market route sits behind the host\'s own login (#603)', () => {
     installGate()
     bed.dispose()
     bed = createTestbed({ desktopHost: true, allowRestart: false })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).status).toBe(200)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).status).toBe(200)
   })
 })
 
@@ -7469,7 +7469,7 @@ describe('the exported log carries the profile origin (#744)', () => {
     } as never)
     now = 'present (name desktop)'
 
-    const exported = await bed.dispatch('GET', '/dsh-shelfry/logs')
+    const exported = await bed.dispatch('GET', '/dsh-crate/logs')
     const text = exported.text
 
     expect(text).toContain('profile source: default (no configured profile, no launcher profileContext, no --profile flag)')
@@ -7480,10 +7480,10 @@ describe('the exported log carries the profile origin (#744)', () => {
 
 describe('one-click restart guards (#14)', () => {
   it('delegates the public v1 restart route to the guarded restart executor', async () => {
-    const result = await bed.dispatch('POST', '/dsh-shelfry/api/v1/restart', {})
+    const result = await bed.dispatch('POST', '/dsh-crate/api/v1/restart', {})
     expect(result.status).toBe(202)
     expect(result.json).toMatchObject({
-      schema: 'dsh-shelfry/update-api/v1',
+      schema: 'dsh-crate/update-api/v1',
       result: { ok: true },
     })
     expect(restartCalls.count).toBe(1)
@@ -7494,7 +7494,7 @@ describe('one-click restart guards (#14)', () => {
     // one that can see the live loader tree: after a failed boot there is no
     // host left to ask which plugins exist or which rows they own.
     restartCalls.handoff = null
-    const r = await bed.dispatch('POST', '/dsh-shelfry/restart', {})
+    const r = await bed.dispatch('POST', '/dsh-crate/restart', {})
     expect(r.status).toBe(202)
     const handoff = restartCalls.handoff as unknown as {
       profile: string
@@ -7511,11 +7511,11 @@ describe('one-click restart guards (#14)', () => {
   })
 
   it('schedules exactly once for a trusted loopback request; repeat is 409', async () => {
-    const r = await bed.dispatch('POST', '/dsh-shelfry/restart', {})
+    const r = await bed.dispatch('POST', '/dsh-crate/restart', {})
     expect(r.status).toBe(202)
     expect(r.json.ok).toBe(true)
     expect(restartCalls.count).toBe(1)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {})).status).toBe(409)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {})).status).toBe(409)
     expect(restartCalls.count).toBe(1)
   })
 
@@ -7534,14 +7534,14 @@ describe('one-click restart guards (#14)', () => {
 
     for (const shape of shapes) {
       it(`${shape.name}: status says ${String(shape.reachable)} and the restart POST agrees`, async () => {
-        const status = await bed.dispatch('GET', '/dsh-shelfry/status', undefined, shape.options)
+        const status = await bed.dispatch('GET', '/dsh-crate/status', undefined, shape.options)
         expect(status.json.restartReachable).toBe(shape.reachable)
         // `restart` is the user's own setting and must not carry this: the
         // settings page reads it and writes it back.
         expect(status.json.restart).toBe(true)
 
         const origin = shape.options.host === undefined ? undefined : `https://${shape.options.host}`
-        const posted = await bed.dispatch('POST', '/dsh-shelfry/restart', {}, { ...shape.options, ...(origin === undefined ? {} : { origin }) })
+        const posted = await bed.dispatch('POST', '/dsh-crate/restart', {}, { ...shape.options, ...(origin === undefined ? {} : { origin }) })
         if (shape.reachable) expect(posted.status).not.toBe(403)
         else expect(posted.status).toBe(403)
       })
@@ -7549,9 +7549,9 @@ describe('one-click restart guards (#14)', () => {
   })
 
   it('refuses non-loopback peers, forwarded requests, and cross-origin posts', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {}, { remoteAddress: '192.168.1.7' })).status).toBe(403)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {}, { forwarded: true })).status).toBe(403)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {}, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {}, { remoteAddress: '192.168.1.7' })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {}, { forwarded: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {}, { crossOrigin: true })).status).toBe(403)
     expect(restartCalls.count).toBe(0)
   })
 
@@ -7559,9 +7559,9 @@ describe('one-click restart guards (#14)', () => {
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
-    const install = bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const install = bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     await new Promise(resolvePromise => setTimeout(resolvePromise, 20))
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {})).status).toBe(409)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {})).status).toBe(409)
     release()
     fake.gate = null
     await install
@@ -7570,17 +7570,17 @@ describe('one-click restart guards (#14)', () => {
   it('allowRestart: false disables the endpoint and the status capability flag', async () => {
     bed.dispose()
     bed = createTestbed({ allowRestart: false })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.restart).toBe(false)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {})).status).toBe(403)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.restart).toBe(false)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {})).status).toBe(403)
     expect(restartCalls.count).toBe(0)
   })
 
   it('refuses while the host is under a debugger (#447)', async () => {
     debuggerLatch.value = 'inspector'
-    const status = await bed.dispatch('GET', '/dsh-shelfry/status')
+    const status = await bed.dispatch('GET', '/dsh-crate/status')
     expect(status.json.restart).toBe(true)
     expect(status.json.debugger).toBe('inspector')
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {})).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {})).status).toBe(403)
     expect(restartCalls.count).toBe(0)
   })
 
@@ -7588,8 +7588,8 @@ describe('one-click restart guards (#14)', () => {
     bed.dispose()
     bed = createTestbed({ allowRestart: true })
     debuggerLatch.value = 'inspector'
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.restart).toBe(true)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/restart', {})).status).toBe(403)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.restart).toBe(true)
+    expect((await bed.dispatch('POST', '/dsh-crate/restart', {})).status).toBe(403)
     expect(restartCalls.count).toBe(0)
   })
 })
@@ -7600,7 +7600,7 @@ describe('bundle-layer uninstall live-disable (#37)', () => {
     // Bundle-layer plugins never hot-mount; simulate the live loader entry
     // the running host still holds for it.
     fake.repos['github:o/blue-whale'] = { name: 'dsh-blue-whale', manifest: { dsh: { bundle: { patch: './x.yml' } }, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })
     hot.mounts = [] // bundle-layer: not a hot mount
     const entry = {
       options: { id: 'dsh-blue-whale', name: 'dsh-blue-whale', disabled: null as boolean | null },
@@ -7614,10 +7614,10 @@ describe('bundle-layer uninstall live-disable (#37)', () => {
 
     // The live loader fiber (bundle layer loaded at boot) reads as live too —
     // without it, every boot-loaded bundle plugin would claim "restart".
-    const before = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const before = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(before.json.activation['dsh-blue-whale'].state).toBe('live')
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-blue-whale' })
+    const r = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-blue-whale' })
     expect(r.status).toBe(200)
     // The live entry must be down — otherwise the next refresh 404s on the
     // deleted client bundle and the whole page wedges until a dsh restart.
@@ -7633,7 +7633,7 @@ describe('generic enable/disable toggle (#60)', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    return bed.dispatch('POST', '/dsh-shelfry/install', { url: `https://github.com/o/${name}` }).then(() => undefined)
+    return bed.dispatch('POST', '/dsh-crate/install', { url: `https://github.com/o/${name}` }).then(() => undefined)
   }
 
   it('rejects direct enable and disable requests for a declared library without changing state (#995)', async () => {
@@ -7645,20 +7645,20 @@ describe('generic enable/disable toggle (#60)', () => {
     const libraryDir = join(fake.profileDir, 'node_modules', 'dsh-shared')
     mkdirSync(libraryDir, { recursive: true })
     writeFileSync(join(libraryDir, 'package.json'), JSON.stringify({ name: 'dsh-shared', version: '0.1.7', dsh: { kind: 'library' }, main: 'lib/index.js' }))
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.installed['dsh-shared']).toBe('^0.1.7')
-    const statePath = join(fake.profileDir, '.dsh-shelfry', 'state.json')
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.installed['dsh-shared']).toBe('^0.1.7')
+    const statePath = join(fake.profileDir, '.dsh-crate', 'state.json')
     const stateBefore = existsSync(statePath) ? readFileSync(statePath, 'utf8') : null
     const manifestBefore = readFileSync(manifestPath, 'utf8')
 
     for (const enabled of [false, true]) {
-      const response = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-shared', enabled })
+      const response = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-shared', enabled })
       expect(response.status).toBe(400)
       expect(response.json.error).toContain('library')
       expect(existsSync(statePath) ? readFileSync(statePath, 'utf8') : null).toBe(stateBefore)
       expect(readFileSync(manifestPath, 'utf8')).toBe(manifestBefore)
       expect(hot.disabled.has('dsh-shared')).toBe(false)
     }
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.disabled).not.toContain('dsh-shared')
     expect(listed.json.activation['dsh-shared']).toMatchObject({ state: 'inert', library: true })
   })
@@ -7681,23 +7681,23 @@ describe('generic enable/disable toggle (#60)', () => {
     }
     bed.loaderEntries.push(entry)
 
-    const before = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const before = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(before.json.activation['loaded-library']).toMatchObject({ state: 'live', hot: true })
     expect(before.json.activation['loaded-library'].library).not.toBe(true)
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'loaded-library', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'loaded-library', enabled: false })
     expect(off.status).toBe(200)
     expect(entry.fiber).toBeUndefined()
     expect(off.json.disabled).toContain('loaded-library')
-    const disabled = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const disabled = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(disabled.json.activation['loaded-library']).toMatchObject({ state: 'disabled', hot: false })
     expect(disabled.json.activation['loaded-library'].library).not.toBe(true)
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'loaded-library', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'loaded-library', enabled: true })
     expect(on.status).toBe(200)
     expect(entry.fiber).toBeDefined()
     expect(on.json.disabled).not.toContain('loaded-library')
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.activation['loaded-library'])
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.activation['loaded-library'])
       .toMatchObject({ state: 'live', hot: true })
   })
 
@@ -7705,18 +7705,18 @@ describe('generic enable/disable toggle (#60)', () => {
     await installNpm('dsh-loop')
     expect(hot.mounts).toEqual(['dsh-loop'])
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(off.status).toBe(200)
     expect(off.json.ok).toBe(true)
     expect(hot.mounts).toEqual([])
     expect(hot.disabled.has('dsh-loop')).toBe(true)
     expect(off.json.disabled).toContain('dsh-loop')
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.disabled).toContain('dsh-loop')
     expect(listed.json.activation['dsh-loop'].state).not.toBe('live')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(on.status).toBe(200)
     expect(hot.mounts).toEqual(['dsh-loop'])
     expect(hot.disabled.has('dsh-loop')).toBe(false)
@@ -7743,14 +7743,14 @@ describe('generic enable/disable toggle (#60)', () => {
     const patchPath = join(fake.profileDir, 'cordis.patch.yml')
     writeFileSync(patchPath, '- id: loop-opt-in\n  disabled: true\n')
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.patch?.disables).toContain('loop-opt-in')
     expect(listed.json.patchDisabled).not.toContain('dsh-loop')
     expect(listed.json.activation['dsh-loop'].state).not.toBe('disabled')
 
     // Turning the package on cleans the block its earlier disable left on the
     // opt-in row, and never force-enables one: no `disabled: false` appears.
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(on.status).toBe(200)
     expect(on.json.activation['dsh-loop'].state).not.toBe('disabled')
     const written = readFileSync(patchPath, 'utf8')
@@ -7783,7 +7783,7 @@ describe('generic enable/disable toggle (#60)', () => {
     const own = '- id: loop-opt-in\n  name: dsh-loop-opt-in\n  disabled: true\n'
     writeFileSync(patchPath, own)
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
 
     expect(on.status).toBe(200)
     const written = readFileSync(patchPath, 'utf8')
@@ -7817,7 +7817,7 @@ describe('generic enable/disable toggle (#60)', () => {
     const patchPath = join(fake.profileDir, 'cordis.patch.yml')
     writeFileSync(patchPath, '[]\n')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(on.status).toBe(200)
     const written = readFileSync(patchPath, 'utf8')
     // The plain row keeps its standing `disabled: false`...
@@ -7831,7 +7831,7 @@ describe('generic enable/disable toggle (#60)', () => {
     // still cleaned up — removing it restores the expression's authority,
     // which is never a force-enable.
     writeFileSync(patchPath, '- id: loop-tui\n  disabled: true\n')
-    const again = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const again = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(again.status).toBe(200)
     expect(readFileSync(patchPath, 'utf8')).not.toContain('loop-tui')
   })
@@ -7850,7 +7850,7 @@ describe('generic enable/disable toggle (#60)', () => {
       '      disabled: true',
       '',
     ].join('\n'))
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     const patch = readFileSync(join(fake.profileDir, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain('loop-core')
     expect(patch).toContain('loop-opt-in')
@@ -7862,7 +7862,7 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './x.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })
     hot.mounts = [] // bundle-layer: loaded by the loader, never a hot mount
     const entry = {
       options: { id: 'dsh-blue-whale', name: 'dsh-blue-whale', disabled: null as boolean | null },
@@ -7875,13 +7875,13 @@ describe('generic enable/disable toggle (#60)', () => {
     }
     bed.loaderEntries.push(entry)
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-blue-whale', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-blue-whale', enabled: false })
     expect(off.status).toBe(200)
     expect(entry.options.disabled).toBe(true)
     expect(entry.fiber).toBeUndefined()
     expect(hot.disabled.has('dsh-blue-whale')).toBe(true)
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-blue-whale', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-blue-whale', enabled: true })
     expect(on.status).toBe(200)
     expect(entry.options.disabled).toBeNull()
     expect(entry.fiber).toBeDefined()
@@ -7899,7 +7899,7 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './x.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })
     hot.mounts = [] // bundle-layer: the loader entry is what makes it live
     const entry = {
       options: { id: 'dsh-blue-whale-host', name: 'dsh-blue-whale/lib/index.js', disabled: null as boolean | null },
@@ -7911,7 +7911,7 @@ describe('generic enable/disable toggle (#60)', () => {
     }
     bed.loaderEntries.push(entry)
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-blue-whale', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-blue-whale', enabled: true })
     expect(on.status).toBe(200)
     expect(entry.fiber).toBeDefined()
     expect(on.json.activation['dsh-blue-whale'].state).toBe('live')
@@ -7929,7 +7929,7 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-patchy' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-patchy' })
     hot.mounts = []
     writeFileSync(join(profileDir('web'), 'node_modules', 'dsh-patchy', 'cordis.patch.yml'), "- insert:\n    - id: dsh-patchy\n      name: 'dsh-patchy'\n")
     const entry: Testbed['loaderEntries'][number] = {
@@ -7951,7 +7951,7 @@ describe('generic enable/disable toggle (#60)', () => {
     // and push the fiber straight back down, so the official switch looked
     // broken. The shared patch layer is the newer decision.
     const { userPatch, entry } = await installPatchy()
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(readFileSync(userPatch, 'utf8')).toContain('- id: dsh-patchy\n  disabled: true\n')
 
     writeFileSync(userPatch, readFileSync(userPatch, 'utf8').replace('- id: dsh-patchy\n  disabled: true\n', '- id: dsh-patchy\n  disabled: false\n'))
@@ -7967,7 +7967,7 @@ describe('generic enable/disable toggle (#60)', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
 
     expect(pushedDown(entry)).toBe(false)
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.disabled).not.toContain('dsh-patchy')
   })
 
@@ -7984,23 +7984,23 @@ describe('generic enable/disable toggle (#60)', () => {
       expect(on.status).toBe(200)
       expect(on.json.activation['dsh-patchy'].state).toBe('live')
       expect(readFileSync(userPatch, 'utf8').endsWith('- id: dsh-patchy\n  disabled: false\n')).toBe(true)
-      const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+      const listed = await bed.dispatch('GET', '/dsh-crate/installed')
       expect(listed.json.patchDisabled).not.toContain('dsh-patchy')
       expect(listed.json.patchForced).toContain('dsh-patchy')
       expect(listed.json.activation['dsh-patchy'].state).toBe('live')
     }
 
-    await expectOn(await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true }))
+    await expectOn(await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true }))
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     expect(off.json.activation['dsh-patchy'].state).toBe('disabled')
     expect(readFileSync(userPatch, 'utf8').endsWith('- id: dsh-patchy\n  disabled: true\n')).toBe(true)
-    const listedOff = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listedOff = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listedOff.json.patchDisabled).toContain('dsh-patchy')
     expect(listedOff.json.patchForced).not.toContain('dsh-patchy')
 
-    await expectOn(await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true }))
+    await expectOn(await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true }))
     expect(readFileSync(userPatch, 'utf8').startsWith(own)).toBe(true)
   })
 
@@ -8016,15 +8016,15 @@ describe('generic enable/disable toggle (#60)', () => {
     entry.options.disabled = null
     entry.fiber = {}
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.patchDisabled).not.toContain('dsh-patchy')
     expect(listed.json.patchForced).not.toContain('dsh-patchy')
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     // Its own row, written below the stale one; the stale row is untouched.
     expect(readFileSync(userPatch, 'utf8')).toBe(`${stale}- id: dsh-patchy\n  disabled: true\n`)
-    const listedOff = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listedOff = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listedOff.json.patchDisabled).toContain('dsh-patchy')
   })
 
@@ -8032,7 +8032,7 @@ describe('generic enable/disable toggle (#60)', () => {
     // The guard exists because DSH's own overlay can re-update an entry
     // during activation and wipe the runtime flag; that must still be undone.
     const { entry } = await installPatchy()
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     entry.options.disabled = null
     entry.fiber = {}
     ;(entry.update as ReturnType<typeof vi.fn>).mockClear()
@@ -8040,7 +8040,7 @@ describe('generic enable/disable toggle (#60)', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
 
     expect(pushedDown(entry)).toBe(true)
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.disabled).toContain('dsh-patchy')
   })
 
@@ -8056,18 +8056,18 @@ describe('generic enable/disable toggle (#60)', () => {
     manifest.dsh = { ...(manifest.dsh ?? {}), profile: { ...(manifest.dsh?.profile ?? {}), bundles: [] } }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.unbundled).toEqual(['dsh-patchy'])
     expect(listed.json.activation['dsh-patchy'].state).toBe('disabled')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true })
     expect(on.status).toBe(200)
     // Back in the composition, so the next boot loads it…
     expect(JSON.parse(readFileSync(manifestPath, 'utf8')).dsh.profile.bundles).toContain('dsh-patchy')
     // …and the enable itself brought it up now, so no restart is asked for.
     expect(on.json.activation['dsh-patchy'].state).toBe('live')
     expect(on.json.restart).toBe(false)
-    const again = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const again = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(again.json.unbundled).toEqual([])
   })
 
@@ -8083,7 +8083,7 @@ describe('generic enable/disable toggle (#60)', () => {
     manifest.dsh = { ...(manifest.dsh ?? {}), profile: { ...(manifest.dsh?.profile ?? {}), bundles: [] } }
     writeFileSync(manifestPath, JSON.stringify(manifest))
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.unbundled).toEqual([])
     expect(listed.json.activation['dsh-patchy']).toMatchObject({ state: 'inert', loadedByProfile: true })
   })
@@ -8100,14 +8100,14 @@ describe('generic enable/disable toggle (#60)', () => {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
     manifest.dsh = { ...(manifest.dsh ?? {}), profile: { ...(manifest.dsh?.profile ?? {}), bundles: [] } }
     writeFileSync(manifestPath, JSON.stringify(manifest))
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'work', members: ['dsh-patchy'] })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'work', members: ['dsh-patchy'] })
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: true })
 
     expect(on.status).toBe(200)
     expect(JSON.parse(readFileSync(manifestPath, 'utf8')).dsh.profile.bundles).toContain('dsh-patchy')
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.unbundled).toEqual([])
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.unbundled).toEqual([])
   })
 
   it('writes the same two layers from the group switch as from the single one (#696)', async () => {
@@ -8115,17 +8115,17 @@ describe('generic enable/disable toggle (#60)', () => {
     // which control did it. Off from a group must leave the official page's
     // package switch and the patch rows agreeing, exactly as off from the row.
     await installPatchy()
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'work', members: ['dsh-patchy'] })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'work', members: ['dsh-patchy'] })
     const manifestPath = join(profileDir('web'), 'package.json')
     const userPatch = join(profileDir('web'), 'cordis.patch.yml')
 
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: false })
     const groupBundles = JSON.parse(readFileSync(manifestPath, 'utf8')).dsh?.profile?.bundles ?? []
     const groupPatch = existsSync(userPatch) ? readFileSync(userPatch, 'utf8') : ''
 
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: true })
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: true })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     const singleBundles = JSON.parse(readFileSync(manifestPath, 'utf8')).dsh?.profile?.bundles ?? []
     const singlePatch = existsSync(userPatch) ? readFileSync(userPatch, 'utf8') : ''
 
@@ -8146,7 +8146,7 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-patchy' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-patchy' })
     hot.mounts = []
     // The fake install writes an EMPTY patch artifact; give it the real row
     // and mirror the loader entry the boot would create.
@@ -8162,7 +8162,7 @@ describe('generic enable/disable toggle (#60)', () => {
       },
     })
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     const userPatch = join(profileDir('web'), 'cordis.patch.yml')
     expect(readFileSync(userPatch, 'utf8')).toContain('- id: dsh-patchy\n  disabled: true\n')
@@ -8175,12 +8175,12 @@ describe('generic enable/disable toggle (#60)', () => {
     // Disabled plugins read as disabled, never "restart to apply".
     expect(off.json.activation['dsh-patchy'].state).toBe('disabled')
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.patch.disables).toContain('dsh-patchy')
     expect(listed.json.patchDisabled).toContain('dsh-patchy')
     expect(listed.json.activation['dsh-patchy'].state).toBe('disabled')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true })
     expect(on.status).toBe(200)
     expect(readFileSync(userPatch, 'utf8')).not.toContain('dsh-patchy')
     // …and back into the stack, so the package switch reads on again.
@@ -8216,12 +8216,12 @@ describe('generic enable/disable toggle (#60)', () => {
     const bundlesNow = (): string[] => JSON.parse(readFileSync(manifestPath, 'utf8')).dsh?.profile?.bundles ?? []
 
     // Turn it off first, so the enable below has a real stack entry to add.
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     expect(bundlesNow()).not.toContain('dsh-patchy')
     expect(readFileSync(userPatch, 'utf8')).toContain('- id: dsh-patchy\n  disabled: true\n')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true })
     expect(on.status).toBe(502)
     expect(on.json.ok).toBe(false)
     // The stack entry the enable added is gone again…
@@ -8244,7 +8244,7 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-swap' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-swap' })
     hot.mounts = []
     writeFileSync(join(profileDir('web'), 'node_modules', 'dsh-swap', 'cordis.patch.yml'), [
       '- id: ui-chat',
@@ -8275,7 +8275,7 @@ describe('generic enable/disable toggle (#60)', () => {
     const { entry } = await installSwap()
     const manifestPath = join(profileDir('web'), 'package.json')
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-swap', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-swap', enabled: false })
 
     expect(off.status).toBe(200)
     expect(off.json.restart).toBe(true)
@@ -8295,12 +8295,12 @@ describe('generic enable/disable toggle (#60)', () => {
     // a restart does not repair.
     const { userPatch } = await installSwap()
     const manifestPath = join(profileDir('web'), 'package.json')
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-swap', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-swap', enabled: false })
     expect(off.status).toBe(200)
     bed.loaderEntries.length = 0
 
     hot.deferNext = true
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-swap', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-swap', enabled: true })
 
     expect(on.status).toBe(200)
     expect(on.json.ok).toBe(true)
@@ -8315,7 +8315,7 @@ describe('generic enable/disable toggle (#60)', () => {
     // bundle owns are still disabled in the user patch. Turning the plugin on
     // once more has to clear those rows, not read the stack entry as "done".
     const { userPatch } = await installSwap()
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-swap', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-swap', enabled: false })
     expect(off.status).toBe(200)
     const manifestPath = join(profileDir('web'), 'package.json')
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
@@ -8325,7 +8325,7 @@ describe('generic enable/disable toggle (#60)', () => {
     bed.loaderEntries.length = 0
 
     hot.deferNext = true
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-swap', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-swap', enabled: true })
 
     expect(on.status).toBe(200)
     expect(on.json.restart).toBe(true)
@@ -8340,14 +8340,14 @@ describe('generic enable/disable toggle (#60)', () => {
     const { userPatch } = await installPatchy()
     const manifestPath = join(profileDir('web'), 'package.json')
     const bundlesNow = (): string[] => JSON.parse(readFileSync(manifestPath, 'utf8')).dsh?.profile?.bundles ?? []
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: false })
     expect(off.status).toBe(200)
     expect(bundlesNow()).not.toContain('dsh-patchy')
     const patchBefore = readFileSync(userPatch, 'utf8')
     bed.loaderEntries.length = 0
 
     hot.failNext = true
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true })
 
     expect(on.status).toBe(502)
     expect(bundlesNow()).not.toContain('dsh-patchy')
@@ -8366,7 +8366,7 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-tweaker' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-tweaker' })
     expect(installed.status, JSON.stringify(installed.json)).toBe(200)
     hot.mounts = []
     writeFileSync(join(profileDir('web'), 'node_modules', 'dsh-tweaker', 'cordis.patch.yml'), [
@@ -8395,7 +8395,7 @@ describe('generic enable/disable toggle (#60)', () => {
     }
     bed.loaderEntries.push(entry)
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-tweaker', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-tweaker', enabled: false })
     expect(off.status).toBe(200)
     // Off, through the row layer…
     expect(readFileSync(join(profileDir('web'), 'cordis.patch.yml'), 'utf8')).toContain('- id: dsh-tweaker\n  disabled: true\n')
@@ -8426,7 +8426,7 @@ describe('generic enable/disable toggle (#60)', () => {
     const patchText = (): string => { try { return readFileSync(userPatch, 'utf8') } catch { return '' } }
     expect(patchText()).not.toContain('dsh-patchy')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true })
     expect(on.json.ok).toBe(false)
     // The force-enable block the enable added is gone, and with it every
     // trace of this call in the row layer.
@@ -8450,7 +8450,7 @@ describe('generic enable/disable toggle (#60)', () => {
     ].join('\n'))
     writeFileSync(userPatch, '- id: dsh-patchy\n  disabled: false\n')
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-patchy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-patchy', enabled: true })
     expect(on.json.ok).toBe(false)
     expect(readFileSync(userPatch, 'utf8')).toBe('- id: dsh-patchy\n  disabled: false\n')
   })
@@ -8464,7 +8464,7 @@ describe('generic enable/disable toggle (#60)', () => {
       // The live drive cannot bring the fiber down (retries exhaust).
       update: async () => {},
     })
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(off.status).toBe(200)
     expect(off.json.ok).toBe(true)
     expect(off.json.restart).toBe(true)
@@ -8474,9 +8474,9 @@ describe('generic enable/disable toggle (#60)', () => {
 
   it('reports restart + the reason when enabling cannot hot-mount', async () => {
     await installNpm('dsh-loop')
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     hot.failNext = true // hotMount fails with a restart-required reason
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(on.status).toBe(502)
     expect(on.json.ok).toBe(false)
     expect(on.json.restart).toBe(true)
@@ -8491,13 +8491,13 @@ describe('generic enable/disable toggle (#60)', () => {
       manifest: { dsh: { bundle: { patch: './cordis.patch.yml' } }, main: 'lib/index.js' },
       artifacts: ['lib/index.js', 'cordis.patch.yml'],
     }
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-crashy' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-crashy' })
     hot.mounts = []
     const bundlePatch = join(profileDir('web'), 'node_modules', 'dsh-crashy', 'cordis.patch.yml')
     mkdirSync(dirname(bundlePatch), { recursive: true })
     writeFileSync(bundlePatch, "- insert:\n    - id: dsh-crashy\n      name: 'dsh-crashy'\n    - id: dsh-crashy-tool\n      name: 'dsh-crashy-tool'\n")
     // Disable once: the user patch now durably holds the disabled rows.
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-crashy', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-crashy', enabled: false })
     expect(off.status).toBe(200)
     const patchPath = join(profileDir('web'), 'cordis.patch.yml')
     const before = readFileSync(patchPath, 'utf8')
@@ -8508,7 +8508,7 @@ describe('generic enable/disable toggle (#60)', () => {
     // entry for the plugin (the real #575 shape), so the themes path finds
     // nothing and the hotMount fallback is what fails.
     hot.failNext = true
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-crashy', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-crashy', enabled: true })
     expect(on.status).toBe(502)
 
     // The durable patch layer must be untouched: persisting the flipped
@@ -8537,12 +8537,12 @@ describe('generic enable/disable toggle (#60)', () => {
     // of this fix still wrote "enabled" after a failed mount, leaving the
     // same crash loop for this kind of plugin.
     await installNpm('dsh-loop', { client: './client.js' })
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(off.status).toBe(200)
     expect(off.json.disabled).toContain('dsh-loop')
 
     hot.failNext = true
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(on.status).toBe(502)
 
     expect(on.json.disabled).toContain('dsh-loop')
@@ -8551,13 +8551,13 @@ describe('generic enable/disable toggle (#60)', () => {
   it('toggles a client-only shim (dsh.client without dsh.bundle) through the hot path', async () => {
     await installNpm('dsh-loop', { client: './client.js' })
     expect(hot.mounts).toEqual(['dsh-loop'])
-    const off = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(off.status).toBe(200)
     expect(hot.mounts).toEqual([])
     expect(hot.disabled.has('dsh-loop')).toBe(true)
     // The client part is injected into the page — a refresh is prompted.
     expect(off.json.refresh).toBe(true)
-    const on = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: true })
     expect(on.status).toBe(200)
     expect(hot.mounts).toEqual(['dsh-loop'])
     expect(hot.disabled.has('dsh-loop')).toBe(false)
@@ -8566,10 +8566,10 @@ describe('generic enable/disable toggle (#60)', () => {
   it('enabling a theme through the generic toggle keeps the Themes-page exclusivity', async () => {
     for (const name of ['theme-a', 'theme-b']) {
       fake.repos[`github:o/${name}`] = { name, manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-      await bed.dispatch('POST', '/dsh-shelfry/install', { url: `https://github.com/o/${name}` })
+      await bed.dispatch('POST', '/dsh-crate/install', { url: `https://github.com/o/${name}` })
     }
     expect(hot.mounts).toEqual(['theme-b'])
-    const r = await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'theme-a', enabled: true })
+    const r = await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'theme-a', enabled: true })
     expect(r.status).toBe(200)
     expect(hot.mounts).toEqual(['theme-a'])
     expect(hot.disabled.has('theme-b')).toBe(true)
@@ -8577,19 +8577,19 @@ describe('generic enable/disable toggle (#60)', () => {
   })
 
   it('rejects the market itself, unknown plugins, and cross-origin toggles', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-shelfry', enabled: false })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'ghost', enabled: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-crate', enabled: false })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'ghost', enabled: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false }, { crossOrigin: true })).status).toBe(403)
   })
 
   it('uninstall clears the disable flag; a reinstall starts enabled', async () => {
     await installNpm('dsh-loop')
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(hot.disabled.has('dsh-loop')).toBe(true)
-    const uninstall = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
+    const uninstall = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
     expect(uninstall.status).toBe(200)
     expect(hot.disabled.has('dsh-loop')).toBe(false)
-    const reinstall = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const reinstall = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     expect(reinstall.status).toBe(200)
     expect(hot.disabled.has('dsh-loop')).toBe(false)
     expect(hot.mounts).toEqual(['dsh-loop'])
@@ -8641,7 +8641,7 @@ describe('disable-list replay at boot (#60)', () => {
     await new Promise(resolvePromise => setTimeout(resolvePromise, 0))
 
     expect(entry.options.disabled).toBe(true)
-    const logs = await bed2.dispatch('GET', '/dsh-shelfry/logs')
+    const logs = await bed2.dispatch('GET', '/dsh-crate/logs')
     expect(logs.text).toContain('theme-a')
     expect(logs.text).toContain('cordis.patch.yml')
     expect(logs.text).toContain('#519')
@@ -8659,58 +8659,58 @@ describe('custom groups (#60)', () => {
       latest: '0.2.0',
       versions: { '0.2.0': { manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/h/dsh-share' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/h/dsh-share' })
   }
 
   it('create/rename/delete lifecycle keeps groups and groupOrder consistent', async () => {
-    const created = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
+    const created = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
     expect(created.status).toBe(200)
     expect(created.json.groups).toEqual({ work: [] })
     expect(created.json.groupOrder).toEqual(['work'])
 
-    expect((await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: '../evil' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: '../evil' })).status).toBe(400)
 
-    const renamed = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'rename', name: 'work', newName: 'daily' })
+    const renamed = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'rename', name: 'work', newName: 'daily' })
     expect(renamed.status).toBe(200)
     expect(renamed.json.groups).toEqual({ daily: [] })
     expect(renamed.json.groupOrder).toEqual(['daily'])
 
-    const deleted = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'delete', name: 'daily' })
+    const deleted = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'delete', name: 'daily' })
     expect(deleted.status).toBe(200)
     expect(deleted.json.groups).toEqual({})
     expect(deleted.json.groupOrder).toEqual([])
-    expect((await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'delete', name: 'ghost' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'explode' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/groups', { action: 'delete', name: 'ghost' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/groups', { action: 'explode' })).status).toBe(400)
   })
 
   it('set-members keeps only installed plugins and uninstall prunes membership', async () => {
     await seedMembers()
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
-    const set = await bed.dispatch('POST', '/dsh-shelfry/groups', {
-      action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-share', 'ghost', 'dsh-shelfry'],
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
+    const set = await bed.dispatch('POST', '/dsh-crate/groups', {
+      action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-share', 'ghost', 'dsh-crate'],
     })
     expect(set.status).toBe(200)
     expect(set.json.groups.work.sort()).toEqual(['dsh-loop', 'dsh-share'])
-    expect(set.json.groups.work).not.toContain('dsh-shelfry')
+    expect(set.json.groups.work).not.toContain('dsh-crate')
 
-    await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop' })
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop' })
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.groups.work).toEqual(['dsh-share'])
   })
 
   it('group toggle enables/disables every member as a batch', async () => {
     await seedMembers()
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-share'] })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-share'] })
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: false })
     expect(off.status).toBe(200)
     expect(off.json.disabled.sort()).toEqual(['dsh-loop', 'dsh-share'])
     expect(hot.mounts).toEqual([])
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: true })
     expect(on.status).toBe(200)
     expect(on.json.disabled).toEqual([])
     expect(hot.mounts.sort()).toEqual(['dsh-loop', 'dsh-share'])
@@ -8725,13 +8725,13 @@ describe('custom groups (#60)', () => {
     mkdirSync(libraryDir, { recursive: true })
     writeFileSync(join(libraryDir, 'package.json'), JSON.stringify({ name: 'dsh-shared', version: '0.1.7', dsh: { kind: 'library' }, main: 'lib/index.js' }))
 
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-shared'] })
-    const off = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-shared'] })
+    const off = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: false })
 
     expect(off.status).toBe(200)
     expect(off.json.disabled).toEqual(['dsh-loop'])
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.activation['dsh-shared']).toMatchObject({ state: 'inert', library: true })
     expect(listed.json.activation['dsh-shared'].dependencyOf).toBeUndefined()
   })
@@ -8756,51 +8756,51 @@ describe('custom groups (#60)', () => {
       }),
     }
     bed.loaderEntries.push(entry)
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'libraries' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'libraries', members: ['loaded-library', 'dsh-shared'] })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'libraries' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'libraries', members: ['loaded-library', 'dsh-shared'] })
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'libraries', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'libraries', enabled: false })
     expect(off.status).toBe(200)
     expect(off.json.disabled).toEqual(['loaded-library'])
     expect(entry.fiber).toBeUndefined()
-    const disabled = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const disabled = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(disabled.json.activation['loaded-library']).toMatchObject({ state: 'disabled', hot: false })
     expect(disabled.json.activation['dsh-shared']).toMatchObject({ state: 'inert', library: true })
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'libraries', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'libraries', enabled: true })
     expect(on.status).toBe(200)
     expect(on.json.disabled).toEqual([])
     expect(entry.fiber).toBeDefined()
-    expect((await bed.dispatch('GET', '/dsh-shelfry/installed')).json.activation['loaded-library'])
+    expect((await bed.dispatch('GET', '/dsh-crate/installed')).json.activation['loaded-library'])
       .toMatchObject({ state: 'live', hot: true })
   })
 
   it('group switch matches individually toggled plugins (mixed then all-off)', async () => {
     await seedMembers()
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'work' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-share'] })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'work' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'work', members: ['dsh-loop', 'dsh-share'] })
     // One member off individually → the group is mixed (derived, not stored).
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(hot.disabled).toEqual(new Set(['dsh-loop']))
     // Group off = same outcome as toggling each member individually.
-    const off = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: false })
     expect(off.json.disabled.sort()).toEqual(['dsh-loop', 'dsh-share'])
-    const on = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'work', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'work', enabled: true })
     expect(on.json.disabled).toEqual([])
   })
 
   it('rejects a second theme in one group', async () => {
     for (const name of ['theme-a', 'theme-b']) {
       fake.repos[`github:o/${name}`] = { name, manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-      await bed.dispatch('POST', '/dsh-shelfry/install', { url: `https://github.com/o/${name}` })
+      await bed.dispatch('POST', '/dsh-crate/install', { url: `https://github.com/o/${name}` })
     }
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'looks' })
-    const both = await bed.dispatch('POST', '/dsh-shelfry/groups', {
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'looks' })
+    const both = await bed.dispatch('POST', '/dsh-crate/groups', {
       action: 'set-members', name: 'looks', members: ['theme-a', 'theme-b'],
     })
     expect(both.status).toBe(400)
     expect(String(both.json.error)).toMatch(/at most one theme/)
-    const one = await bed.dispatch('POST', '/dsh-shelfry/groups', {
+    const one = await bed.dispatch('POST', '/dsh-crate/groups', {
       action: 'set-members', name: 'looks', members: ['theme-a'],
     })
     expect(one.status).toBe(200)
@@ -8810,20 +8810,20 @@ describe('custom groups (#60)', () => {
   it('group toggle enables a theme member with global exclusivity', async () => {
     for (const name of ['theme-a', 'theme-b']) {
       fake.repos[`github:o/${name}`] = { name, manifest: { dsh: {}, main: 'index.js' }, artifacts: ['index.js'] }
-      await bed.dispatch('POST', '/dsh-shelfry/install', { url: `https://github.com/o/${name}` })
+      await bed.dispatch('POST', '/dsh-crate/install', { url: `https://github.com/o/${name}` })
     }
     expect(hot.mounts).toEqual(['theme-b']) // later install auto-activated
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'create', name: 'looks' })
-    await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'set-members', name: 'looks', members: ['theme-a'] })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'create', name: 'looks' })
+    await bed.dispatch('POST', '/dsh-crate/groups', { action: 'set-members', name: 'looks', members: ['theme-a'] })
 
-    const on = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'looks', enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'looks', enabled: true })
     expect(on.status).toBe(200)
     // Enabling the group's theme deactivates the previously active theme-b.
     expect(hot.mounts).toEqual(['theme-a'])
     expect(hot.disabled.has('theme-b')).toBe(true)
     expect(hot.disabled.has('theme-a')).toBe(false)
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/groups', { action: 'toggle', name: 'looks', enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/groups', { action: 'toggle', name: 'looks', enabled: false })
     expect(off.status).toBe(200)
     expect(hot.disabled.has('theme-a')).toBe(true)
   })
@@ -8831,36 +8831,36 @@ describe('custom groups (#60)', () => {
 
 describe('self-uninstall — the market removing itself from its settings card', () => {
   /**
-   * Deliberately a separate route from `/dsh-shelfry/uninstall`, which keeps
+   * Deliberately a separate route from `/dsh-crate/uninstall`, which keeps
    * refusing the market. A destructive action on the plugin serving the
    * request should be reachable only from the surface built for it, never as
-   * a stray `{ name: "dsh-shelfry" }` on the ordinary path.
+   * a stray `{ name: "dsh-crate" }` on the ordinary path.
    */
   it('is refused without an explicit confirmation', async () => {
     // Assert the REASON, not just the 400: this route has several ways to
     // reject, and a status-only assertion passed even with the confirmation
     // check removed entirely — the request then failed one step later for an
     // unrelated reason and looked identical from outside.
-    const bare = await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', {})
+    const bare = await bed.dispatch('POST', '/dsh-crate/self-uninstall', {})
     expect(bare.status).toBe(400)
     expect(String(bare.json.error)).toContain('explicit confirmation')
     // `confirm: false` is not "close enough" either.
-    const explicitlyNot = await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', { confirm: false })
+    const explicitlyNot = await bed.dispatch('POST', '/dsh-crate/self-uninstall', { confirm: false })
     expect(String(explicitlyNot.json.error)).toContain('explicit confirmation')
   })
 
   it('is reachable from the desktop app, whose proxy strips Host and Origin (#903)', async () => {
     // dsh Desktop forwards through its own document proxy with neither
     // header (#648), which used to make this button answer 403 forever.
-    const desktop = await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', {}, { desktopForwarded: true })
+    const desktop = await bed.dispatch('POST', '/dsh-crate/self-uninstall', {}, { desktopForwarded: true })
     expect(desktop.status).toBe(400)
     expect(String(desktop.json.error)).toContain('explicit confirmation')
     // The same shape still refuses a forwarded peer: a proxy that adds its
     // own trace is not the desktop app's own forward.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', {}, { desktopForwarded: true, forwarded: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/self-uninstall', {}, { desktopForwarded: true, forwarded: true })).status).toBe(403)
     // And the status answer tells the card which of the two it is, without
     // re-enabling the restart button that would spawn a second host.
-    const status = await bed.dispatch('GET', '/dsh-shelfry/status', undefined, { desktopForwarded: true })
+    const status = await bed.dispatch('GET', '/dsh-crate/status', undefined, { desktopForwarded: true })
     expect(status.json).toMatchObject({ selfUninstallReachable: true, restartReachable: false })
   })
 
@@ -8868,14 +8868,14 @@ describe('self-uninstall — the market removing itself from its settings card',
     // The same door the restart route uses: both end the market's life in
     // this process, so neither may be driven by anything but the user's own
     // loopback browser.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', { confirm: true }, { crossOrigin: true })).status).toBe(403)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', { confirm: true }, { forwarded: true })).status).toBe(403)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/self-uninstall', { confirm: true }, { remoteAddress: '192.168.1.7' })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/self-uninstall', { confirm: true }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/self-uninstall', { confirm: true }, { forwarded: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/self-uninstall', { confirm: true }, { remoteAddress: '192.168.1.7' })).status).toBe(403)
   })
 
   it('the ordinary uninstall route still refuses the market', async () => {
     // Adding a way to remove the market must not quietly open the old one.
-    const viaGeneric = await bed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-shelfry' })
+    const viaGeneric = await bed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-crate' })
     expect(viaGeneric.status).toBe(400)
   })
 })
@@ -8885,126 +8885,126 @@ describe('sidebar entry (#846)', () => {
     // `chosen` is what lets the client tell "never asked" from "said no":
     // on a host with no settings page the row is shown by default, and a
     // deliberate off has to survive (#846 on DSH 0.2.1+).
-    expect((await bed.dispatch('GET', '/dsh-shelfry/sidebar-entry')).json).toEqual({ enabled: false, chosen: false })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.sidebarEntry).toBe(false)
+    expect((await bed.dispatch('GET', '/dsh-crate/sidebar-entry')).json).toEqual({ enabled: false, chosen: false })
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.sidebarEntry).toBe(false)
   })
 
   it('round-trips the choice through state.json and /status', async () => {
-    const on = await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true })
     expect(on.status).toBe(200)
     expect(on.json).toEqual({ ok: true, enabled: true })
     expect(hot.sidebarEntry).toBe(true)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/sidebar-entry')).json).toEqual({ enabled: true, chosen: true })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.sidebarEntry).toBe(true)
+    expect((await bed.dispatch('GET', '/dsh-crate/sidebar-entry')).json).toEqual({ enabled: true, chosen: true })
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.sidebarEntry).toBe(true)
 
-    const off = await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: false })
     expect(off.json).toEqual({ ok: true, enabled: false })
     // Recorded as a choice, not as an empty field: off and never-chosen are
     // different answers on a host where this row is the only way in.
     expect(hot.sidebarEntry).toBe(false)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/sidebar-entry')).json).toEqual({ enabled: false, chosen: true })
+    expect((await bed.dispatch('GET', '/dsh-crate/sidebar-entry')).json).toEqual({ enabled: false, chosen: true })
   })
 
   it('is not put back by a later write from the long-lived state (#435)', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true })
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true })
+    await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: false })
     // Any other route that writes the whole state object.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })).status).toBe(200)
     // Still the user's OFF, not a blank field a later read would take for
     // "never chosen" (#846).
     expect(hot.sidebarEntry).toBe(false)
   })
 
   it('rejects anything but a boolean, and other origins', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: 'yes' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', {})).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: 'yes' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/sidebar-entry', {})).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true }, { crossOrigin: true })).status).toBe(403)
     expect(hot.sidebarEntry).toBeUndefined()
   })
 })
 
 describe('entry visibility (#1015)', () => {
   it('shows both page entries until the user says otherwise', async () => {
-    expect((await bed.dispatch('GET', '/dsh-shelfry/entry-visibility')).json)
+    expect((await bed.dispatch('GET', '/dsh-crate/entry-visibility')).json)
       .toEqual({ settingsSection: true, pluginsTab: true })
   })
 
   it('round-trips each choice through state.json, and stores only the OFF', async () => {
-    const off = await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false })
+    const off = await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false })
     expect(off.status).toBe(200)
     expect(off.json).toEqual({ ok: true, settingsSection: false, pluginsTab: true })
     expect(hot.settingsSection).toBe(false)
     expect(hot.pluginsTab).toBeUndefined()
-    expect((await bed.dispatch('GET', '/dsh-shelfry/entry-visibility')).json)
+    expect((await bed.dispatch('GET', '/dsh-crate/entry-visibility')).json)
       .toEqual({ settingsSection: false, pluginsTab: true })
 
     // Turning it back on clears the stored OFF instead of pinning the
     // default, so a later default change still reaches this user.
-    const on = await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: true })
     expect(on.json).toEqual({ ok: true, settingsSection: true, pluginsTab: true })
     expect(hot.settingsSection).toBeUndefined()
 
     // The Plugins tab is its own answer, not a side effect of the section.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { pluginsTab: false })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/entry-visibility', { pluginsTab: false })).status).toBe(200)
     expect(hot.pluginsTab).toBe(false)
   })
 
   it('accepts both answers in one request when the row keeps the market reachable', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true })
-    const both = await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false, pluginsTab: false })
+    await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true })
+    const both = await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false, pluginsTab: false })
     expect(both.status).toBe(200)
     expect(both.json).toEqual({ ok: true, settingsSection: false, pluginsTab: false })
   })
 
   it('refuses to close the last door, and says why', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false })
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { pluginsTab: false })
+    await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false })
+    const refused = await bed.dispatch('POST', '/dsh-crate/entry-visibility', { pluginsTab: false })
     expect(refused.status).toBe(409)
     expect(String(refused.json.error)).toContain('at least one')
     expect(hot.pluginsTab).toBeUndefined()
 
     // With the sidebar row on, both page entries may go: the row is a door.
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true })
-    expect((await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { pluginsTab: false })).status).toBe(200)
+    await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true })
+    expect((await bed.dispatch('POST', '/dsh-crate/entry-visibility', { pluginsTab: false })).status).toBe(200)
   })
 
   it('refuses to turn the sidebar row off when both page entries are hidden', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true })
-    await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false, pluginsTab: false })
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true })
+    await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false, pluginsTab: false })
+    const refused = await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: false })
     expect(refused.status).toBe(409)
     expect(String(refused.json.error)).toContain('at least one')
     expect(hot.sidebarEntry).toBe(true)
   })
 
   it('keeps both choices across an unrelated whole-state write (#435)', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/sidebar-entry', { enabled: true })
-    await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false, pluginsTab: false })
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })).status).toBe(200)
+    await bed.dispatch('POST', '/dsh-crate/sidebar-entry', { enabled: true })
+    await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false, pluginsTab: false })
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })).status).toBe(200)
     expect(hot.settingsSection).toBe(false)
     expect(hot.pluginsTab).toBe(false)
   })
 
   it('rejects a body that names neither field, non-booleans, other origins, and other methods', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', {})).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: 'no' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { pluginsTab: null })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false }, { crossOrigin: true })).status).toBe(403)
-    expect((await bed.dispatch('DELETE', '/dsh-shelfry/entry-visibility')).status).toBe(405)
+    expect((await bed.dispatch('POST', '/dsh-crate/entry-visibility', {})).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: 'no' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/entry-visibility', { pluginsTab: null })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('DELETE', '/dsh-crate/entry-visibility')).status).toBe(405)
     expect(hot.settingsSection).toBeUndefined()
   })
 
   it('takes an external change rather than restoring the boot-time copy (#435)', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/entry-visibility', { settingsSection: false })
+    await bed.dispatch('POST', '/dsh-crate/entry-visibility', { settingsSection: false })
     expect(hot.settingsSection).toBe(false)
     // A restore or another writer puts the field back to its default.
     hot.settingsSection = undefined
     // The note route reads the state fresh and refreshes the long-lived copy.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/note', { name: 'dsh-loop', text: 'after restore' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/note', { name: 'dsh-loop', text: 'after restore' })).status).toBe(200)
     // A later whole-state write must not resurrect the pre-restore OFF.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })).status).toBe(200)
     expect(hot.settingsSection).toBeUndefined()
-    expect((await bed.dispatch('GET', '/dsh-shelfry/entry-visibility')).json.settingsSection).toBe(true)
+    expect((await bed.dispatch('GET', '/dsh-crate/entry-visibility')).json.settingsSection).toBe(true)
   })
 })
 
@@ -9015,11 +9015,11 @@ describe('download region', () => {
     bed.dispose()
     bed = createTestbed({ region: undefined })
 
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'global' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'global' })).status).toBe(200)
     finishProbe({ region: 'china', probed: true })
     await new Promise(resolve => setTimeout(resolve, 0))
 
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.region).toBe('global')
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.region).toBe('global')
     expect(hot.region).toBe('global')
     expect(hot.regionAuto).toBeUndefined()
   })
@@ -9032,70 +9032,70 @@ describe('download region', () => {
     staleMount.dispose()
 
     bed = createTestbed({ region: 'global' })
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'global' })).status).toBe(200)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/note', {
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'global' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/note', {
       name: 'dsh-loop', text: 'new mount owns this note',
     })).status).toBe(200)
     finishProbe({ region: 'china', probed: true })
     await new Promise(resolve => setTimeout(resolve, 0))
 
     expect(hot.notes).toEqual({ 'dsh-loop': 'new mount owns this note' })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.region).toBe('global')
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.region).toBe('global')
     expect(hot.region).toBe('global')
     expect(hot.regionAuto).toBeUndefined()
   })
 
   it('rejects anything but the two regions', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'CN' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', {})).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'CN' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', {})).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' }, { crossOrigin: true })).status).toBe(403)
   })
 
   it('round-trips the setting and reports it on /status', async () => {
-    const set = await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })
+    const set = await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })
     expect(set.status).toBe(200)
     expect(set.json.region).toBe('china')
-    const status = (await bed.dispatch('GET', '/dsh-shelfry/status')).json
+    const status = (await bed.dispatch('GET', '/dsh-crate/status')).json
     expect(status.region).toBe('china')
     // The card draws its control from this list, so a region the route would
     // refuse must never appear in it.
     expect(status.regions).toEqual(['global', 'china'])
 
-    const back = await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'global' })
+    const back = await bed.dispatch('POST', '/dsh-crate/region', { region: 'global' })
     expect(back.status).toBe(200)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.region).toBe('global')
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.region).toBe('global')
   })
 
   it('sends the browser a resolved proxy prefix rather than a region to interpret', async () => {
     // The routing table has one home. A client deriving the proxy from the
     // region name would be a second copy of it that can disagree.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.githubProxy).toBeNull()
-    await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })
-    const proxy = (await bed.dispatch('GET', '/dsh-shelfry/status')).json.githubProxy
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.githubProxy).toBeNull()
+    await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })
+    const proxy = (await bed.dispatch('GET', '/dsh-crate/status')).json.githubProxy
     expect(typeof proxy).toBe('string')
     expect(String(proxy).startsWith('https://')).toBe(true)
-    const candidates = (await bed.dispatch('GET', '/dsh-shelfry/status')).json.githubRoutes
+    const candidates = (await bed.dispatch('GET', '/dsh-crate/status')).json.githubRoutes
     expect(candidates.raw).toEqual(['https://gh-proxy.com', 'https://ghfast.top', null])
     expect(candidates.git[0]).toBeNull()
     expect(candidates.avatar[0]).toBeNull()
-    await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'global' })
+    await bed.dispatch('POST', '/dsh-crate/region', { region: 'global' })
   })
 
   it('persists one custom GitHub escape route and can restore automatic routing', async () => {
-    const set = await bed.dispatch('POST', '/dsh-shelfry/github-proxy', {
+    const set = await bed.dispatch('POST', '/dsh-crate/github-proxy', {
       proxy: 'https://mirror.example/prefix/',
     })
     expect(set.status).toBe(200)
     expect(set.json.githubProxyCustom).toBe('https://mirror.example/prefix')
     expect(hot.githubProxy).toBe('https://mirror.example/prefix')
-    let status = (await bed.dispatch('GET', '/dsh-shelfry/status')).json
+    let status = (await bed.dispatch('GET', '/dsh-crate/status')).json
     expect(status.githubRoutes.raw).toEqual(['https://mirror.example/prefix', null])
     expect(status.githubProxyCustom).toBe('https://mirror.example/prefix')
 
-    const clear = await bed.dispatch('POST', '/dsh-shelfry/github-proxy', { proxy: null })
+    const clear = await bed.dispatch('POST', '/dsh-crate/github-proxy', { proxy: null })
     expect(clear.status).toBe(200)
     expect(hot.githubProxy).toBeUndefined()
-    status = (await bed.dispatch('GET', '/dsh-shelfry/status')).json
+    status = (await bed.dispatch('GET', '/dsh-crate/status')).json
     expect(status.githubProxyCustom).toBeNull()
     expect(status.githubRoutes.raw).toEqual([null])
   })
@@ -9107,16 +9107,16 @@ describe('download region', () => {
       'https://mirror.example/?token=secret',
       'not a url',
     ]) {
-      expect((await bed.dispatch('POST', '/dsh-shelfry/github-proxy', { proxy })).status).toBe(400)
+      expect((await bed.dispatch('POST', '/dsh-crate/github-proxy', { proxy })).status).toBe(400)
     }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/github-proxy', {
+    expect((await bed.dispatch('POST', '/dsh-crate/github-proxy', {
       proxy: 'https://mirror.example',
     }, { crossOrigin: true })).status).toBe(403)
 
     bed.dispose()
     process.env.DSHM_GITHUB_PROXY = 'https://env.example'
     bed = createTestbed({ region: 'china' })
-    const status = (await bed.dispatch('GET', '/dsh-shelfry/status')).json
+    const status = (await bed.dispatch('GET', '/dsh-crate/status')).json
     expect(status.githubProxyManaged).toBe(true)
     // The override leads and the region's own chain follows it (#850): the
     // direct escape is what makes a dead mirror a slow request rather than an
@@ -9124,14 +9124,14 @@ describe('download region', () => {
     expect(status.githubRoutes.raw).toEqual([
       'https://env.example', 'https://gh-proxy.com', 'https://ghfast.top', null,
     ])
-    expect((await bed.dispatch('POST', '/dsh-shelfry/github-proxy', { proxy: null })).status).toBe(409)
+    expect((await bed.dispatch('POST', '/dsh-crate/github-proxy', { proxy: null })).status).toBe(409)
   })
 
   it('stops offering the automatic explanation once the user has chosen', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' })
+    await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' })
     // The market has nothing left to explain: the answer is the user's now.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.regionAuto).toBe(false)
-    await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'global' })
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.regionAuto).toBe(false)
+    await bed.dispatch('POST', '/dsh-crate/region', { region: 'global' })
   })
 })
 
@@ -9145,7 +9145,7 @@ describe('the deployment own authority (#729)', () => {
   afterEach(() => { while (previous.length > 0) setTrustedHostsSource(previous.pop()!) })
 
   it('refuses a name the deployment did not declare', async () => {
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' }, { host: 'dsh.example.org', origin: 'https://dsh.example.org' })
+    const refused = await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' }, { host: 'dsh.example.org', origin: 'https://dsh.example.org' })
     expect(refused.status).toBe(403)
   })
 
@@ -9154,8 +9154,8 @@ describe('the deployment own authority (#729)', () => {
     // A real browser sends Origin alongside Host, both naming the deployment.
     const at = { host: 'dsh.example.org', origin: 'https://dsh.example.org' }
     // The read was never the problem — it is here to show the same host works.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status', undefined, at)).status).toBe(200)
-    const accepted = await bed.dispatch('POST', '/dsh-shelfry/region', { region: 'china' }, at)
+    expect((await bed.dispatch('GET', '/dsh-crate/status', undefined, at)).status).toBe(200)
+    const accepted = await bed.dispatch('POST', '/dsh-crate/region', { region: 'china' }, at)
     expect(accepted.status).toBe(200)
     expect(accepted.json.region).toBe('china')
   })
@@ -9163,27 +9163,27 @@ describe('the deployment own authority (#729)', () => {
 
 describe('build environment (#336)', () => {
   it('accepts only a map, and only from the same origin', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: 'CC=x' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/build-env', {})).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: { CC: 'x' } }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: 'CC=x' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/build-env', {})).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: { CC: 'x' } }, { crossOrigin: true })).status).toBe(403)
   })
 
   it('round-trips the pinned environment and reports it on /status', async () => {
-    const set = await bed.dispatch('POST', '/dsh-shelfry/build-env', {
+    const set = await bed.dispatch('POST', '/dsh-crate/build-env', {
       buildEnv: { CC: '/usr/bin/gcc-11', CXX: '/usr/bin/g++-11' },
     })
     expect(set.status).toBe(200)
     expect(set.json.buildEnv).toEqual({ CC: '/usr/bin/gcc-11', CXX: '/usr/bin/g++-11' })
     // The editor draws from /status, so the value it saves and the value it
     // next renders must be the same one.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.buildEnv)
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.buildEnv)
       .toEqual({ CC: '/usr/bin/gcc-11', CXX: '/usr/bin/g++-11' })
 
     // Saving an empty map clears the override — the next spawn inherits the
     // composition instead of an old save.
-    const clear = await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: {} })
+    const clear = await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: {} })
     expect(clear.status).toBe(200)
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.buildEnv).toEqual({})
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.buildEnv).toEqual({})
   })
 
   it('drops PATH and CI at the route, and keeps the rest', async () => {
@@ -9191,16 +9191,16 @@ describe('build environment (#336)', () => {
     // value would silently do nothing — a pinned `PATH` that looks accepted
     // and changes nothing is worse than a rejection. A round-trip of a CLEAN
     // map would pass whatever the sanitizer did here (#527 review).
-    const set = await bed.dispatch('POST', '/dsh-shelfry/build-env', {
+    const set = await bed.dispatch('POST', '/dsh-crate/build-env', {
       buildEnv: { CC: '/usr/bin/gcc-11', PATH: '/evil/bin', CI: 'false' },
     })
     expect(set.status).toBe(200)
     expect(set.json.buildEnv).toEqual({ CC: '/usr/bin/gcc-11' })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.buildEnv).toEqual({ CC: '/usr/bin/gcc-11' })
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.buildEnv).toEqual({ CC: '/usr/bin/gcc-11' })
   })
 
   it('drops a key that is not a POSIX name, and a value that is not a string', async () => {
-    const set = await bed.dispatch('POST', '/dsh-shelfry/build-env', {
+    const set = await bed.dispatch('POST', '/dsh-crate/build-env', {
       buildEnv: { '1BAD': 'x', 'BAD-NAME': 'x', GOOD: 'kept', NUM: 7, BLANK: '   ' },
     })
     expect(set.status).toBe(200)
@@ -9212,12 +9212,12 @@ describe('build environment (#336)', () => {
     // spawner calls per child. Freezing that copy at mount would leave every
     // later spawn on the boot-time value — the edit would look saved (the
     // card, /status and state.json all agree) and change nothing (#527 review).
-    await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: { CC: '/usr/bin/gcc-11' } })
+    await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: { CC: '/usr/bin/gcc-11' } })
     expect(hot.buildEnvSource?.()).toEqual({ CC: '/usr/bin/gcc-11' })
-    await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: { CXX: '/usr/bin/g++-11' } })
+    await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: { CXX: '/usr/bin/g++-11' } })
     expect(hot.buildEnvSource?.()).toEqual({ CXX: '/usr/bin/g++-11' })
     // Clearing inherits the composition again rather than freezing the save.
-    await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: {} })
+    await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: {} })
     expect(hot.buildEnvSource?.()).toEqual({})
   })
 
@@ -9227,27 +9227,27 @@ describe('build environment (#336)', () => {
     // sent: the sanitizer's ceiling has to be smaller than the transport's,
     // or it means nothing (#527 review).
     const value = 'x'.repeat(4096)
-    const set = await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: { LONG: value } })
+    const set = await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: { LONG: value } })
     expect(set.status).toBe(200)
     expect(set.json.buildEnv).toEqual({ LONG: value })
   })
 
   it('a saved buildEnv survives a remount (state is the memory, not the route)', async () => {
-    await bed.dispatch('POST', '/dsh-shelfry/build-env', { buildEnv: { CXX: '/usr/bin/g++-11' } })
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.buildEnv.CXX).toBe('/usr/bin/g++-11')
+    await bed.dispatch('POST', '/dsh-crate/build-env', { buildEnv: { CXX: '/usr/bin/g++-11' } })
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.buildEnv.CXX).toBe('/usr/bin/g++-11')
     // A second bed on the same state.json-equivalent (the same fake hot bus)
     // must mount with the saved value already applied.
     const restarted = createTestbed()
-    expect((await restarted.dispatch('GET', '/dsh-shelfry/status')).json.buildEnv.CXX).toBe('/usr/bin/g++-11')
+    expect((await restarted.dispatch('GET', '/dsh-crate/status')).json.buildEnv.CXX).toBe('/usr/bin/g++-11')
     restarted.dispose()
   })
 })
 
 describe('release channel', () => {
   it('rejects anything but the two channels', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'nightly' })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', {})).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'beta' }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'nightly' })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', {})).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'beta' }, { crossOrigin: true })).status).toBe(403)
   })
 
   it('round-trips the setting', async () => {
@@ -9256,12 +9256,12 @@ describe('release channel', () => {
     // setting itself here, and the derivation is covered by resolveChannel's
     // own spec. Asserting /status against a literal would tie this test to
     // whatever version the repo happens to carry today.
-    const set = await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'beta' })
+    const set = await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'beta' })
     expect(set.status).toBe(200)
     expect(set.json.channel).toBe('beta')
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.channel).toBe('beta')
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.channel).toBe('beta')
 
-    const back = await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'stable' })
+    const back = await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'stable' })
     expect(back.status).toBe(200)
     expect(back.json.channel).toBe('stable')
   })
@@ -9275,7 +9275,7 @@ describe('release channel', () => {
     // dist-tag itself: Desktop's install boundary would otherwise re-fetch
     // `latest` and drift. What must still hold is that beta does not install
     // the stable release.
-    fake.npm['dsh-shelfry'] = {
+    fake.npm['dsh-crate'] = {
       latest: '1.0.0',
       versions: {
         '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] },
@@ -9283,9 +9283,9 @@ describe('release channel', () => {
         '9.1.0-beta.1': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] },
       },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-shelfry' })
-    fake.npm['dsh-shelfry'].latest = '9.0.0'
-    await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'beta' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-crate' })
+    fake.npm['dsh-crate'].latest = '9.0.0'
+    await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'beta' })
     vi.stubGlobal('fetch', (url: string) => {
       const u = String(url)
       if (u.includes('/beta')) {
@@ -9294,15 +9294,15 @@ describe('release channel', () => {
       return Promise.resolve(new Response(JSON.stringify({ version: '9.0.0' }), { status: 200 }))
     })
     fake.calls = []
-    await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-shelfry' })
+    await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-crate' })
     const added = fake.calls.find(call => call[0] === 'add')
-    expect(added?.join(' '), 'the update ran with the wrong channel pin').toContain('dsh-shelfry@9.1.0-beta.1')
-    expect(added?.join(' ')).not.toContain('dsh-shelfry@9.0.0')
+    expect(added?.join(' '), 'the update ran with the wrong channel pin').toContain('dsh-crate@9.1.0-beta.1')
+    expect(added?.join(' ')).not.toContain('dsh-crate@9.0.0')
 
-    await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'stable' })
+    await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'stable' })
     fake.calls = []
-    await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-shelfry' })
-    expect(fake.calls.find(call => call[0] === 'add')?.join(' ')).toContain('dsh-shelfry@9.0.0')
+    await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-crate' })
+    expect(fake.calls.find(call => call[0] === 'add')?.join(' ')).toContain('dsh-crate@9.0.0')
   })
 
   it('re-checks immediately when the channel changes', async () => {
@@ -9310,8 +9310,8 @@ describe('release channel', () => {
     // alone, switching channels would keep serving the previous verdict for
     // the rest of the TTL — indistinguishable, to the user, from a setting
     // that does nothing.
-    fake.npm['dsh-shelfry'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-shelfry' })
+    fake.npm['dsh-crate'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-crate' })
     const seen: string[] = []
     const realFetch = globalThis.fetch as typeof fetch
     vi.stubGlobal('fetch', vi.fn((input: unknown, init?: RequestInit) => {
@@ -9321,10 +9321,10 @@ describe('release channel', () => {
     // Warm the cache on the stable channel FIRST — that is the state the
     // bug needs. Without a prior listing there is nothing stale to serve,
     // and the spec would pass with the channel left out of the cache key.
-    await bed.dispatch('GET', '/dsh-shelfry/updates')
-    await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'beta' })
+    await bed.dispatch('GET', '/dsh-crate/updates')
+    await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'beta' })
     seen.length = 0
-    await bed.dispatch('GET', '/dsh-shelfry/updates')
+    await bed.dispatch('GET', '/dsh-crate/updates')
     expect(seen.some(url => url.endsWith('/beta')), 'the beta dist-tag was never queried').toBe(true)
   })
 })
@@ -9339,7 +9339,7 @@ describe('catalog: one source, and a failure says so', () => {
     // For a catalog, stale is not degraded, it is WRONG — a plugin published
     // this morning reads as "does not exist".
     registryModule.loadRegistry.mockRejectedValueOnce(new Error('fetch failed: ENOTFOUND'))
-    const failed = await bed.dispatch('GET', '/dsh-shelfry/registry')
+    const failed = await bed.dispatch('GET', '/dsh-crate/registry')
     expect(failed.status).toBe(502)
     expect(String(failed.json.error)).toContain('ENOTFOUND')
     expect(failed.json.registry, 'a failed catalog fetch must not carry data').toBeUndefined()
@@ -9353,7 +9353,7 @@ describe('the channel choice survives a restart', () => {
     // lived exactly as long as the process — and no test noticed, because
     // every assertion queried the same instance that had just been told.
     expect(hot.channel).toBeUndefined()
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'beta' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'beta' })).status).toBe(200)
     expect(hot.channel, 'the choice never reached durable state').toBe('beta')
   })
 
@@ -9363,13 +9363,13 @@ describe('the channel choice survives a restart', () => {
     // NOTHING would still answer 'beta' on the way in — derived from the
     // running version. Only the way back off the channel can tell a
     // remembered choice from a re-derived one.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'stable' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'stable' })).status).toBe(200)
 
     // A second market over the same profile state: this is what a restart
     // looks like from the state file's point of view.
     const restarted = createTestbed({ profile: 'web' })
     try {
-      expect((await restarted.dispatch('GET', '/dsh-shelfry/status')).json.channel).toBe('stable')
+      expect((await restarted.dispatch('GET', '/dsh-crate/status')).json.channel).toBe('stable')
     } finally { restarted.dispose() }
   })
 
@@ -9400,36 +9400,36 @@ describe('the channel choice survives a restart', () => {
     try {
       expect(hot.channel).toBeUndefined()
       const expected = resolveChannel(undefined, marketVersion())
-      expect((await fresh.dispatch('GET', '/dsh-shelfry/status')).json.channel).toBe(expected)
+      expect((await fresh.dispatch('GET', '/dsh-crate/status')).json.channel).toBe(expected)
     } finally { fresh.dispose() }
   })
 })
 
 describe('the dev channel is an ordinary choice', () => {
   it('is offered by the status route alongside the other two', async () => {
-    expect((await bed.dispatch('GET', '/dsh-shelfry/status')).json.channels).toEqual(['stable', 'beta', 'dev'])
+    expect((await bed.dispatch('GET', '/dsh-crate/status')).json.channels).toEqual(['stable', 'beta', 'dev'])
   })
 
   it('is selectable, persisted and read back like any other', async () => {
     // It was gated behind a stored developer mode for one version. Removing
     // the gate must not quietly remove the memory with it.
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'dev' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'dev' })).status).toBe(200)
     expect(hot.channel).toBe('dev')
 
     const restarted = createTestbed({ profile: 'web' })
     try {
-      expect((await restarted.dispatch('GET', '/dsh-shelfry/status')).json.channel).toBe('dev')
+      expect((await restarted.dispatch('GET', '/dsh-crate/status')).json.channel).toBe('dev')
     } finally { restarted.dispose() }
   })
 
   it('still refuses a channel that does not exist', async () => {
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'nightly' })
+    const refused = await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'nightly' })
     expect(refused.status).toBe(400)
     expect(hot.channel).toBeUndefined()
   })
 
   it('still refuses a cross-origin selection', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/channel', { channel: 'dev' }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/channel', { channel: 'dev' }, { crossOrigin: true })).status).toBe(403)
     expect(hot.channel).toBeUndefined()
   })
 })
@@ -9460,7 +9460,7 @@ describe('the dev channel is an ordinary choice', () => {
               hot.groupOrder.push('work')
               hot.notes['dsh-genui'] = 'legacy source'
 
-              const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+              const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
               expect(updates.status).toBe(200)
               expect(updates.json.updates['dsh-genui'].sourceMigration).toEqual({
                 kind: 'git-to-npm',
@@ -9475,15 +9475,15 @@ describe('the dev channel is an ordinary choice', () => {
               try {
                 const callsBefore = fake.calls.length
                 for (const confirmAgentsRunning of [undefined, false, 'true']) {
-                  const refused = await busyBed.dispatch('POST', '/dsh-shelfry/migrate-source', { name: 'dsh-genui', confirmAgentsRunning })
+                  const refused = await busyBed.dispatch('POST', '/dsh-crate/migrate-source', { name: 'dsh-genui', confirmAgentsRunning })
                   expect(refused.status).toBe(409)
                   expect(refused.json.agentsBusy).toBe(true)
                   expect(fake.calls.length).toBe(callsBefore)
                 }
-                migrated = await busyBed.dispatch('POST', '/dsh-shelfry/migrate-source', { name: 'dsh-genui', confirmAgentsRunning: true })
+                migrated = await busyBed.dispatch('POST', '/dsh-crate/migrate-source', { name: 'dsh-genui', confirmAgentsRunning: true })
                 expect(migrated.status, JSON.stringify(migrated.json)).toBe(200)
                 const callsAfter = fake.calls.length
-                const next = await busyBed.dispatch('POST', '/dsh-shelfry/uninstall', { name: '@changfenhuang/dsh-genui' })
+                const next = await busyBed.dispatch('POST', '/dsh-crate/uninstall', { name: '@changfenhuang/dsh-genui' })
                 expect(next.status).toBe(409)
                 expect(next.json.agentsBusy).toBe(true)
                 expect(fake.calls.length).toBe(callsAfter)
@@ -9514,9 +9514,9 @@ describe('the dev channel is an ordinary choice', () => {
               }))
               writeFileSync(join(dir, 'node_modules', 'dsh-genui', 'index.js'), '')
 
-              const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+              const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
               expect(updates.json.updates['dsh-genui'].sourceMigration).toBeUndefined()
-              const migrated = await bed.dispatch('POST', '/dsh-shelfry/migrate-source', { name: 'dsh-genui' })
+              const migrated = await bed.dispatch('POST', '/dsh-crate/migrate-source', { name: 'dsh-genui' })
               expect(migrated.status).toBe(400)
               expect(installedSpec('dsh-genui')).toBe('github:omdsh-dev/dsh-genui#publish')
             })
@@ -9567,7 +9567,7 @@ describe('catalog previousNpm (#1012)', () => {
 
     // No update ran. The catalog alone says this name moved, so the row can
     // offer the move instead of the user dead-ending on npm.
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(updates.status).toBe(200)
     expect(updates.json.updates['dsh-renamed-old'].sourceMigration).toEqual({
       kind: 'npm-rename',
@@ -9575,7 +9575,7 @@ describe('catalog previousNpm (#1012)', () => {
       target: 'dsh-renamed-new',
     })
 
-    const migrated = await bed.dispatch('POST', '/dsh-shelfry/migrate-source', {
+    const migrated = await bed.dispatch('POST', '/dsh-crate/migrate-source', {
       name: 'dsh-renamed-old',
       kind: 'npm-rename',
       to: 'dsh-renamed-new',
@@ -9623,7 +9623,7 @@ describe('catalog previousNpm (#1012)', () => {
     }
     hot.disabled.add('dsh-renamed-old')
 
-    const migrated = await bed.dispatch('POST', '/dsh-shelfry/migrate-source', {
+    const migrated = await bed.dispatch('POST', '/dsh-crate/migrate-source', {
       name: 'dsh-renamed-old',
       kind: 'npm-rename',
       to: 'dsh-renamed-new',
@@ -9665,7 +9665,7 @@ describe('catalog previousNpm (#1012)', () => {
       },
     }
 
-    const migrated = await bed.dispatch('POST', '/dsh-shelfry/migrate-source', {
+    const migrated = await bed.dispatch('POST', '/dsh-crate/migrate-source', {
       name: 'dsh-renamed-old',
       kind: 'npm-rename',
       to: 'dsh-renamed-new',
@@ -9700,7 +9700,7 @@ describe('catalog previousNpm (#1012)', () => {
       },
     }
 
-    const migrated = await bed.dispatch('POST', '/dsh-shelfry/migrate-source', {
+    const migrated = await bed.dispatch('POST', '/dsh-crate/migrate-source', {
       name: 'dsh-renamed-old',
       kind: 'npm-rename',
       to: 'dsh-renamed-new',
@@ -9716,7 +9716,7 @@ describe('catalog previousNpm (#1012)', () => {
 
     // dsh-genui's entry declares no former name, so naming its package is a
     // body a user could type but not a move the catalog authorized.
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/migrate-source', {
+    const refused = await bed.dispatch('POST', '/dsh-crate/migrate-source', {
       name: 'dsh-renamed-old',
       kind: 'npm-rename',
       to: '@changfenhuang/dsh-genui',
@@ -9733,7 +9733,7 @@ describe('catalog previousNpm (#1012)', () => {
     // profile would fail its next start. Refusing before pnpm runs is the only
     // outcome that keeps that start working — and the payload is what lets the
     // row offer the move instead of a dead end.
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-renamed' })
+    const refused = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-renamed' })
     expect(refused.status).toBe(409)
     expect(String(refused.json.error)).toContain('dsh-renamed-old')
     expect(String(refused.json.error)).toContain('改用迁移')
@@ -9751,7 +9751,7 @@ describe('catalog previousNpm (#1012)', () => {
 
     // A Git install cannot be replaced by this transaction, so the same clash
     // stays a plain refusal: no payload, no button that would answer 400.
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-renamed' })
+    const refused = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-renamed' })
     expect(refused.status).toBe(409)
     expect(refused.json.migration).toBeUndefined()
     expect(String(refused.json.error)).not.toContain('改用迁移')
@@ -9766,14 +9766,14 @@ describe('catalog previousNpm (#1012)', () => {
     manifest.dependencies['dsh-renamed-new'] = 'npm:dsh-renamed-new@^1.0.0'
     writeFileSync(join(dir, 'package.json'), JSON.stringify(manifest))
 
-    const updates = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const updates = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(updates.status).toBe(200)
     expect(updates.json.updates['dsh-renamed-old'].sourceMigration).toBeUndefined()
   })
 
   it('installs the successor normally when the predecessor is not installed', async () => {
     successorOnNpm()
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-renamed' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-renamed' })
     expect(installed.status, JSON.stringify(installed.json)).toBe(200)
     expect(installedSpec('dsh-renamed-new')).toBe('^1.0.0')
   })
@@ -9782,24 +9782,24 @@ describe('catalog previousNpm (#1012)', () => {
 describe('favorites (#414)', () => {
   it('adds and removes a catalog url and returns it from GET /installed', async () => {
     const url = 'https://github.com/o/dsh-loop'
-    const add = await bed.dispatch('POST', '/dsh-shelfry/favorite', { url, favorited: true })
+    const add = await bed.dispatch('POST', '/dsh-crate/favorite', { url, favorited: true })
     expect(add.status).toBe(200)
     expect(add.json.favorites).toEqual([url])
     expect(hot.favorites).toEqual([url])
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.favorites).toEqual([url])
 
-    const remove = await bed.dispatch('POST', '/dsh-shelfry/favorite', { url, favorited: false })
+    const remove = await bed.dispatch('POST', '/dsh-crate/favorite', { url, favorited: false })
     expect(remove.status).toBe(200)
     expect(remove.json.favorites).toEqual([])
     expect(hot.favorites).toEqual([])
   })
 
   it('rejects invalid urls and cross-origin writes', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/favorite', { url: '', favorited: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/favorite', { url: 'ftp://bad', favorited: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/favorite', { url: 'https://github.com/o/x', favorited: true }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/favorite', { url: '', favorited: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/favorite', { url: 'ftp://bad', favorited: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/favorite', { url: 'https://github.com/o/x', favorited: true }, { crossOrigin: true })).status).toBe(403)
   })
 
   it('a disable toggle does not clear favorites', async () => {
@@ -9807,15 +9807,15 @@ describe('favorites (#414)', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
-    await bed.dispatch('POST', '/dsh-shelfry/favorite', { url: 'https://github.com/h/dsh-share', favorited: true })
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/favorite', { url: 'https://github.com/h/dsh-share', favorited: true })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(hot.favorites).toEqual(['https://github.com/h/dsh-share'])
   })
 
   it('rejects favorites beyond MAX_FAVORITES', async () => {
     hot.favorites = Array.from({ length: 500 }, (_, index) => `https://github.com/o/p-${index}`)
-    const add = await bed.dispatch('POST', '/dsh-shelfry/favorite', { url: 'https://github.com/o/one-more', favorited: true })
+    const add = await bed.dispatch('POST', '/dsh-crate/favorite', { url: 'https://github.com/o/one-more', favorited: true })
     expect(add.status).toBe(400)
     expect(hot.favorites).toHaveLength(500)
   })
@@ -9827,9 +9827,9 @@ describe('favorites (#414)', () => {
     }
     let release!: () => void
     fake.gate = new Promise<void>((resolvePromise) => { release = resolvePromise })
-    const install = bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
+    const install = bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
     await new Promise(resolvePromise => setTimeout(resolvePromise, 20))
-    const favorite = bed.dispatch('POST', '/dsh-shelfry/favorite', {
+    const favorite = bed.dispatch('POST', '/dsh-crate/favorite', {
       url: 'https://github.com/o/dsh-share',
       favorited: true,
     })
@@ -9844,25 +9844,25 @@ describe('favorites (#414)', () => {
 
 describe('blocked plugins (#657)', () => {
   it('adds and removes a package name and returns it from GET /installed', async () => {
-    const add = await bed.dispatch('POST', '/dsh-shelfry/block', { name: 'dsh-loop', blocked: true })
+    const add = await bed.dispatch('POST', '/dsh-crate/block', { name: 'dsh-loop', blocked: true })
     expect(add.status).toBe(200)
     expect(add.json.blocked).toEqual(['dsh-loop'])
     expect(hot.blocked).toEqual(['dsh-loop'])
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.blocked).toEqual(['dsh-loop'])
 
-    const remove = await bed.dispatch('POST', '/dsh-shelfry/block', { name: 'dsh-loop', blocked: false })
+    const remove = await bed.dispatch('POST', '/dsh-crate/block', { name: 'dsh-loop', blocked: false })
     expect(remove.status).toBe(200)
     expect(remove.json.blocked).toEqual([])
     expect(hot.blocked).toEqual([])
   })
 
   it('rejects an empty name and a cross-origin write', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/block', { name: '', blocked: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/block', { name: '  ', blocked: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/block', { name: 'dsh-loop', blocked: true }, { crossOrigin: true })).status).toBe(403)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/block', { name: 'a'.repeat(300), blocked: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/block', { name: '', blocked: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/block', { name: '  ', blocked: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/block', { name: 'dsh-loop', blocked: true }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/block', { name: 'a'.repeat(300), blocked: true })).status).toBe(400)
   })
 
   it('a disable toggle does not clear blocked names', async () => {
@@ -9870,15 +9870,15 @@ describe('blocked plugins (#657)', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
-    await bed.dispatch('POST', '/dsh-shelfry/block', { name: 'dsh-notify', blocked: true })
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/block', { name: 'dsh-notify', blocked: true })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(hot.blocked).toEqual(['dsh-notify'])
   })
 
   it('rejects blocked names beyond MAX_BLOCKED', async () => {
     hot.blocked = Array.from({ length: 500 }, (_, index) => `dsh-p-${index}`)
-    const add = await bed.dispatch('POST', '/dsh-shelfry/block', { name: 'dsh-one-more', blocked: true })
+    const add = await bed.dispatch('POST', '/dsh-crate/block', { name: 'dsh-one-more', blocked: true })
     expect(add.status).toBe(400)
     expect(hot.blocked).toHaveLength(500)
   })
@@ -9886,25 +9886,25 @@ describe('blocked plugins (#657)', () => {
 
 describe('persistent update reminders (#728)', () => {
   it('adds and removes a package and returns the list from GET /installed', async () => {
-    const add = await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: 'dsh-loop', exempt: true })
+    const add = await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: 'dsh-loop', exempt: true })
     expect(add.status).toBe(200)
     expect(add.json.updateExempt).toEqual(['dsh-loop'])
     expect(hot.updateExempt).toEqual(['dsh-loop'])
 
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/installed')
+    const listed = await bed.dispatch('GET', '/dsh-crate/installed')
     expect(listed.json.updateExempt).toEqual(['dsh-loop'])
 
-    const remove = await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: 'dsh-loop', exempt: false })
+    const remove = await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: 'dsh-loop', exempt: false })
     expect(remove.status).toBe(200)
     expect(remove.json.updateExempt).toEqual([])
     expect(hot.updateExempt).toEqual([])
   })
 
   it('rejects an empty name and a cross-origin write', async () => {
-    expect((await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: '', exempt: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: '  ', exempt: true })).status).toBe(400)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: 'dsh-loop', exempt: true }, { crossOrigin: true })).status).toBe(403)
-    expect((await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: 'a'.repeat(300), exempt: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: '', exempt: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: '  ', exempt: true })).status).toBe(400)
+    expect((await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: 'dsh-loop', exempt: true }, { crossOrigin: true })).status).toBe(403)
+    expect((await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: 'a'.repeat(300), exempt: true })).status).toBe(400)
   })
 
   it('a disable toggle does not clear the list', async () => {
@@ -9912,15 +9912,15 @@ describe('persistent update reminders (#728)', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })
-    await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: 'dsh-notify', exempt: true })
-    await bed.dispatch('POST', '/dsh-shelfry/toggle', { name: 'dsh-loop', enabled: false })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })
+    await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: 'dsh-notify', exempt: true })
+    await bed.dispatch('POST', '/dsh-crate/toggle', { name: 'dsh-loop', enabled: false })
     expect(hot.updateExempt).toEqual(['dsh-notify'])
   })
 
   it('rejects names beyond the cap', async () => {
     hot.updateExempt = Array.from({ length: 500 }, (_, index) => `dsh-p-${index}`)
-    const add = await bed.dispatch('POST', '/dsh-shelfry/update-exempt', { name: 'dsh-one-more', exempt: true })
+    const add = await bed.dispatch('POST', '/dsh-crate/update-exempt', { name: 'dsh-one-more', exempt: true })
     expect(add.status).toBe(400)
     expect(hot.updateExempt).toHaveLength(500)
   })
@@ -9934,14 +9934,14 @@ describe('the way out of a host refusal (#581)', () => {
   it('refuses to search for anything the catalog does not carry', async () => {
     // Not a courtesy: without this the route is an open "read any packument on
     // npm" proxy for whatever can reach the host.
-    const bad = await bed.dispatch('POST', '/dsh-shelfry/find-compatible', { npmName: 'left-pad' })
+    const bad = await bed.dispatch('POST', '/dsh-crate/find-compatible', { npmName: 'left-pad' })
     expect(bad.status).toBe(400)
     expect(String(bad.json.error)).toContain('not in the curated registry')
-    const invalid = await bed.dispatch('POST', '/dsh-shelfry/find-compatible', { npmName: '../../etc' })
+    const invalid = await bed.dispatch('POST', '/dsh-crate/find-compatible', { npmName: '../../etc' })
     expect(invalid.status).toBe(400)
-    const wrongMethod = await bed.dispatch('GET', '/dsh-shelfry/find-compatible')
+    const wrongMethod = await bed.dispatch('GET', '/dsh-crate/find-compatible')
     expect(wrongMethod.status).toBe(405)
-    const cross = await bed.dispatch('POST', '/dsh-shelfry/find-compatible', { npmName: 'dsh-loop' }, { crossOrigin: true })
+    const cross = await bed.dispatch('POST', '/dsh-crate/find-compatible', { npmName: 'dsh-loop' }, { crossOrigin: true })
     expect(cross.status).toBe(403)
   })
 
@@ -9956,7 +9956,7 @@ describe('the way out of a host refusal (#581)', () => {
       },
     }
 
-    const r = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop', version: '1.2.0' })
+    const r = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', version: '1.2.0' })
 
     expect(r.status).toBe(200)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.2.0']])
@@ -9975,24 +9975,24 @@ describe('the way out of a host refusal (#581)', () => {
     }
     // Installed at 1.0.0 — through the same pin the dialog uses, so the setup
     // exercises it rather than working around it.
-    await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
+    await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.0.0']])
 
     // Older than installed: an update must never be a downgrade (#64).
-    const older = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '0.9.0' })
+    const older = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '0.9.0' })
     expect(older.status).toBe(400)
     expect(String(older.json.error)).toContain('降级')
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.0.0']])
 
     // Exactly what is installed: nothing to do, and not a failure (#495).
-    const same = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '1.0.0' })
+    const same = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.0.0' })
     expect(same.status).toBe(200)
     expect(same.json.skipped).toBe('current')
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.0.0']])
 
     // Newer: pinned to THAT release — no `latest` resolution behind it, which
     // is what makes the refusal dialog's answer actually installable.
-    const newer = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '1.2.0' })
+    const newer = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.2.0' })
     expect(newer.status).toBe(200)
     expect(fake.calls.filter(call => call[0] === 'add').at(-1)).toEqual(['add', 'dsh-loop@1.2.0'])
   })
@@ -10043,14 +10043,14 @@ describe('a pinned install is judged on its own release, not on latest (#581)', 
     // accepts, and the pre-flight check reads `latest` — which wants a host
     // this one is not — refusing the install of the very version it had just
     // recommended. The verdict has to be about the release being installed.
-    expect((await bed.dispatch('GET', '/dsh-shelfry/registry')).json.hostVersion).toBe(HOST_VERSION)
+    expect((await bed.dispatch('GET', '/dsh-crate/registry')).json.hostVersion).toBe(HOST_VERSION)
     fake.npm['dsh-loop'] = { latest: '2.0.0', versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
     stubManifests({
       '/dsh-loop/latest': manifest('2.0.0', '>=99.0.0'),
       '/dsh-loop/1.0.0': manifest('1.0.0', `>=${HOST_VERSION}`),
     })
 
-    const installed = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
+    const installed = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
     expect(installed.status, JSON.stringify(installed.json)).toBe(200)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.0.0']])
   })
@@ -10065,7 +10065,7 @@ describe('a pinned install is judged on its own release, not on latest (#581)', 
       '/dsh-loop/1.0.0': manifest('1.0.0', '>=99.0.0'),
     })
 
-    const refused = await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
+    const refused = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
     expect(refused.status).toBe(400)
     // #923: the dialog's "find a compatible version" search is keyed by the
     // npm name; the update branch had no fallback, so a missing field left it
@@ -10092,7 +10092,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
         '1.3.0': { manifest, artifacts: ['lib/index.js'] },
       },
     }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
     bed.dispose()
     bed = createTestbed({ desktopHost: true })
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\n')
@@ -10112,23 +10112,23 @@ describe('Issue #991 Desktop stable npm update route', () => {
   })
 
   it('lists a mature predecessor, pins it exactly, and keeps the young latest held', async () => {
-    const checked = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const checked = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(checked.status).toBe(200)
     expect(checked.json.updates['dsh-loop']).toMatchObject({
       latest: '1.2.0', eligibleVersion: '1.1.0', updateAvailable: true,
       heldUpdate: { latest: '1.2.0' },
     })
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
     expect(updated.status, JSON.stringify(updated.json)).toBe(200)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.1.0']])
     expect(installedSpec('dsh-loop')).toBe('^1.1.0')
   })
 
   it('rejects a stale UI token after the registry adds a higher mature candidate', async () => {
-    expect((await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')).json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
+    expect((await bed.dispatch('GET', '/dsh-crate/updates?force=1')).json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
     latest = '1.3.0'
     published['1.2.0'] = oldTime()
-    const changed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const changed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(changed.status).toBe(409)
     expect(changed.json.staleTarget).toBe(true)
     expect(fake.calls).toEqual([])
@@ -10136,19 +10136,19 @@ describe('Issue #991 Desktop stable npm update route', () => {
   })
 
   it('revalidates and accepts the queued mature target if only strict mode changes (#991 approved)', async () => {
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const listed = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(listed.json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\nminimumReleaseAgeStrict: false\n')
-    const changed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const changed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(changed.status).toBe(200)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.1.0']])
     expect(installedSpec('dsh-loop')).toBe('^1.1.0')
   })
 
   it('rejects the queued target when the native wait changes to seven days (#991 approved)', async () => {
-    expect((await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')).json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
+    expect((await bed.dispatch('GET', '/dsh-crate/updates?force=1')).json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 10080\nminimumReleaseAgeStrict: false\nminimumReleaseAgeIgnoreMissingTime: true\n')
-    const changed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const changed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(changed.status).toBe(409)
     expect(changed.json.staleTarget).toBe(true)
     expect(fake.calls).toEqual([])
@@ -10156,10 +10156,10 @@ describe('Issue #991 Desktop stable npm update route', () => {
   })
 
   it('revalidates a previously eligible target when pnpm exceptions change', async () => {
-    const listed = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const listed = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(listed.json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\nminimumReleaseAgeExclude:\n  - dsh-loop@1.2.0\n')
-    const changed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const changed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(changed.status).toBe(409)
     expect(changed.json.staleTarget).toBe(true)
     expect(fake.calls).toEqual([])
@@ -10167,7 +10167,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
   })
 
   it('requires an exact token on old clients when latest is too young', async () => {
-    const attempt = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const attempt = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(attempt.status).toBe(409)
     expect(attempt.json.staleTarget).toBe(true)
     expect(fake.calls).toEqual([])
@@ -10175,29 +10175,29 @@ describe('Issue #991 Desktop stable npm update route', () => {
 
   it('refuses a new release with no mature upgrades before any package mutation', async () => {
     published['1.1.0'] = youngTime()
-    const changed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const changed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(changed.status).toBe(409)
     expect(fake.calls).toEqual([])
   })
 
   it('keeps compatVersion for a mature older target and blocks a young compatible one', async () => {
-    const young = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '1.2.0' })
+    const young = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.2.0' })
     expect(young.status).toBe(409)
     expect(fake.calls).toEqual([])
-    const mature = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '1.1.0' })
+    const mature = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.1.0' })
     expect(mature.status, JSON.stringify(mature.json)).toBe(200)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.1.0']])
   })
 
   it('does not let compatVersion bypass stable Desktop safety through a prerelease target', async () => {
-    const attempt = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '1.2.0-beta.1' })
+    const attempt = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.2.0-beta.1' })
     expect(attempt.status).toBe(409)
     expect(attempt.json.staleTarget).toBe(true)
     expect(fake.calls).toEqual([])
   })
 
   it('preserves the compatibility dialog current-version no-op', async () => {
-    const attempt = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', compatVersion: '1.0.0' })
+    const attempt = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.0.0' })
     expect(attempt.status).toBe(200)
     expect(attempt.json.skipped).toBe('current')
     expect(fake.calls).toEqual([])
@@ -10207,9 +10207,9 @@ describe('Issue #991 Desktop stable npm update route', () => {
     'updates the exact mature version with native policy %s (#991 approved)', async policy => {
       const workspace = join(fake.profileDir, 'pnpm-workspace.yaml')
       writeFileSync(workspace, policy)
-      const listed = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+      const listed = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
       expect(listed.json.updates['dsh-loop'].eligibleVersion).toBe('1.1.0')
-      const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
+      const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
       expect(updated.status, JSON.stringify(updated.json)).toBe(200)
       expect(fake.calls.filter(call => call[0] === 'add')).toEqual([['add', 'dsh-loop@1.1.0']])
       expect(readFileSync(workspace, 'utf8')).toBe(policy)
@@ -10220,9 +10220,9 @@ describe('Issue #991 Desktop stable npm update route', () => {
     'rejects missing top-level time under native policy %s (#991 approved)', async policy => {
       writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), policy)
       delete published['1.1.0']
-      const listed = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+      const listed = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
       expect(listed.json.updates['dsh-loop'].updateAvailable).toBe(false)
-      const refused = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
+      const refused = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
       expect(refused.status).toBe(409)
       expect(fake.calls).toEqual([])
     },
@@ -10231,7 +10231,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
   it('returns the original current no-op without a client token (#991 review)', async () => {
     latest = '1.0.0'
     const before = readFileSync(join(fake.profileDir, 'package.json'), 'utf8')
-    const current = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+    const current = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
     expect(current.status).toBe(200)
     expect(current.json).toMatchObject({ ok: true, skipped: 'current', version: '1.0.0' })
     expect(fake.calls).toEqual([])
@@ -10240,7 +10240,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
 
   it('still refuses a stale explicit token when the installed version is current (#991 review)', async () => {
     latest = '1.0.0'
-    const current = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const current = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(current.status).toBe(409)
     expect(current.json.staleTarget).toBe(true)
     expect(fake.calls).toEqual([])
@@ -10272,7 +10272,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
       }
       const beforeManifest = readFileSync(join(fake.profileDir, 'package.json'), 'utf8')
       const beforeLock = readFileSync(join(fake.profileDir, 'pnpm-lock.yaml'), 'utf8')
-      const failed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+      const failed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
       expect(failed.status, JSON.stringify(failed.json)).toBe(502)
       expect(readFileSync(workspace, 'utf8')).toBe(preservedPolicy)
       expect(readFileSync(join(fake.profileDir, 'package.json'), 'utf8')).toBe(beforeManifest)
@@ -10294,11 +10294,11 @@ describe('Issue #991 Desktop stable npm update route', () => {
     fake.npm['dsh-loop'].versions['1.1.0'].manifest = {
       ...manifest, peerDependencies: { '@deepseek-ai/dsh-settings': '^0.1.0-rc.7' },
     }
-    const updated = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(updated.status, JSON.stringify(updated.json)).toBe(200)
     expect(updated.json.compatibility?.rollbackId).toMatch(/^rollback-/)
     expect(readFileSync(workspace, 'utf8')).toBe(preservedPolicy)
-    const rollback = await bed.dispatch('POST', '/dsh-shelfry/rollback', { rollbackId: updated.json.compatibility.rollbackId })
+    const rollback = await bed.dispatch('POST', '/dsh-crate/rollback', { rollbackId: updated.json.compatibility.rollbackId })
     expect(rollback.status, JSON.stringify(rollback.json)).toBe(200)
     expect(fake.calls.some(call => call.includes(RELEASE_AGE_OVERRIDE))).toBe(false)
     expect(fake.calls.some(call => call.includes(RELEASE_AGE_OVERRIDE))).toBe(false)
@@ -10309,7 +10309,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
 
   it('rolls an unsuccessful mature update back to the previous exact version', async () => {
     fake.failAfterWriteStderrOnce = 'ELIFECYCLE: failed after replacing the package directory'
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
+    const failed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0' })
     expect(failed.status).toBe(502)
     expect(fake.calls.filter(call => call[0] === 'add')).toEqual([
       ['add', 'dsh-loop@1.1.0'], ['add', '--force', 'dsh-loop@1.0.0'],
@@ -10321,7 +10321,7 @@ describe('Issue #991 Desktop stable npm update route', () => {
     // pnpm checks the entire lockfile; another young dependency may make a
     // properly selected exact target fail at execution time.
     fake.youngLockfile = true
-    const failed = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
+    const failed = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', eligibleVersion: '1.1.0', force: true })
     expect(failed.status).toBe(502)
     expect(fake.calls.some(call => call[0] === 'add' && call.includes('dsh-loop@1.1.0'))).toBe(true)
     expect(fake.calls.some(call => call.includes(RELEASE_AGE_OVERRIDE))).toBe(false)
@@ -10354,7 +10354,7 @@ describe('Agent-safe drain mode (#411)', () => {
       latest: '1.0.0',
       versions: { '1.0.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } },
     }
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop' })).status).toBe(200)
   }
 
   /**
@@ -10380,7 +10380,7 @@ describe('Agent-safe drain mode (#411)', () => {
 
   async function settled(testbed: Testbed, operationId: string): Promise<Record<string, unknown>> {
     for (let attempt = 0; attempt < 200; attempt += 1) {
-      const status = await testbed.dispatch('GET', '/dsh-shelfry/status')
+      const status = await testbed.dispatch('GET', '/dsh-crate/status')
       const operation = (status.json.drainOperations as Array<Record<string, unknown>> | undefined)
         ?.find(entry => entry.operationId === operationId)
       if (operation !== undefined && ['succeeded', 'failed', 'cancelled'].includes(String(operation.state))) return operation
@@ -10396,7 +10396,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
       const callsBefore = fake.calls.length
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status, JSON.stringify(accepted.json)).toBe(202)
       const operationId = String(accepted.json.operationId)
       expect(accepted.json.operation.wait).toMatchObject({ reason: 'agents', activeCount: 1, activeAgentIds: ['main'] })
@@ -10419,7 +10419,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status, JSON.stringify(accepted.json)).toBe(202)
       const operationId = String(accepted.json.operationId)
       advanceLatest('1.3.0')
@@ -10441,7 +10441,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agents = [main]
     const drainBed = createTestbed({}, undefined, agentsService(agents))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status, JSON.stringify(accepted.json)).toBe(202)
       const operationId = String(accepted.json.operationId)
 
@@ -10468,9 +10468,9 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
-      const second = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+      const second = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
       expect(second.status).toBe(409)
       expect(second.json.failureCode).toBe('OPERATION_BUSY')
       expect(second.json.agentsBusy).toBeUndefined()
@@ -10486,12 +10486,12 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const operationId = String(accepted.json.operationId)
       const callsBefore = fake.calls.length
 
-      const cancelled = await drainBed.dispatch('POST', '/dsh-shelfry/cancel', { operationId })
+      const cancelled = await drainBed.dispatch('POST', '/dsh-crate/cancel', { operationId })
       expect(cancelled.status).toBe(200)
       expect(cancelled.json.cancelled).toBe(true)
       const completed = await settled(drainBed, operationId)
@@ -10512,7 +10512,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agents = [first]
     const drainBed = createTestbed({}, undefined, agentsService(agents))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const late = new FakeAgent('late')
       agents.push(late)
@@ -10533,7 +10533,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agents = [main]
     const drainBed = createTestbed({}, undefined, agentsService(agents))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const gate = gateExecutionFetch()
       main.finishTurn()
@@ -10563,7 +10563,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agents = [main]
     const drainBed = createTestbed({}, undefined, agentsService(agents))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const gate = gateExecutionFetch()
       main.finishTurn()
@@ -10592,7 +10592,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agents = [main]
     const drainBed = createTestbed({}, undefined, agentsService(agents))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const gate = gateExecutionFetch()
       main.finishTurn()
@@ -10627,7 +10627,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/install', {
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/install', {
         url: 'https://github.com/o/dsh-loop',
         busyPolicy: 'drain',
       })
@@ -10646,7 +10646,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/uninstall', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/uninstall', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status, JSON.stringify(accepted.json)).toBe(202)
       expect(installedSpec('dsh-loop')).toBe('^1.0.0')
 
@@ -10672,10 +10672,10 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const pending = drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const pending = drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       await new Promise(resolve => setTimeout(resolve, 10))
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const status = await drainBed.dispatch('GET', '/dsh-shelfry/status')
+        const status = await drainBed.dispatch('GET', '/dsh-crate/status')
         expect(status.json.busy).toBe(true)
         expect(status.json.active).toBe(false)
         await new Promise(resolve => setTimeout(resolve, 10))
@@ -10690,7 +10690,7 @@ describe('Agent-safe drain mode (#411)', () => {
     await seedInstalledLoop()
     const noopBed = createTestbed({}, undefined, agentsService([]))
     try {
-      const response = await noopBed.dispatch('POST', '/dsh-shelfry/api/v1/updates', {
+      const response = await noopBed.dispatch('POST', '/dsh-crate/api/v1/updates', {
         packageName: 'dsh-loop',
         busyPolicy: 'drain',
       })
@@ -10716,13 +10716,13 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const pending = drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const pending = drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       // The operation is deliberately not exposed during the probe, so the
       // test addresses the first coordinator id by its boot-scoped shape.
-      const status = await drainBed.dispatch('GET', '/dsh-shelfry/status')
+      const status = await drainBed.dispatch('GET', '/dsh-crate/status')
       const operationId = `${String(status.json.boot)}-drain-1`
       await new Promise(resolve => setTimeout(resolve, 10))
-      const cancelled = await drainBed.dispatch('POST', '/dsh-shelfry/cancel', { operationId })
+      const cancelled = await drainBed.dispatch('POST', '/dsh-crate/cancel', { operationId })
       expect(cancelled.status).toBe(200)
       releaseProbe()
       const response = await pending
@@ -10737,14 +10737,14 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const operationId = String(accepted.json.operationId)
       const gate = gateExecutionFetch()
       agent.finishTurn()
       await gate.entered
 
-      const cancelled = await drainBed.dispatch('POST', '/dsh-shelfry/cancel', { operationId })
+      const cancelled = await drainBed.dispatch('POST', '/dsh-crate/cancel', { operationId })
       expect(cancelled.status).toBe(200)
       const callsBefore = fake.calls.length
       gate.release()
@@ -10764,7 +10764,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agents = [main]
     const drainBed = createTestbed({}, undefined, agentsService(agents))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const operationId = String(accepted.json.operationId)
       const gate = gateExecutionFetch()
@@ -10792,7 +10792,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(accepted.status).toBe(202)
       const gate = gateExecutionFetch()
       agent.finishTurn()
@@ -10805,7 +10805,7 @@ describe('Agent-safe drain mode (#411)', () => {
       expect(fake.calls.length).toBe(callsBefore)
       expect(installedSpec('dsh-loop')).toBe('^1.0.0')
       expect(agent.held).toBe(false)
-      const journal = readFileSync(join(fake.profileDir, '.dsh-shelfry', 'drain.ndjson'), 'utf8')
+      const journal = readFileSync(join(fake.profileDir, '.dsh-crate', 'drain.ndjson'), 'utf8')
         .trim().split('\n').map(line => JSON.parse(line) as { state?: unknown })
       expect(journal.at(-1)).toMatchObject({ state: 'cancelled' })
     } finally { drainBed.dispose() }
@@ -10827,7 +10827,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/install', {
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/install', {
         url: 'https://github.com/o/blue-whale',
         busyPolicy: 'drain',
       })
@@ -10857,7 +10857,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/install', {
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/install', {
         url: 'https://github.com/m/mono/tree/main/packages/plug-a',
         busyPolicy: 'drain',
       })
@@ -10886,12 +10886,12 @@ describe('Agent-safe drain mode (#411)', () => {
       }
       return new Response('{}', { status: 200 })
     })
-    expect((await bed.dispatch('POST', '/dsh-shelfry/install', { url: 'https://github.com/o/blue-whale' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/blue-whale' })).status).toBe(200)
 
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/update', {
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/update', {
         name: 'dsh-blue-whale',
         busyPolicy: 'drain',
       })
@@ -10911,12 +10911,12 @@ describe('Agent-safe drain mode (#411)', () => {
       list: () => [{ id: 'main', status: 'running' }],
     })
     try {
-      expect((await drainBed.dispatch('GET', '/dsh-shelfry/status')).json.agentDrain).toBe(false)
-      const refused = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop', busyPolicy: 'drain' })
+      expect((await drainBed.dispatch('GET', '/dsh-crate/status')).json.agentDrain).toBe(false)
+      const refused = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', busyPolicy: 'drain' })
       expect(refused.status).toBe(400)
       expect(refused.json.unsupported).toBe(true)
 
-      const fallback = await drainBed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-loop' })
+      const fallback = await drainBed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
       expect(fallback.status).toBe(409)
       expect(fallback.json.agentsBusy).toBe(true)
     } finally { drainBed.dispose() }
@@ -10927,12 +10927,12 @@ describe('Agent-safe drain mode (#411)', () => {
     const legacyBed = createTestbed({}, undefined, { list: () => [{ id: 'main', status: 'idle' }] })
     const drainBed = createTestbed({}, undefined, agentsService([new FakeAgent('main')]))
     try {
-      const quiet = await quietBed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')
+      const quiet = await quietBed.dispatch('GET', '/dsh-crate/api/v1/capabilities')
       expect(quiet.json.features.agentDrain).toBe(false)
       expect(quiet.json.busyPolicies).toEqual(['reject', 'drain'])
-      expect((await legacyBed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')).json.features.agentDrain).toBe(false)
-      expect((await drainBed.dispatch('GET', '/dsh-shelfry/api/v1/capabilities')).json.features.agentDrain).toBe(true)
-      expect((await drainBed.dispatch('GET', '/dsh-shelfry/status')).json.agentDrain).toBe(true)
+      expect((await legacyBed.dispatch('GET', '/dsh-crate/api/v1/capabilities')).json.features.agentDrain).toBe(false)
+      expect((await drainBed.dispatch('GET', '/dsh-crate/api/v1/capabilities')).json.features.agentDrain).toBe(true)
+      expect((await drainBed.dispatch('GET', '/dsh-crate/status')).json.agentDrain).toBe(true)
     } finally {
       quietBed.dispose()
       legacyBed.dispose()
@@ -10946,7 +10946,7 @@ describe('Agent-safe drain mode (#411)', () => {
     const agent = new FakeAgent('main', 'running')
     const drainBed = createTestbed({}, undefined, agentsService([agent]))
     try {
-      const accepted = await drainBed.dispatch('POST', '/dsh-shelfry/api/v1/updates', {
+      const accepted = await drainBed.dispatch('POST', '/dsh-crate/api/v1/updates', {
         packageName: 'dsh-loop',
         busyPolicy: 'drain',
       })
@@ -10958,7 +10958,7 @@ describe('Agent-safe drain mode (#411)', () => {
       agent.finishTurn()
       let completed: Record<string, unknown> | null = null
       for (let attempt = 0; attempt < 200; attempt += 1) {
-        const fetched = await drainBed.dispatch('GET', `/dsh-shelfry/api/v1/operations?operationId=${operationId}`)
+        const fetched = await drainBed.dispatch('GET', `/dsh-crate/api/v1/operations?operationId=${operationId}`)
         completed = fetched.json.operation as Record<string, unknown>
         if (['succeeded', 'failed', 'cancelled'].includes(String(completed.state))) break
         await new Promise(resolve => setTimeout(resolve, 5))
@@ -10998,13 +10998,13 @@ describe('catalog-owned floating release archives', () => {
   afterEach(() => { registryModule.loadRegistry.mockImplementation(() => Promise.resolve(REGISTRY)) })
 
   it('lists and applies a published complete package without switching to npm or source', async () => {
-    const page = await bed.dispatch('GET', '/dsh-shelfry/updates?force=1')
+    const page = await bed.dispatch('GET', '/dsh-crate/updates?force=1')
     expect(page.json.updates['dsh-whale']).toMatchObject({ latest: '2.0.0', updateAvailable: true })
-    const single = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates?name=dsh-whale&force=1')
+    const single = await bed.dispatch('GET', '/dsh-crate/api/v1/updates?name=dsh-whale&force=1')
     expect(single.json.package).toMatchObject({ name: 'dsh-whale', latestVersion: '2.0.0', updateAvailable: true })
-    const summary = await bed.dispatch('GET', '/dsh-shelfry/api/v1/updates/summary')
+    const summary = await bed.dispatch('GET', '/dsh-crate/api/v1/updates/summary')
     expect(summary.json.packages).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'dsh-whale', latestVersion: '2.0.0' })]))
-    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-whale' })
+    const update = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-whale' })
     expect(update.status, JSON.stringify(update.json)).toBe(200)
     expect(update.json.ok).toBe(true)
     expect(installedSpec('dsh-whale')).toBe(target)
@@ -11015,14 +11015,14 @@ describe('catalog-owned floating release archives', () => {
     const path = join(fake.profileDir, 'node_modules/dsh-whale/package.json')
     writeFileSync(path, JSON.stringify({ name: 'dsh-whale', version: '3.0.0', dsh: {}, main: 'index.js' }))
     const calls = fake.calls.length
-    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-whale' })
+    const update = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-whale' })
     expect(update.status).toBe(400)
     expect(fake.calls).toHaveLength(calls)
     expect(installedSpec('dsh-whale')).toBe(original)
   })
   it('rejects archive bytes whose installed version differs from the published target', async () => {
     fake.tarballs[target]!.manifest = { name: 'dsh-whale', version: '1.5.0', ...bundle }
-    const update = await bed.dispatch('POST', '/dsh-shelfry/update', { name: 'dsh-whale' })
+    const update = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-whale' })
     expect(update.json.ok).toBe(false)
     expect(JSON.stringify(update.json)).toContain('2.0.0')
     expect(installedSpec('dsh-whale')).toBe(original)

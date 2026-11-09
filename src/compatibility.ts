@@ -226,7 +226,7 @@ export function isOptionalPeer(profileDirectory: string, plugin: string, peer: s
   return manifest?.peerDependenciesMeta?.[peer]?.optional === true
 }
 
-/** Evaluate the current profile with the same machinery `/dsh-shelfry/check` uses. */
+/** Evaluate the current profile with the same machinery `/dsh-crate/check` uses. */
 export function assessCompatibility(profileDirectory: string, options?: CheckOptions): CompatibilityAssessment {
   const report = analyzeProfile(profileDirectory, options)
   const risks: CompatibilityRisk[] = []

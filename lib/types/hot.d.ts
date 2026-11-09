@@ -5,7 +5,7 @@
  * Durable state stays with the profile's `dsh.profile.bundles` (reconciled by
  * the dsh CLI at install time), so the next boot loads the plugin through the
  * normal bundle layer. The subtree here exists only for the current process:
- * its input files live under `<profile>/.dsh-shelfry/` and are wiped on every
+ * its input files live under `<profile>/.dsh-crate/` and are wiped on every
  * boot, so a crash can never leave a file that collides with the bundle layer
  * (inserting an id the bundle layer also inserts is a hard boot failure).
  * `state.json` in the same directory is the market's own durable state
@@ -357,6 +357,22 @@ export declare function hotMount(ctx: HotContext, profileDir: string, packageNam
  * @returns names that were mounted.
  */
 export declare function mountClientOnlyDeps(ctx: HotContext, profileDir: string): Promise<string[]>;
+/**
+ * Package names the profile's OWN bundle layer already mounts.
+ *
+ * The shim predicate reads the profile manifest, so it can only see a package
+ * as a dependency; it cannot see that an in-box bundle mounts the same package
+ * under a row id of its own — `@deepseek-ai/dsh-web-app` ships
+ * `- id: connection` / `name: '@deepseek-ai/dsh-client-connection'` (#1137).
+ * Those packages also declare `dsh.client` and no `dsh.bundle`, so every
+ * existing predicate says "shim it". Only the row NAMES link the two, and a
+ * clean profile's bundles are the only place they are written down.
+ *
+ * A bundle whose declaration cannot be read contributes nothing, which keeps
+ * today's behaviour (shim, possibly duplicated) rather than silently dropping
+ * a client bundle that the bundle layer never mounts.
+ */
+export declare function bundleLayerTargets(profileDir: string, bundles: Iterable<string>): Set<string>;
 /**
  * Row ids and package names the user's own patch layer (cordis.patch.yml)
  * already contains. Line-wise scan on purpose: the file may hold structures

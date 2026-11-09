@@ -63,14 +63,14 @@ describe('readBundleStack (#98 order)', () => {
     writeProfile(dir, {
       name: 'web-profile',
       dsh: {
-        profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-shelfry', '@deepseek-ai/dsh-web-app', 'demo-plugin'] },
+        profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-crate', '@deepseek-ai/dsh-web-app', 'demo-plugin'] },
       },
     })
 
     const stack = readBundleStack(dir)
-    expect(stack.bundles).toEqual(['@deepseek-ai/dsh-base', 'dsh-shelfry', '@deepseek-ai/dsh-web-app', 'demo-plugin'])
+    expect(stack.bundles).toEqual(['@deepseek-ai/dsh-base', 'dsh-crate', '@deepseek-ai/dsh-web-app', 'demo-plugin'])
     // Only the three in-box bundles are official; everything else is reorderable.
-    expect(stack.community).toEqual(['dsh-shelfry', 'demo-plugin'])
+    expect(stack.community).toEqual(['dsh-crate', 'demo-plugin'])
   })
 
   it('returns an empty stack when the manifest is missing or unreadable', () => {

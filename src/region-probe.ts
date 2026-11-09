@@ -33,7 +33,7 @@ import { REGIONS, routesFor, type Region } from './regions.ts'
  * packument. A probe that downloads a third of a megabyte to answer "which
  * of these is closer" has spent more than the answer is worth.
  */
-const PROBE_PATH = 'dsh-shelfry/latest'
+const PROBE_PATH = 'dsh-crate/latest'
 
 /**
  * Ask every region's registry the same question; return whichever answers
@@ -57,7 +57,7 @@ export async function probeRegion(timeoutMs = 2500, env: NodeJS.ProcessEnv = pro
     const base = routesFor(region, env).npmRegistry
     const res = await marketFetch(`${base}/${PROBE_PATH}`, {
       signal: controller.signal,
-      headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+      headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
     })
     if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     // Read the body before declaring a winner. Headers can arrive from a

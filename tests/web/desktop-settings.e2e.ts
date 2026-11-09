@@ -35,8 +35,8 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
       // and swallows every click behind it.
       await dismissStartGate(page)
       await page.getByText(/^(Plugins|插件)$/).first().click()
-      await page.getByText(/dsh-shelfry/i).first().click()
-      const entry = page.getByText(/^(View the (Plugin Shelfry|plugin market) version and settings\.|查看(插件箱子的?|插件市场)版本与设置。)$/).first()
+      await page.getByText(/dsh-crate/i).first().click()
+      const entry = page.getByText(/^(View the (Plugin Crate|plugin market) version and settings\.|查看(插件箱子的?|插件市场)版本与设置。)$/).first()
       await entry.waitFor({ timeout: 20_000 })
       await entry.click()
       await page.getByText(/^(Update channel|更新通道)$/).waitFor({ timeout: 15_000 })
@@ -62,13 +62,13 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
     // the page is gone, not that a card appears on a page that does not
     // exist; asserting either shape unconditionally would demand something a
     // host cannot do, or prove nothing on the host that cannot do it.
-    const status = await (await scaffold.api(`/dsh-shelfry/status`)).json() as {
+    const status = await (await scaffold.api(`/dsh-crate/status`)).json() as {
       settingsNamespace?: string
     }
     expect(status.settingsNamespace, 'the market has booted and must have an answer').not.toBe('pending')
     const dispatchesCards = status.settingsNamespace !== 'unsupported-by-host'
 
-    const card = page.locator('button[aria-expanded]').filter({ hasText: /插件箱子|Plugin Shelfry/ })
+    const card = page.locator('button[aria-expanded]').filter({ hasText: /插件箱子|Plugin Crate/ })
     if (dispatchesCards) {
       await page.getByText(/^(插件|Plugins)$/).last().click()
       await page.getByText(/^(插件配置|Plugin configuration)$/).last().click()
@@ -93,8 +93,8 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
       await page.getByRole('button', { name: /^(Close|关闭)$/ }).first().click()
       await page.waitForTimeout(500)
       await page.getByText(/^(Plugins|插件)$/).first().click()
-      await page.getByText(/dsh-shelfry/i).first().click()
-      const entry = page.getByText(/^(View the (Plugin Shelfry|plugin market) version and settings\.|查看(插件箱子的?|插件市场)版本与设置。)$/).first()
+      await page.getByText(/dsh-crate/i).first().click()
+      const entry = page.getByText(/^(View the (Plugin Crate|plugin market) version and settings\.|查看(插件箱子的?|插件市场)版本与设置。)$/).first()
       await entry.waitFor({ timeout: 20_000 })
       await entry.click()
       await page.getByText(/^(Update channel|更新通道)$/).waitFor({ timeout: 15_000 })
@@ -108,7 +108,7 @@ describe.skipIf(!dshAvailable())('host dispatches the market settings card (#516
     // The market's own section is registered through `settings.section`,
     // which 0.1.7 still declares — asserted on BOTH generations, and on the
     // newer one it is the only market surface a user reaches from Settings.
-    await page.getByText(/^(插件箱子|Plugin Shelfry)$/).first().click()
+    await page.getByText(/^(插件箱子|Plugin Crate)$/).first().click()
     await waitMarketCatalog(page, { cards: false })
     const artifacts = process.env.DSHM_SETTINGS_ARTIFACTS
     if (artifacts) await page.screenshot({ path: join(artifacts, `${mode}-market.png`) })
@@ -130,13 +130,13 @@ export function apply(ctx) {
 `)
     writeFileSync(join(dir, 'cordis.patch.yml'), JSON.stringify([
       { insert: [{ id: 'desktop-services-test', name: './desktop-settings-fixture.mjs' }] },
-      { id: 'dsh-shelfry', inject: ['desktopProfiles', 'desktopPnpm'], config: { allowRestart: true } },
+      { id: 'dsh-crate', inject: ['desktopProfiles', 'desktopPnpm'], config: { allowRestart: true } },
     ]))
-    writeFileSync(join(scaffold.home, 'settings.yaml'), 'dsh-shelfry:\n  allowRestart: true\n')
+    writeFileSync(join(scaffold.home, 'settings.yaml'), 'dsh-crate:\n  allowRestart: true\n')
     await scaffold.restart()
-    const status = await (await scaffold.api(`/dsh-shelfry/status`)).json() as { restart: boolean }
+    const status = await (await scaffold.api(`/dsh-crate/status`)).json() as { restart: boolean }
     expect(status.restart).toBe(false)
-    const capabilities = await (await scaffold.api(`/dsh-shelfry/api/v1/capabilities`)).json()
+    const capabilities = await (await scaffold.api(`/dsh-crate/api/v1/capabilities`)).json()
     expect(capabilities).toMatchObject({
       profile: 'desktop-test', runtime: 'desktop',
       restart: { supported: false, managedBy: 'desktop-host' },

@@ -14,6 +14,7 @@ import { Readable } from 'node:stream'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { load as loadYaml } from 'js-yaml'
 import { packageFileFromRegistry } from './catalog-npm.ts'
+import { statePath } from './state.ts'
 import { forgetCatalog, loadRegistry, pluginCategories } from './registry.ts'
 import { settingsNamespaceState } from './settings.ts'
 import {
@@ -219,7 +220,7 @@ export function marketVersion(): string {
 }
 
 /** The market's own package names, as they appear in a profile manifest. */
-const SELF_NAMES = new Set(['dsh-shelfry'])
+const SELF_NAMES = new Set(['dsh-crate'])
 
 /**
  * Rebuild a GitHub target for an update.
@@ -362,7 +363,7 @@ function printedBuildKeysFile(): string {
   // a restart handoff can change it under a long-lived process too.
   if (printedBuildKeysHome !== home) {
     printedBuildKeysHome = home
-    printedBuildKeysFilePath = join(home, 'dsh-shelfry', 'printed-build-keys.json')
+    printedBuildKeysFilePath = join(home, 'dsh-crate', 'printed-build-keys.json')
     try {
       const stored = JSON.parse(readFileSync(printedBuildKeysFilePath, 'utf8')) as Record<string, unknown>
       for (const [storedName, storedKey] of Object.entries(stored)) {
@@ -488,13 +489,13 @@ export function mountMarketRoutes(
   // derive a path from this display/profile name.
   if (config.profileDirectory === undefined && !isDshProfileName(config.profile)) {
     // Loud on the way out. This throw happens inside a cordis effect, which
-    // swallows it: the routes silently never mount and EVERY /dsh-shelfry/*
+    // swallows it: the routes silently never mount and EVERY /dsh-crate/*
     // request answers 404 with nothing anywhere saying why — the market
     // simply looks broken (#260 by @realguan). The log line is the only
     // thing that turns that into something diagnosable, so it is written
     // before the throw rather than left to a handler that never runs.
-    const message = `dsh-shelfry: invalid profile name ${JSON.stringify(config.profile)}; the market's routes were not mounted and every /dsh-shelfry/* request will answer 404. Use the same non-empty, non-traversal profile name accepted by DSH, or pass an explicit profile directory.`
-    host.logger?.warn(`[dsh-shelfry] ${message}`)
+    const message = `dsh-crate: invalid profile name ${JSON.stringify(config.profile)}; the market's routes were not mounted and every /dsh-crate/* request will answer 404. Use the same non-empty, non-traversal profile name accepted by DSH, or pass an explicit profile directory.`
+    host.logger?.warn(`[dsh-crate] ${message}`)
     logEvent('error', 'mount', message)
     throw new Error(message)
   }
@@ -531,12 +532,12 @@ export function mountMarketRoutes(
    * information.
    */
   const hostAnchorOption = config.dshInstallDir === undefined ? {} : { dshInstallDir: config.dshInstallDir }
-  const persistentLogFile = join(activeProfileDir, '.dsh-shelfry', 'log.ndjson')
+  const persistentLogFile = statePath(activeProfileDir, 'log.ndjson')
   const discoveryManifests = new DiscoveryManifestIndex(
-    join(activeProfileDir, '.dsh-shelfry', 'discovery-compatibility-v1.json'),
+    statePath(activeProfileDir, 'discovery-compatibility-v1.json'),
   )
   const githubDiscoveryManifests = new DiscoveryManifestIndex(
-    join(activeProfileDir, '.dsh-shelfry', 'discovery-github-compatibility-v1.json'),
+    statePath(activeProfileDir, 'discovery-github-compatibility-v1.json'),
   )
   configurePersistentLog(persistentLogFile)
   let agentGuardUnavailableLogged = false
@@ -588,7 +589,7 @@ export function mountMarketRoutes(
     if (payload === null || typeof payload !== 'object') return undefined
     return (payload as { agent?: unknown }).agent
   }
-  const drainJournal = new DrainJournal(join(activeProfileDir, '.dsh-shelfry', 'drain.ndjson'))
+  const drainJournal = new DrainJournal(statePath(activeProfileDir, 'drain.ndjson'))
   const drainCoordinator = new DrainCoordinator({
     host: {
       list: () => {
@@ -1721,7 +1722,7 @@ export function mountMarketRoutes(
         return { ok: false, detail: `the newly created lockfile could not be removed: ${error instanceof Error ? error.message : String(error)}` }
       }
     }
-    const temp = `${file}.dsh-shelfry-rollback-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const temp = `${file}.dsh-crate-rollback-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     try {
       writeFileSync(temp, snapshot.contents)
       renameSync(temp, file)
@@ -2108,7 +2109,7 @@ export function mountMarketRoutes(
     } catch {
       return null
     }
-    return `目录条目指向的子目录在仓库里已不存在（${repo!} 的 ${subpath!}），多半是作者改名或移动了它——这不是你的环境的问题。请到 shelfry 反馈这条收录已失效。 / This catalog entry points at a subdirectory that no longer exists in the repository (${subpath!} in ${repo!}); the author most likely renamed or moved it. Nothing is wrong with your setup — please report the stale entry to shelfry.`
+    return `目录条目指向的子目录在仓库里已不存在（${repo!} 的 ${subpath!}），多半是作者改名或移动了它——这不是你的环境的问题。请到 crate 反馈这条收录已失效。 / This catalog entry points at a subdirectory that no longer exists in the repository (${subpath!} in ${repo!}); the author most likely renamed or moved it. Nothing is wrong with your setup — please report the stale entry to crate.`
   }
 
   async function restoreBackup(value: unknown): Promise<{ files: number; errors: { name: string; error: string }[]; unportable?: Array<{ name: string; spec: string }>; pinned?: Array<{ name: string; from: string; to: string }>; bootErrors?: string[] }> {
@@ -2283,7 +2284,7 @@ export function mountMarketRoutes(
   }
 
   const drainPathOf = (kind: DrainIntent['kind']): string =>
-    kind === 'install' ? '/dsh-shelfry/install' : kind === 'update' ? '/dsh-shelfry/update' : '/dsh-shelfry/uninstall'
+    kind === 'install' ? '/dsh-crate/install' : kind === 'update' ? '/dsh-crate/update' : '/dsh-crate/uninstall'
 
   const withoutBusyPolicy = (body: Record<string, unknown>): Record<string, unknown> => {
     const { busyPolicy: _busyPolicy, ...rest } = body
@@ -2624,7 +2625,7 @@ export function mountMarketRoutes(
   const disposers = [
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/api/v1/capabilities',
+      path: '/dsh-crate/api/v1/capabilities',
       handler: (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -2668,11 +2669,11 @@ export function mountMarketRoutes(
           operationRetention: 'current-process',
           operationLimit: MAX_UPDATE_OPERATIONS_V1,
           endpoints: {
-            updates: '/dsh-shelfry/api/v1/updates',
-            updatesSummary: '/dsh-shelfry/api/v1/updates/summary',
-            operations: '/dsh-shelfry/api/v1/operations',
-            rollback: '/dsh-shelfry/api/v1/rollback',
-            restart: '/dsh-shelfry/api/v1/restart',
+            updates: '/dsh-crate/api/v1/updates',
+            updatesSummary: '/dsh-crate/api/v1/updates/summary',
+            operations: '/dsh-crate/api/v1/operations',
+            rollback: '/dsh-crate/api/v1/rollback',
+            restart: '/dsh-crate/api/v1/restart',
           },
         })
       },
@@ -2680,7 +2681,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/api/v1/updates/summary',
+      path: '/dsh-crate/api/v1/updates/summary',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -2722,7 +2723,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/api/v1/updates',
+      path: '/dsh-crate/api/v1/updates',
       handler: async (request, response) => {
         if (request.method === 'GET') {
           const name = packageNameFrom(request)
@@ -2822,7 +2823,7 @@ export function mountMarketRoutes(
             }
             let intent: DrainIntent
             try {
-              intent = await captureDrainIntent(request, replayBody, '/dsh-shelfry/update')
+              intent = await captureDrainIntent(request, replayBody, '/dsh-crate/update')
             } catch (error) {
               if (error instanceof DrainNoop) {
                 const noop = (error.payload !== null && typeof error.payload === 'object' && !Array.isArray(error.payload))
@@ -2962,7 +2963,7 @@ export function mountMarketRoutes(
           }
           const operation = operationsV1.create(packageName, installedVersion)
           operationsV1.start(operation.operationId)
-          void invokeLegacy('/dsh-shelfry/update', request, 'POST', {
+          void invokeLegacy('/dsh-crate/update', request, 'POST', {
             name: packageName,
             ...(body.force === true ? { force: true } : {}),
           }).then(({ status, payload }) => {
@@ -2995,7 +2996,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/api/v1/operations',
+      path: '/dsh-crate/api/v1/operations',
       handler: (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3013,7 +3014,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/api/v1/rollback',
+      path: '/dsh-crate/api/v1/rollback',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3033,7 +3034,7 @@ export function mountMarketRoutes(
             sendJson(response, 409, { schema: UPDATE_API_V1_SCHEMA, error: 'rollback is not available for this operation' })
             return
           }
-          const result = await invokeLegacy('/dsh-shelfry/rollback', request, 'POST', { rollbackId: legacyRollbackId })
+          const result = await invokeLegacy('/dsh-crate/rollback', request, 'POST', { rollbackId: legacyRollbackId })
           const installedVersion = readInstalledVersion(config.profile, trackedOperation.packageName, activeProfileDir)
           const operation = operationsV1.finishRollback(operationId, result.status, result.payload, installedVersion)
           sendJson(response, 200, { schema: UPDATE_API_V1_SCHEMA, operation })
@@ -3048,21 +3049,21 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/api/v1/restart',
+      path: '/dsh-crate/api/v1/restart',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
           response.end()
           return
         }
-        const result = await invokeLegacy('/dsh-shelfry/restart', request, 'POST', {})
+        const result = await invokeLegacy('/dsh-crate/restart', request, 'POST', {})
         sendJson(response, result.status, { schema: UPDATE_API_V1_SCHEMA, result: result.payload })
       },
     }),
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/backup',
+      path: '/dsh-crate/backup',
       handler: (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3085,7 +3086,7 @@ export function mountMarketRoutes(
           response.writeHead(200, {
             'cache-control': 'no-store',
             'content-type': 'application/json; charset=utf-8',
-            'content-disposition': `attachment; filename="dsh-shelfry-backup-${timestamp}.json"`,
+            'content-disposition': `attachment; filename="dsh-crate-backup-${timestamp}.json"`,
           })
           response.end(backup)
         } catch (error) {
@@ -3101,7 +3102,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/restore',
+      path: '/dsh-crate/restore',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3123,7 +3124,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/webdav',
+      path: '/dsh-crate/webdav',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3142,7 +3143,7 @@ export function mountMarketRoutes(
           } else if (body.action === 'restore') {
             // The preview flow first returns the downloaded backup so the
             // client can show what will be restored; the real restore then
-            // posts it to /dsh-shelfry/restore, where downloadWebdav's strict
+            // posts it to /dsh-crate/restore, where downloadWebdav's strict
             // validation guarantees the fetch result is never blindly echoed
             // (review #63).
             sendJson(response, 200, { ok: true, backup: await downloadWebdav(url, username, password) })
@@ -3162,7 +3163,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/gist',
+      path: '/dsh-crate/gist',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3197,7 +3198,7 @@ export function mountMarketRoutes(
             if (typeof body.gistId !== 'string' || body.gistId.trim() === '') throw new Error('gist id is required')
             const backup = await readGist(token, parseGistId(body.gistId), controller.signal)
             // Preview flow, same as WebDAV: the client reviews the backup and
-            // posts it to /dsh-shelfry/restore; readGist's strict validation
+            // posts it to /dsh-crate/restore; readGist's strict validation
             // guarantees the fetch result is never blindly echoed.
             sendJson(response, 200, { ok: true, backup })
           } else if (body.action === 'verify') {
@@ -3214,7 +3215,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/registry',
+      path: '/dsh-crate/registry',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3249,7 +3250,7 @@ export function mountMarketRoutes(
        * "view source" row. Answered per package because the catalog is too
        * large to ship to one page; null when nothing declares a repository.
        */
-      path: '/dsh-shelfry/source-repo',
+      path: '/dsh-crate/source-repo',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3277,7 +3278,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/discovery-compatibility',
+      path: '/dsh-crate/discovery-compatibility',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3343,7 +3344,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/find-compatible',
+      path: '/dsh-crate/find-compatible',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3412,7 +3413,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/installed',
+      path: '/dsh-crate/installed',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3561,7 +3562,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/check',
+      path: '/dsh-crate/check',
       handler: (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3611,7 +3612,7 @@ export function mountMarketRoutes(
     // profile is never touched.
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/bundle-order',
+      path: '/dsh-crate/bundle-order',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3714,7 +3715,7 @@ export function mountMarketRoutes(
     // Issue #98 phase 3: named plugin presets (bundle order + disable list).
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/presets',
+      path: '/dsh-crate/presets',
       handler: async (request, response) => {
         if (request.method === 'GET') {
           sendJson(response, 200, { presets: listPresets(activeProfileDir) })
@@ -3782,7 +3783,7 @@ export function mountMarketRoutes(
     // Issue #98 phase 3 (#19): profile snapshots — list, create, restore.
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/snapshots',
+      path: '/dsh-crate/snapshots',
       handler: async (request, response) => {
         if (request.method === 'GET') {
           sendJson(response, 200, { snapshots: listSnapshots(activeProfileDir) })
@@ -3811,7 +3812,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/restore-snapshot',
+      path: '/dsh-crate/restore-snapshot',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3850,7 +3851,7 @@ export function mountMarketRoutes(
     // beside it still hold.
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/host-recovery',
+      path: '/dsh-crate/host-recovery',
       handler: (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -3867,7 +3868,7 @@ export function mountMarketRoutes(
     // taken inside the restore itself so the two can never come apart.
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/host-recovery/restore',
+      path: '/dsh-crate/host-recovery/restore',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3904,7 +3905,7 @@ export function mountMarketRoutes(
     // automatically, but the user may want to drop a specific snapshot).
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/delete-snapshot',
+      path: '/dsh-crate/delete-snapshot',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3941,7 +3942,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/use-skin',
+      path: '/dsh-crate/use-skin',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3975,7 +3976,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/toggle',
+      path: '/dsh-crate/toggle',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -3991,7 +3992,7 @@ export function mountMarketRoutes(
             const body = (await readJsonBody(request)) as { name?: unknown; enabled?: unknown }
             const name = typeof body.name === 'string' ? body.name : ''
             const enabled = body.enabled === true
-            if (name === 'dsh-shelfry') {
+            if (name === 'dsh-crate') {
               sendJson(response, 400, { error: 'the market cannot be disabled from its own page; use the dsh CLI' })
               return
             }
@@ -4112,7 +4113,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/note',
+      path: '/dsh-crate/note',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -4150,7 +4151,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/favorite',
+      path: '/dsh-crate/favorite',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -4203,7 +4204,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/block',
+      path: '/dsh-crate/block',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -4256,7 +4257,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/update-exempt',
+      path: '/dsh-crate/update-exempt',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -4307,7 +4308,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/dismiss-broken',
+      path: '/dsh-crate/dismiss-broken',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -4369,7 +4370,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/groups',
+      path: '/dsh-crate/groups',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -4469,7 +4470,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/status',
+      path: '/dsh-crate/status',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -4561,7 +4562,7 @@ export function mountMarketRoutes(
           // Same door, one notch wider for the desktop proxy (#903): the
           // card hides a remove button that could only ever answer 403.
           selfUninstallReachable: selfUninstallReachableFrom(request),
-          selfManaged: installed['dsh-shelfry'] !== undefined,
+          selfManaged: installed['dsh-crate'] !== undefined,
           // Whether the host took the market's settings namespace (#677).
           // `unsupported-by-host` is 0.1.7 and newer, where settings come from
           // a plugin's Config schema and no third-party namespace is served —
@@ -4576,7 +4577,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/logs',
+      path: '/dsh-crate/logs',
       handler: (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -4587,7 +4588,7 @@ export function mountMarketRoutes(
         response.writeHead(200, {
           'cache-control': 'no-store',
           'content-type': 'text/plain; charset=utf-8',
-          'content-disposition': 'attachment; filename="dsh-shelfry-log.txt"',
+          'content-disposition': 'attachment; filename="dsh-crate-log.txt"',
         })
         // Built here, not in log.ts: this is the composition, and the log
         // module deliberately knows nothing about profiles. Each declared
@@ -4624,7 +4625,7 @@ export function mountMarketRoutes(
         // itself. sanitize() rewrites the home prefix in the value.
         const host = dshHostInfo()
         response.end(exportLogs({
-          'dsh-shelfry': version,
+          'dsh-crate': version,
           'dsh host': host === null
             ? 'not locatable from this process'
             : `${host.version} (${host.directory})`,
@@ -4641,7 +4642,7 @@ export function mountMarketRoutes(
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/updates',
+      path: '/dsh-crate/updates',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -4697,7 +4698,7 @@ sendJson(response, 200, { updates })
     // an error banner.
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/changelog',
+      path: '/dsh-crate/changelog',
       handler: async (request, response) => {
         if (request.method !== 'GET') {
           response.writeHead(405, { allow: 'GET' })
@@ -4720,7 +4721,7 @@ sendJson(response, 200, { updates })
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/migrate-source',
+      path: '/dsh-crate/migrate-source',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -5068,9 +5069,9 @@ sendJson(response, 200, { updates })
       },
     }),
 
-    registerRoute(captureLegacy('/dsh-shelfry/update', {
+    registerRoute(captureLegacy('/dsh-crate/update', {
       kind: 'exact',
-      path: '/dsh-shelfry/update',
+      path: '/dsh-crate/update',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6468,7 +6469,7 @@ sendJson(response, 200, { updates })
           }, request)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          if (!inProbe()) host.logger?.warn(`[dsh-shelfry] update failed: ${message}`)
+          if (!inProbe()) host.logger?.warn(`[dsh-crate] update failed: ${message}`)
           logEvent('error', 'update', `route error: ${message}`)
           sendJson(response, 500, { error: message })
         }
@@ -6477,7 +6478,7 @@ sendJson(response, 200, { updates })
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/setup-pnpm',
+      path: '/dsh-crate/setup-pnpm',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6502,7 +6503,7 @@ sendJson(response, 200, { updates })
      * page. Deliberately NOT the generic uninstall route, which keeps
      * refusing the market: a destructive action on the thing serving the
      * request should be reachable only from the surface built for it, and
-     * never as a stray `{ name: "dsh-shelfry" }` on the ordinary path.
+     * never as a stray `{ name: "dsh-crate" }` on the ordinary path.
      *
      * Removing itself is safe, which is not obvious and was measured before
      * this was written: an already-imported module does not vanish with its
@@ -6519,7 +6520,7 @@ sendJson(response, 200, { updates })
      */
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/channel',
+      path: '/dsh-crate/channel',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6564,7 +6565,7 @@ sendJson(response, 200, { updates })
      */
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/region',
+      path: '/dsh-crate/region',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6607,7 +6608,7 @@ sendJson(response, 200, { updates })
      * Whether the market also has its own row in the sidebar (#846).
      *
      * GET as well as POST: the browser half decides whether to register the
-     * row on every page load, and `/dsh-shelfry/status` probes pnpm on each
+     * row on every page load, and `/dsh-crate/status` probes pnpm on each
      * call — too much to pay before a sidebar row can appear.
      *
      * Written through the long-lived `marketState` like the region, so a
@@ -6615,7 +6616,7 @@ sendJson(response, 200, { updates })
      */
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/sidebar-entry',
+      path: '/dsh-crate/sidebar-entry',
       handler: async (request, response) => {
         if (request.method === 'GET') {
           sendJson(response, 200, {
@@ -6678,7 +6679,7 @@ sendJson(response, 200, { updates })
      */
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/entry-visibility',
+      path: '/dsh-crate/entry-visibility',
       handler: async (request, response) => {
         if (request.method === 'GET') {
           const doors = entryDoors()
@@ -6744,7 +6745,7 @@ sendJson(response, 200, { updates })
      */
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/github-proxy',
+      path: '/dsh-crate/github-proxy',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6784,7 +6785,7 @@ sendJson(response, 200, { updates })
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/build-env',
+      path: '/dsh-crate/build-env',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6832,7 +6833,7 @@ sendJson(response, 200, { updates })
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/self-uninstall',
+      path: '/dsh-crate/self-uninstall',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -6850,7 +6851,7 @@ sendJson(response, 200, { updates })
           // button whose failure leaves the user with no other way out of the
           // page they are looking at (#903).
           sendJson(response, 403, {
-            error: `不能从这个地址卸载插件市场（只接受本机同源请求）。请在运行 DSH 的机器上执行 \`dsh plugin --profile ${config.profile} remove dsh-shelfry\`；桌面端也可以在它自己的「设置 → 插件」里移除。 / The market can only be removed from the same machine it runs on. Run \`dsh plugin --profile ${config.profile} remove dsh-shelfry\` there, or remove it from the desktop app's Settings → Plugins.`,
+            error: `不能从这个地址卸载插件市场（只接受本机同源请求）。请在运行 DSH 的机器上执行 \`dsh plugin --profile ${config.profile} remove dsh-crate\`；桌面端也可以在它自己的「设置 → 插件」里移除。 / The market can only be removed from the same machine it runs on. Run \`dsh plugin --profile ${config.profile} remove dsh-crate\` there, or remove it from the desktop app's Settings → Plugins.`,
           })
           return
         }
@@ -6865,7 +6866,7 @@ sendJson(response, 200, { updates })
               return
             }
             const installed = readInstalled(config.profile, activeProfileDir)
-            const selfName = installed['dsh-shelfry'] !== undefined ? 'dsh-shelfry' : undefined
+            const selfName = installed['dsh-crate'] !== undefined ? 'dsh-crate' : undefined
             if (selfName === undefined) {
               sendJson(response, 400, { error: 'the market is not an installed dependency of this profile' })
               return
@@ -6947,9 +6948,9 @@ sendJson(response, 200, { updates })
       },
     }),
 
-    registerRoute(captureLegacy('/dsh-shelfry/restart', {
+    registerRoute(captureLegacy('/dsh-crate/restart', {
       kind: 'exact',
-      path: '/dsh-shelfry/restart',
+      path: '/dsh-crate/restart',
       handler: (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -7007,7 +7008,7 @@ sendJson(response, 200, { updates })
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/approve-builds',
+      path: '/dsh-crate/approve-builds',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -7174,7 +7175,7 @@ sendJson(response, 200, { updates })
 
     registerRoute({
       kind: 'exact',
-      path: '/dsh-shelfry/cancel',
+      path: '/dsh-crate/cancel',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -7211,9 +7212,9 @@ sendJson(response, 200, { updates })
       },
     }),
 
-    registerRoute(captureLegacy('/dsh-shelfry/uninstall', {
+    registerRoute(captureLegacy('/dsh-crate/uninstall', {
       kind: 'exact',
-      path: '/dsh-shelfry/uninstall',
+      path: '/dsh-crate/uninstall',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -7242,7 +7243,7 @@ sendJson(response, 200, { updates })
             // has a concrete thing to go fix, so an override would only help
             // them break their next boot.
             const force = body.force === true
-            if (name === 'dsh-shelfry') {
+            if (name === 'dsh-crate') {
               sendJson(response, 400, { error: 'the market cannot uninstall itself; use the dsh CLI' })
               return
             }
@@ -7492,16 +7493,16 @@ sendJson(response, 200, { updates })
           }, request)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          if (!inProbe()) host.logger?.warn(`[dsh-shelfry] uninstall failed: ${message}`)
+          if (!inProbe()) host.logger?.warn(`[dsh-crate] uninstall failed: ${message}`)
           logEvent('error', 'uninstall', `route error: ${message}`)
           sendJson(response, 500, { error: message })
         }
       },
     })),
 
-    registerRoute(captureLegacy('/dsh-shelfry/rollback', {
+    registerRoute(captureLegacy('/dsh-crate/rollback', {
       kind: 'exact',
-      path: '/dsh-shelfry/rollback',
+      path: '/dsh-crate/rollback',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -7571,16 +7572,16 @@ sendJson(response, 200, { updates })
           })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          host.logger?.warn(`[dsh-shelfry] rollback failed: ${message}`)
+          host.logger?.warn(`[dsh-crate] rollback failed: ${message}`)
           logEvent('error', 'rollback', `route error: ${message}`)
           sendJson(response, 500, { error: message })
         }
       },
     })),
 
-    registerRoute(captureLegacy('/dsh-shelfry/install', {
+    registerRoute(captureLegacy('/dsh-crate/install', {
       kind: 'exact',
-      path: '/dsh-shelfry/install',
+      path: '/dsh-crate/install',
       handler: async (request, response) => {
         if (request.method !== 'POST') {
           response.writeHead(405, { allow: 'POST' })
@@ -7615,7 +7616,7 @@ sendJson(response, 200, { updates })
             const force = body.force === true
             const url = typeof body.url === 'string' ? body.url : ''
             // A release the user picked from the refusal dialog's own search
-            // (#581): it was confirmed compatible by /dsh-shelfry/find-compatible,
+            // (#581): it was confirmed compatible by /dsh-crate/find-compatible,
             // so it is pinned below instead of resolving `latest` again.
             const requestedVersion = typeof body.version === 'string' && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(body.version)
               ? body.version
@@ -8219,7 +8220,7 @@ sendJson(response, 200, { updates })
           }, request)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          if (!inProbe()) host.logger?.warn(`[dsh-shelfry] install failed: ${message}`)
+          if (!inProbe()) host.logger?.warn(`[dsh-crate] install failed: ${message}`)
           logEvent('error', 'install', `route error: ${message}`)
           sendJson(response, 500, { error: message })
         }

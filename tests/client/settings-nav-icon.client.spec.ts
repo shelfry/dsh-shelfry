@@ -29,7 +29,7 @@ import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK }
 /** The shell's own fallback glyph, as the row receives it. */
 const GEAR = '<svg class="VOzbGW_navIcon" viewBox="0 0 16 16"></svg>'
 
-const STYLESHEET_SELECTOR = 'style[data-plugin-css="dsh-shelfry/settings-nav-icon"]'
+const STYLESHEET_SELECTOR = 'style[data-plugin-css="dsh-crate/settings-nav-icon"]'
 
 /** Let the MutationObserver's queued sync run. */
 const flush = () => new Promise<void>(resolve => { setTimeout(resolve, 0) })
@@ -92,17 +92,17 @@ describe('settings nav glyph', () => {
   })
 
   it('moves the claim when the locale switches', async () => {
-    mountDialog('General', '手机访问', 'Plugin Shelfry')
+    mountDialog('General', '手机访问', 'Plugin Crate')
     await flush()
     expect(marked()).toEqual([])
 
     // The shell re-renders its nav on a locale change, which is what the
     // observer sees; the module must not need a second registration for it.
-    label = 'Plugin Shelfry'
-    mountDialog('General', '手机访问', 'Plugin Shelfry')
+    label = 'Plugin Crate'
+    mountDialog('General', '手机访问', 'Plugin Crate')
     await flush()
 
-    expect(marked()).toEqual(['Plugin Shelfry'])
+    expect(marked()).toEqual(['Plugin Crate'])
   })
 
   it('hides the shell gear and paints the mark through a mask', async () => {

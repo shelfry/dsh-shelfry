@@ -81,7 +81,7 @@ export async function loadUpdateNotes(force = false): Promise<UpdatesPayload> {
     // to themselves, so following that field keeps the download local.
     const metaRes = await marketFetch(`${routes.npmRegistry}/${encodeURIComponent(UPDATES_PACKAGE)}/latest`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+      headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
     })
     if (!metaRes.ok) throw new Error(`HTTP ${String(metaRes.status)} reading ${UPDATES_PACKAGE} metadata`)
     const meta = await metaRes.json() as { dist?: { tarball?: unknown } }
@@ -98,7 +98,7 @@ export async function loadUpdateNotes(force = false): Promise<UpdatesPayload> {
   const attemptOrigin = async (): Promise<UpdatesPayload> => {
     const res = await marketFetch(ORIGIN_UPDATES, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+      headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
     })
     if (!res.ok) throw new Error(`HTTP ${String(res.status)} reading ${ORIGIN_UPDATES}`)
     return await res.json() as UpdatesPayload
@@ -271,7 +271,7 @@ export async function npmPublishTimes(name: string): Promise<{ version: string; 
   const registry = routesFor(activeRegion()).npmRegistry
   const res = await marketFetch(`${registry}/${encodeURIComponent(name)}`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
-    headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+    headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
   })
   if (!res.ok) throw new Error(`HTTP ${String(res.status)} reading ${name}`)
   const doc = await res.json() as { time?: Record<string, string> }

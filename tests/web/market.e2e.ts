@@ -223,7 +223,7 @@ describe.skipIf(!HAS_DSH)('web e2e: plugin market', () => {
   it('never lists the market itself in the Installed tab — it manages itself from its own settings card', async () => {
     await page.getByRole('button', { name: /已安装|Installed/ }).click()
     await page.waitForTimeout(1000)
-    expect(await page.locator('[class*="irow"]', { hasText: 'dsh-shelfry' }).count()).toBe(0)
+    expect(await page.locator('[class*="irow"]', { hasText: 'dsh-crate' }).count()).toBe(0)
   })
 
   it('the install dialog opens and cancels cleanly', async () => {

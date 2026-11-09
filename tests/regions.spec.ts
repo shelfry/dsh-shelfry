@@ -40,16 +40,16 @@ describe('routesFor', () => {
     expect(routes.npmRegistry).toBe(DEFAULT_NPM_REGISTRY)
     expect(routes.githubProxy).toBeNull()
     // One source and no fallbacks: this IS what everything else falls back to.
-    expect(routes.catalog).toEqual([{ kind: 'url', url: expect.stringContaining('shelfry.app') }])
+    expect(routes.catalog).toEqual([{ kind: 'url', url: expect.stringContaining('dshcrate.com') }])
   })
 
   it('sends every china route through a mirror, ending at the address that always works', () => {
     const routes = routesFor('china', {})
     expect(routes.npmRegistry).not.toBe(DEFAULT_NPM_REGISTRY)
     expect(routes.githubProxy).not.toBeNull()
-    // shelfry 只有一份公开 JSON，没有可以退到的 npm 镜像包：两个地区的目录
+    // crate 只有一份公开 JSON，没有可以退到的 npm 镜像包：两个地区的目录
     // 候选都只有这一个地址。
-    expect(routes.catalog).toEqual([{ kind: 'url', url: expect.stringContaining('shelfry.app') }])
+    expect(routes.catalog).toEqual([{ kind: 'url', url: expect.stringContaining('dshcrate.com') }])
     expect(routes.githubRoutes.raw).toEqual([
       'https://gh-proxy.com', 'https://ghfast.top', null,
     ])
@@ -65,13 +65,13 @@ describe('routesFor', () => {
     for (const region of ['global', 'china'] as const) {
       const sources = catalogSourcesFor(region)
       expect(sources).toHaveLength(1)
-      expect(sources[0]).toEqual({ kind: 'url', url: 'https://shelfry.app/data/dsh-shelfry.json' })
+      expect(sources[0]).toEqual({ kind: 'url', url: 'https://dshcrate.com/data/dsh-crate.json' })
     }
   })
 
   it('does not invent an npm fallback for the catalog', () => {
     // The old list ended at `dsh-plugin-catalog` on the region's own registry.
-    // shelfry has no such package, and a fallback that answers 404 costs two
+    // crate has no such package, and a fallback that answers 404 costs two
     // attempts and still fails — worse than the honest single source.
     for (const region of ['global', 'china'] as const) {
       expect(catalogSourcesFor(region).some(source => source.kind === 'npm')).toBe(false)

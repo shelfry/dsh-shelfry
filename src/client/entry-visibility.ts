@@ -117,7 +117,7 @@ export function createEntryVisibility({ settingsGate, pluginsTabGate, fetch, sid
   const loadState = async (): Promise<void> => {
     const at = epoch
     try {
-      const response = await fetch(api('/dsh-shelfry/entry-visibility'), { cache: 'no-store' })
+      const response = await fetch(api('/dsh-crate/entry-visibility'), { cache: 'no-store' })
       if (response.ok) {
         const body = (await response.json()) as { settingsSection?: unknown; pluginsTab?: unknown }
         // A POST that finished while we were in flight already owns these.
@@ -161,7 +161,7 @@ export function createEntryVisibility({ settingsGate, pluginsTabGate, fetch, sid
       }
     }
     try {
-      const response = await fetch(api('/dsh-shelfry/entry-visibility'), {
+      const response = await fetch(api('/dsh-crate/entry-visibility'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ [key]: visible }),

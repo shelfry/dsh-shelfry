@@ -30,7 +30,7 @@ describe('pluginName', () => {
     // 93% of the catalog. A repository holding one plugin is named after
     // it, so the identity already IS the name.
     expect(pluginName('dsh-loop')).toBe('dsh-loop')
-    expect(pluginName('dsh-shelfry')).toBe('dsh-shelfry')
+    expect(pluginName('dsh-crate')).toBe('dsh-crate')
   })
 
   it('takes the plugin out of a repository that holds several', () => {

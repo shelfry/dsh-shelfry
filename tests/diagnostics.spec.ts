@@ -110,7 +110,7 @@ describe('shared host dependency diagnostics', () => {
         },
       },
     ])
-    expect(report.schema).toBe('dsh-shelfry/diagnostics/v1')
+    expect(report.schema).toBe('dsh-crate/diagnostics/v1')
     expect(report.findings.map(finding => [
       finding.subject.name,
       finding.evidence.dependency,

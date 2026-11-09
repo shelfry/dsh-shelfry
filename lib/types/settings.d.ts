@@ -70,7 +70,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 /** Namespace the card on the browser side keys itself to. */
-export declare const MARKET_SETTINGS_NS = "dsh-shelfry";
+export declare const MARKET_SETTINGS_NS = "dsh-crate";
 /**
  * What happened when the market offered its namespace to the host (#677).
  *

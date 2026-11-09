@@ -15,7 +15,7 @@ const t = (key: string): string => (en as Record<string, string>)[key] ?? key
 function stubSourceRepo(urls: Record<string, string | null>): void {
   vi.stubGlobal('fetch', vi.fn((input: unknown) => {
     const path = String(input)
-    expect(path).toContain('/dsh-shelfry/source-repo?name=')
+    expect(path).toContain('/dsh-crate/source-repo?name=')
     const name = decodeURIComponent(path.slice(path.indexOf('name=') + 'name='.length))
     const url = urls[name] ?? null
     return Promise.resolve(new Response(JSON.stringify({ url }), {

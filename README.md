@@ -1,30 +1,30 @@
 <p align="center">
-  <img src="assets/logo.svg" width="96" alt="dsh-shelfry logo">
+  <img src="assets/logo.svg" width="96" alt="dsh-crate logo">
 </p>
 
-# dsh-shelfry
+# dsh-crate
 
 English | [中文](README.zh.md)
 
-**Plugin Shelfry**: a plugin market that lives inside DeepSeek Harness. No more
+**Plugin Crate**: a plugin market that lives inside DeepSeek Harness. No more
 digging through GitHub topics, guessing which repos actually install, and
 copy-pasting commands into a terminal — open the Plugins page, browse, read, and
 install in one click.
 
 On dsh 0.2.1+ it is a tab on the **Plugins** page next to **Installed**; older
-hosts reach it from Settings → **Shelfry Market**.
+hosts reach it from Settings → **Crate Market**.
 
-Prefer not to install another plugin? Add `https://shelfry.app/data/index.json`
+Prefer not to install another plugin? Add `https://dshcrate.com/data/index.json`
 under Plugins → Discover → Index sources and the same catalog shows up in the
 official Discover tab; just want to look around? Open
-[shelfry.app](https://shelfry.app).
+[dshcrate.com](https://dshcrate.com).
 
-![Plugin Shelfry](assets/demo-en.png)
+![Plugin Crate](assets/demo-en.png)
 
 ## Why install it
 
 The DSH plugin ecosystem grows fast, but finding plugins still means "search a
-repo, read the README, copy the command". Plugin Shelfry folds that into one
+repo, read the README, copy the command". Plugin Crate folds that into one
 screen:
 
 - **One place to browse**: 30k+ entries covering plugins, skills, themes and
@@ -66,24 +66,24 @@ screen:
 
 ## Inside Settings
 
-The market also opens from Settings: pick **Plugin Shelfry** on the left and the
+The market also opens from Settings: pick **Plugin Crate** on the left and the
 full Discover page shows up on the right. Plugins, skills and themes all live in
 the same catalog, and installed themes apply without a restart.
 
-![Plugin Shelfry inside Settings](assets/themes-en.png)
+![Plugin Crate inside Settings](assets/themes-en.png)
 
 ## Upstream and attribution
 
 This project is **not original work**. It is a modified derivative of
 [dsh-market](https://github.com/dsh-market/dsh-market) by fkysly and its
-contributors. The catalog is maintained independently by **shelfry**; its size
+contributors. The catalog is maintained independently by **dshcrate**; its size
 and coverage are not the same data as upstream.
 
 What we changed on top of upstream:
 
-- The catalog now comes from shelfry: more entries (30k+, refreshed daily), plus
+- The catalog now comes from dshcrate: more entries (30k+, refreshed daily), plus
   categories, themes, scores, and bilingual descriptions;
-- Catalog parsing and mapping were rewritten for shelfry's own data shape, with
+- Catalog parsing and mapping were rewritten for dshcrate's own data shape, with
   matching UI and interaction adjustments;
 - Theme entries and score/category fields were added;
 - Everything else largely follows upstream.
@@ -98,26 +98,26 @@ sort it out.
 
 | Way | Best for | What you do | What you get |
 | --- | --- | --- | --- |
-| **Install the plugin** (recommended) | The full market experience | Install `dsh-shelfry`, restart `dsh web` | Details, screenshots, favorites and groups, update checks, one-click install |
+| **Install the plugin** (recommended) | The full market experience | Install `dsh-crate`, restart `dsh web` | Details, screenshots, favorites and groups, update checks, one-click install |
 | **Add the index source** | Not adding another plugin | Add this catalog under Discover → Index sources | Search, inspect and install in the official Discover tab (npm-installable entries only) |
-| **Use the website** | Browsing first | Open [shelfry.app](https://shelfry.app) | Browse, search and read details; installs still happen inside DSH |
+| **Use the website** | Browsing first | Open [dshcrate.com](https://dshcrate.com) | Browse, search and read details; installs still happen inside DSH |
 
 ## Install
 
 ### Option 1: npm (recommended)
 
 ```sh
-dsh plugin --profile web add dsh-shelfry
+dsh plugin --profile web add dsh-crate
 ```
 
-Package page: [npmjs.com/package/dsh-shelfry](https://www.npmjs.com/package/dsh-shelfry).
+Package page: [npmjs.com/package/dsh-crate](https://www.npmjs.com/package/dsh-crate).
 
 ### Option 2: from the repository
 
 Changes that have not been released yet land here first:
 
 ```sh
-dsh plugin --profile web add github:shelfry/dsh-shelfry
+dsh plugin --profile web add github:dshcrate/dsh-crate
 ```
 
 Installing from a git source makes pnpm ask before running build scripts. The
@@ -128,19 +128,19 @@ For a profile other than `web`, swap the name — the same applies to both
 commands:
 
 ```sh
-dsh plugin --profile <profile> add dsh-shelfry
-dsh plugin --profile <profile> add github:shelfry/dsh-shelfry
+dsh plugin --profile <profile> add dsh-crate
+dsh plugin --profile <profile> add github:dshcrate/dsh-crate
 ```
 
 ### Verify the install
 
-Restart `dsh web`. A Shelfry tab appears next to **Installed** on the Plugins
-page, or a Shelfry Market card shows up in Settings.
+Restart `dsh web`. A Crate tab appears next to **Installed** on the Plugins
+page, or a Crate Market card shows up in Settings.
 
 ### Uninstall
 
 ```sh
-dsh plugin --profile web remove dsh-shelfry
+dsh plugin --profile web remove dsh-crate
 ```
 
 ### Desktop note
@@ -155,10 +155,10 @@ A repo-verified npm package first, then a prebuilt GitHub Release tarball, then
 the full repository source. Build scripts stay blocked by default (pnpm ≥10);
 allowing one is an explicit per-package choice.
 
-## Use shelfry in the official Discover tab
+## Use Crate in the official Discover tab
 
 Since DSH 0.2.1, the built-in **Plugins → Discover** page accepts third-party
-index sources. If you would rather not install another plugin, add shelfry's
+index sources. If you would rather not install another plugin, add Crate's
 official index and Discover reads the same catalog directly.
 
 ### Add the index source
@@ -177,7 +177,7 @@ official index and Discover reads the same catalog directly.
 4. Paste this address and confirm:
 
    ```text
-   https://shelfry.app/data/index.json
+   https://dshcrate.com/data/index.json
    ```
 
 5. Back on **Discover**, the catalog appears — search it, open an entry, and
@@ -185,7 +185,7 @@ official index and Discover reads the same catalog directly.
 
 ### What success looks like
 
-- The index-source list shows shelfry with the exact URL above.
+- The index-source list shows Crate with the exact URL above.
 - **Discover** renders entry cards with category, tag and sort controls.
 - Opening a card shows the detail page with version, author and publish time.
 
@@ -213,7 +213,7 @@ missing data.
 
 **An index source is rejected?**
 The URL must be a complete `http`/`https` address, with no `#` fragment and no
-credentials. Copy `https://shelfry.app/data/index.json` verbatim.
+credentials. Copy `https://dshcrate.com/data/index.json` verbatim.
 
 **The Discover page is still empty after adding it?**
 Check that `dsh --version` is 0.2.1 or newer, hit refresh, and reopen DSH if it
@@ -242,8 +242,8 @@ loader passes only that sub-object to a plugin, so a top-level key is silently
 ignored:
 
 ```yaml
-- id: dsh-shelfry
-  name: 'dsh-shelfry'
+- id: dsh-crate
+  name: 'dsh-crate'
   config:
     allowRestart: false   # hide the restart button (systemd/pm2/launchd)
     buildEnv:

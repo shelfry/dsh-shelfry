@@ -89,7 +89,7 @@ describe('createEntryVisibility', () => {
     const seen = vi.fn()
     entries.subscribe(seen)
     await expect(entries.set('settingsSection', false)).resolves.toBe(false)
-    expect(calls.at(-1)?.url).toMatch(/\/dsh-shelfry\/entry-visibility$/)
+    expect(calls.at(-1)?.url).toMatch(/\/dsh-crate\/entry-visibility$/)
     expect(JSON.parse(String(calls.at(-1)?.init?.body))).toEqual({ settingsSection: false })
     expect(entries.settingsSection()).toBe(false)
     expect(live).toEqual({ settings: 0, tab: 1 })

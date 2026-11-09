@@ -1,6 +1,6 @@
 /**
  * Event log for issue reports: what the market did and how it failed,
- * exportable as plain text from `/dsh-shelfry/logs`.
+ * exportable as plain text from `/dsh-crate/logs`.
  *
  * Privacy: entries are sanitized on write — the home directory collapses to
  * `~`, and common credential shapes (API keys, GitHub/npm tokens, bearer
@@ -108,7 +108,7 @@ function trimPersistentLog(file: string): void {
 /**
  * Append events to a profile-owned file, or stop doing so.
  *
- * Called once per mount with `<profile>/.dsh-shelfry/log.ndjson` and with
+ * Called once per mount with `<profile>/.dsh-crate/log.ndjson` and with
  * `null` on dispose. An oversized file is trimmed to its newest half on
  * configure, so one long-lived profile cannot grow it without bound.
  * @param file - the sink file, or null to disable persistence.
@@ -195,7 +195,7 @@ export function exportLogs(header: Record<string, string>, snapshot: string[] = 
   ]
   const lines = entries.map(e => `${e.at} [${e.level}] ${e.event}: ${e.detail}`)
   return [
-    '# dsh-shelfry log export',
+    '# dsh-crate log export',
     ...head,
     '',
     // The state of the profile RIGHT NOW, which does not depend on anything

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.svg" width="96" alt="dsh-shelfry logo">
+  <img src="assets/logo.svg" width="96" alt="dsh-crate logo">
 </p>
 
-# dsh-shelfry
+# dsh-crate
 
 [English](README.md) | 中文
 
@@ -11,11 +11,11 @@ GitHub 话题、辨认哪些仓库真能装、把安装命令手抄到终端—�
 看简介，点一下装好。
 
 dsh 0.2.1 起它是 **插件** 页上紧挨着 **已安装** 的一个页签；更早的宿主从
-设置 → **Shelfry 市场** 进入。
+设置 → **插件箱子** 进入。
 
-不想装插件也能用：把 `https://shelfry.app/data/index.json` 加进官方
+不想装插件也能用：把 `https://dshcrate.com/data/index.json` 加进官方
 「插件 → 发现 → 索引源」，一样能在官方发现页浏览和安装这份目录；只想先看看，
-直接打开 [shelfry.app](https://shelfry.app)。
+直接打开 [dshcrate.com](https://dshcrate.com)。
 
 ![插件箱子界面](assets/demo-zh.png)
 
@@ -66,13 +66,13 @@ DSH 的插件生态长得很快，找插件的方式却还停在「搜仓库 + �
 
 本项目**不是原创**，而是 dsh-market 的衍生修改版：
 [dsh-market](https://github.com/dsh-market/dsh-market)，作者 fkysly 及其贡献者。
-目录数据由本站 **shelfry** 独立维护，规模与覆盖范围跟原版不是同一份数据。
+目录数据由本站 **插件箱子** 独立维护，规模与覆盖范围跟原版不是同一份数据。
 
 我们在上游基础上做的改动：
 
-- 目录数据换成本站 shelfry 的收录结果：条目更多（当前 3 万+，每日自动更新），
+- 目录数据换成本站插件箱子的收录结果：条目更多（当前 3 万+，每日自动更新），
   并补充了分类、主题、评分与中英文简介；
-- 按 shelfry 的数据结构重写了目录读取与映射，界面与交互随之调整；
+- 按本站的数据结构重写了目录读取与映射，界面与交互随之调整；
 - 新增了主题类目，并适配评分、分类等字段；
 - 其余功能基本沿用上游实现。
 
@@ -84,26 +84,26 @@ DSH 的插件生态长得很快，找插件的方式却还停在「搜仓库 + �
 
 | 用法 | 适合谁 | 需要做什么 | 得到什么 |
 | --- | --- | --- | --- |
-| **装插件**（推荐） | 想要完整市场体验 | 安装 `dsh-shelfry`，重启 `dsh web` | 详情、截图、收藏分组、更新检查、一键安装 |
+| **装插件**（推荐） | 想要完整市场体验 | 安装 `dsh-crate`，重启 `dsh web` | 详情、截图、收藏分组、更新检查、一键安装 |
 | **只加索引源** | 不想再装一个插件 | 在官方「发现 → 索引源」添加本目录地址 | 官方发现页里搜索、查看、安装（只收 npm 可安装条目） |
-| **只用网页** | 想先逛一逛 | 打开 [shelfry.app](https://shelfry.app) | 网页浏览、搜索、看详情；安装仍需在 DSH 内完成 |
+| **只用网页** | 想先逛一逛 | 打开 [dshcrate.com](https://dshcrate.com) | 网页浏览、搜索、看详情；安装仍需在 DSH 内完成 |
 
 ## 安装
 
 ### 方式一：从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add dsh-shelfry
+dsh plugin --profile web add dsh-crate
 ```
 
-包页面：[npmjs.com/package/dsh-shelfry](https://www.npmjs.com/package/dsh-shelfry)。
+包页面：[npmjs.com/package/dsh-crate](https://www.npmjs.com/package/dsh-crate)。
 
 ### 方式二：从仓库安装
 
 未正式发布的改动会先出现在这里：
 
 ```sh
-dsh plugin --profile web add github:shelfry/dsh-shelfry
+dsh plugin --profile web add github:dshcrate/dsh-crate
 ```
 
 从 git 源安装时，pnpm 会先问是否允许运行构建脚本。`client/client.js` 已经
@@ -113,19 +113,19 @@ dsh plugin --profile web add github:shelfry/dsh-shelfry
 profile 不是 `web` 的话换个名字，两条命令同理：
 
 ```sh
-dsh plugin --profile <profile> add dsh-shelfry
-dsh plugin --profile <profile> add github:shelfry/dsh-shelfry
+dsh plugin --profile <profile> add dsh-crate
+dsh plugin --profile <profile> add github:dshcrate/dsh-crate
 ```
 
 ### 装完确认
 
-重启 `dsh web`。插件页「已安装」旁出现 Shelfry 页签，或设置里出现 Shelfry
+重启 `dsh web`。插件页「已安装」旁出现插件箱子页签，或设置里出现插件箱子
 市场卡片，就说明装好了。
 
 ### 卸载
 
 ```sh
-dsh plugin --profile web remove dsh-shelfry
+dsh plugin --profile web remove dsh-crate
 ```
 
 ### 桌面端说明
@@ -139,10 +139,10 @@ dsh plugin --profile web remove dsh-shelfry
 仓库校验过的 npm 包优先，其次是作者预构建的 GitHub Release tarball，最后才是
 整仓库源码。构建脚本默认被拦住（pnpm ≥10），放行需要你针对单个包明确同意。
 
-## 在官方发现页使用 shelfry 目录
+## 在官方发现页使用插件箱子目录
 
 DSH 0.2.1 起，官方「插件 → 发现」页支持添加第三方索引源。不想装本插件，也可以
-只加 shelfry 的官方索引，让官方发现页直接读取这份目录。
+只加插件箱子的官方索引，让官方发现页直接读取这份目录。
 
 ### 添加索引源
 
@@ -160,14 +160,14 @@ DSH 0.2.1 起，官方「插件 → 发现」页支持添加第三方索引源�
 4. 粘贴下面的地址并确认：
 
    ```text
-   https://shelfry.app/data/index.json
+   https://dshcrate.com/data/index.json
    ```
 
 5. 回到 **发现** 页，目录出现后就能搜索、进详情、点 **安装**。
 
 ### 添加成功的标志
 
-- 「索引源」列表里出现 shelfry，URL 与上面完全一致；
+- 「索引源」列表里出现插件箱子，URL 与上面完全一致；
 - 「发现」页出现条目卡片，可以按分类、标签筛选和排序；
 - 点卡片能进详情页，看到版本、作者和发布时间。
 
@@ -194,7 +194,7 @@ DSH 0.2.1 起，官方「插件 → 发现」页支持添加第三方索引源�
 
 **加索引源时提示 URL 被拒绝？**
 地址必须是完整的 `http`/`https`，不能带 `#` 片段，也不能带账号密码。直接复制
-`https://shelfry.app/data/index.json`。
+`https://dshcrate.com/data/index.json`。
 
 **加完「发现」页还是空的？**
 先确认 `dsh --version` 不低于 0.2.1；点刷新；仍然空就重开 DSH。读取失败时，
@@ -219,8 +219,8 @@ DSH 0.2.1 起，官方「插件 → 发现」页支持添加第三方索引源�
 这个子对象传给插件，写在顶层的键会被静默忽略：
 
 ```yaml
-- id: dsh-shelfry
-  name: 'dsh-shelfry'
+- id: dsh-crate
+  name: 'dsh-crate'
   config:
     allowRestart: false   # 隐藏重启按钮（systemd / pm2 / launchd）
     buildEnv:

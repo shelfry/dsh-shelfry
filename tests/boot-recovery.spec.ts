@@ -125,14 +125,14 @@ const TWO_ENTRIES_FAILED = [
   'needs-service: pending (waiting for service: nonexistent)',
   '    at Fiber.<anonymous> (file:///D:/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:100:5)',
   '',
-  '[dsh-shelfry] the replacement never came up on port 3080 (it exited with code 1)',
+  '[dsh-crate] the replacement never came up on port 3080 (it exited with code 1)',
 ].join('\n')
 
 /** The shape a REAL composition produced (captured from a live dsh web run). */
 const REAL_INCLUDE_APPLY_FAILURE = [
   "Error: dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include): failed to apply loader entry dsh-demo-broken (dsh-demo-broken-plugin): dsh-demo-broken-plugin: deliberate activation failure (mode=activate) — on the recovery page, untick this plugin and press save-and-restart",
   "Error: dsh-demo-broken-plugin: deliberate activation failure (mode=activate) — on the recovery page, untick this plugin and press save-and-restart",
-  '    at new apply (file:///C:/Users/x/AppData/Local/Temp/dsh-shelfry-demo/profiles/web/node_modules/dsh-demo-broken-plugin/index.js:43:9)',
+  '    at new apply (file:///C:/Users/x/AppData/Local/Temp/dsh-crate-demo/profiles/web/node_modules/dsh-demo-broken-plugin/index.js:43:9)',
   '    at Fiber.execute (file:///D:/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:1067:24)',
   'Node.js v24.19.0',
 ].join('\n')
@@ -188,7 +188,7 @@ describe('parseBootFailure', () => {
       'dsh: fatal load failure: Error: dsh: 1 entry did not activate',
       'first-plugin: Error: boom',
       '    at x',
-      '[dsh-shelfry recovery] the replacement failed again',
+      '[dsh-crate recovery] the replacement failed again',
       'dsh: fatal load failure: Error: dsh: 1 entry did not activate',
       'second-plugin: Error: bang',
       '    at y',
@@ -294,7 +294,7 @@ describe('startRecoveryServer', () => {
 
   it('answers the market page in the shape it is already polling', async () => {
     const { base, config } = await serve()
-    const status = await (await fetch(base + '/dsh-shelfry/status')).json() as Record<string, unknown>
+    const status = await (await fetch(base + '/dsh-crate/status')).json() as Record<string, unknown>
     // Same boot id on purpose: the page must NOT reload into this surface,
     // it must notice the failure and offer the way out.
     expect(status.boot).toBe(config.bootId)
@@ -304,7 +304,7 @@ describe('startRecoveryServer', () => {
 
   it('marks the blamed plugin in the payload the panel renders', async () => {
     const { base } = await serve()
-    const body = await (await fetch(base + '/dsh-shelfry/recovery')).json() as {
+    const body = await (await fetch(base + '/dsh-crate/recovery')).json() as {
       plugins: Array<{ name: string; implicated: boolean; reason?: string }>
       unmatched: Array<{ name: string }>
       failure: { summary: string }
@@ -323,7 +323,7 @@ describe('startRecoveryServer', () => {
     // had to find and untick the red row themselves. The recommendation lives
     // in the payload so both surfaces inherit it from one place.
     const { base } = await serve()
-    const body = await (await fetch(base + '/dsh-shelfry/recovery')).json() as {
+    const body = await (await fetch(base + '/dsh-crate/recovery')).json() as {
       plugins: Array<{ name: string; enabled: boolean; implicated: boolean; toggleable: boolean }>
     }
     const blamed = body.plugins.find(plugin => plugin.name === 'blamed-plugin')
@@ -340,7 +340,7 @@ describe('startRecoveryServer', () => {
       name: '@deepseek-ai/dsh-host-webserver', rows: [], enabled: true, protected: true,
       carrier: false, toggleable: false, note: 'host infrastructure',
     })
-    const body = await (await fetch(base + '/dsh-shelfry/recovery')).json() as {
+    const body = await (await fetch(base + '/dsh-crate/recovery')).json() as {
       plugins: Array<{ name: string; enabled: boolean; toggleable: boolean }>
     }
     const hostRow = body.plugins.find(plugin => plugin.name === '@deepseek-ai/dsh-host-webserver')
@@ -354,13 +354,13 @@ describe('startRecoveryServer', () => {
     const html = await response.text()
     expect(response.headers.get('content-type')).toContain('text/html')
     expect(html).toContain('DeepSeek Harness 启动失败')
-    expect(html).toContain('/dsh-shelfry/recovery/apply')
+    expect(html).toContain('/dsh-crate/recovery/apply')
   })
 
   it('exports the failing boot log, because that is what a report needs', async () => {
     const { base, config } = await serve()
     writeFileSync(config.logs.err, TWO_ENTRIES_FAILED)
-    const response = await fetch(base + '/dsh-shelfry/logs')
+    const response = await fetch(base + '/dsh-crate/logs')
     expect(response.headers.get('content-type')).toContain('text/plain')
     const text = await response.text()
     expect(text).toContain('blamed-plugin')
@@ -392,7 +392,7 @@ describe('startRecoveryServer', () => {
     for (const file of [config.logs.out, config.logs.err, `${config.logs.err}.recovery.log`]) {
       writeFileSync(file, original)
     }
-    const response = await fetch(base + '/dsh-shelfry/logs')
+    const response = await fetch(base + '/dsh-crate/logs')
     expect(response.status).toBe(200)
     const text = await response.text()
     expect(text.split(expected)).toHaveLength(4)
@@ -412,7 +412,7 @@ describe('startRecoveryServer', () => {
     for (const file of [config.logs.out, config.logs.err, `${config.logs.err}.recovery.log`]) {
       writeFileSync(file, original)
     }
-    const response = await fetch(base + '/dsh-shelfry/logs')
+    const response = await fetch(base + '/dsh-crate/logs')
     expect(response.status).toBe(200)
     const text = await response.text()
     expect(text.split(expected)).toHaveLength(4)
@@ -421,14 +421,14 @@ describe('startRecoveryServer', () => {
 
   it('refuses a cross-site write and accepts a same-origin one', async () => {
     const { base, finished } = await serve()
-    const hostile = await fetch(base + '/dsh-shelfry/recovery/apply', {
+    const hostile = await fetch(base + '/dsh-crate/recovery/apply', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: 'http://evil.example' },
       body: JSON.stringify({ enabled: [] }),
     })
     expect(hostile.status).toBe(403)
 
-    const accepted = await fetch(base + '/dsh-shelfry/recovery/apply', {
+    const accepted = await fetch(base + '/dsh-crate/recovery/apply', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: JSON.stringify({ enabled: ['good-plugin'] }),
@@ -440,7 +440,7 @@ describe('startRecoveryServer', () => {
 
   it('releases the port on request, so a manual dsh web start is not blocked', async () => {
     const { base, finished } = await serve()
-    await fetch(base + '/dsh-shelfry/recovery/release', {
+    await fetch(base + '/dsh-crate/recovery/release', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: '{}',
@@ -453,7 +453,7 @@ describe('the replacement is given time to be dead (#719)', () => {
   /** Whether the recovery surface answers on this port right now. */
   const answers = async (port: number): Promise<boolean> => {
     try {
-      await fetch(`http://127.0.0.1:${String(port)}/dsh-shelfry/recovery`, { signal: AbortSignal.timeout(1000) })
+      await fetch(`http://127.0.0.1:${String(port)}/dsh-crate/recovery`, { signal: AbortSignal.timeout(1000) })
       return true
     } catch {
       return false
@@ -481,7 +481,7 @@ describe('the replacement is given time to be dead (#719)', () => {
     const running = runRecovery(config, { exitCode: null, bound: false, replacementPid: slow.pid })
     const base = 'http://127.0.0.1:' + String(port)
     cleanups.push(async () => {
-      await fetch(base + '/dsh-shelfry/recovery/release', {
+      await fetch(base + '/dsh-crate/recovery/release', {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: base },
         body: '{}',
@@ -561,7 +561,7 @@ describe('runRecovery', () => {
     const running = runRecovery(config, { exitCode: 1, bound: false })
     const base = 'http://127.0.0.1:' + String(port)
     cleanups.push(async () => {
-      await fetch(base + '/dsh-shelfry/recovery/release', {
+      await fetch(base + '/dsh-crate/recovery/release', {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: base },
         body: '{}',
@@ -577,7 +577,7 @@ describe('runRecovery', () => {
       const deadline = Date.now() + 30_000
       while (Date.now() < deadline) {
         try {
-          const response = await fetch(base + '/dsh-shelfry/status', { cache: 'no-store' })
+          const response = await fetch(base + '/dsh-crate/status', { cache: 'no-store' })
           if (response.ok) return true
         } catch { /* the port changes hands between attempts */ }
         await new Promise(resolve => setTimeout(resolve, 200))
@@ -588,7 +588,7 @@ describe('runRecovery', () => {
     expect(await waitForSurface(), 'the recovery surface never came up').toBe(true)
     // Apply: the surface frees the port, boots the (failing) replacement, and
     // must come back rather than exiting on the user.
-    await fetch(base + '/dsh-shelfry/recovery/apply', {
+    await fetch(base + '/dsh-crate/recovery/apply', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: JSON.stringify({ enabled: ['good-plugin'] }),
@@ -598,7 +598,7 @@ describe('runRecovery', () => {
     const deadline = Date.now() + 40_000
     while (Date.now() < deadline) {
       try {
-        const body = await (await fetch(base + '/dsh-shelfry/recovery', { cache: 'no-store' })).json() as { failure?: { summary?: string } }
+        const body = await (await fetch(base + '/dsh-crate/recovery', { cache: 'no-store' })).json() as { failure?: { summary?: string } }
         if (typeof body.failure?.summary === 'string' && body.failure.summary !== '') {
           answers.push(body.failure.summary)
           break
@@ -614,7 +614,7 @@ describe('runRecovery', () => {
     const written = readFileSync(patchPath, 'utf8')
     expect(written).toContain('- id: blamed-plugin')
     expect(written).toContain('  disabled: true')
-    await fetch(base + '/dsh-shelfry/recovery/release', {
+    await fetch(base + '/dsh-crate/recovery/release', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: '{}',
@@ -641,7 +641,7 @@ describe('runRecovery', () => {
     const running = runRecovery(config, { exitCode: 1, bound: false })
     const base = 'http://127.0.0.1:' + String(port)
     cleanups.push(async () => {
-      await fetch(base + '/dsh-shelfry/recovery/release', {
+      await fetch(base + '/dsh-crate/recovery/release', {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: base },
         body: '{}',
@@ -654,7 +654,7 @@ describe('runRecovery', () => {
       const deadline = Date.now() + 30_000
       while (Date.now() < deadline) {
         try {
-          const response = await fetch(base + '/dsh-shelfry/recovery', { cache: 'no-store' })
+          const response = await fetch(base + '/dsh-crate/recovery', { cache: 'no-store' })
           if (response.ok) return await response.json() as { lastErrors: string[] }
         } catch { /* not up yet */ }
         await new Promise(resolve => setTimeout(resolve, 200))
@@ -664,7 +664,7 @@ describe('runRecovery', () => {
 
     const first = await readView()
     expect(first).not.toBeNull()
-    await fetch(base + '/dsh-shelfry/recovery/apply', {
+    await fetch(base + '/dsh-crate/recovery/apply', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: JSON.stringify({ enabled: [] }),
@@ -681,7 +681,7 @@ describe('runRecovery', () => {
     expect(errors.length, 'the write failure never reached the surface').toBeGreaterThan(0)
     expect(errors[0]).toContain('bad row!')
     expect(existsSync(mark), 'a partial write was booted anyway').toBe(false)
-    await fetch(base + '/dsh-shelfry/recovery/release', {
+    await fetch(base + '/dsh-crate/recovery/release', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base },
       body: '{}',

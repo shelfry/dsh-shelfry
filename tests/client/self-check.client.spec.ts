@@ -21,11 +21,11 @@ afterEach(() => { document.body.innerHTML = '' })
 describe('clientDiagnostics', () => {
   it('reports a healthy page as one root, one portal, cards present', () => {
     const root = document.createElement('div')
-    root.setAttribute('data-dsh-shelfry-root', '')
+    root.setAttribute('data-dsh-crate-root', '')
     root.innerHTML = '<div class="abc_card"></div><div class="abc_card"></div>'
     document.body.append(root)
     const portal = document.createElement('div')
-    portal.setAttribute('data-dsh-shelfry-portal', '')
+    portal.setAttribute('data-dsh-crate-portal', '')
     document.body.append(portal)
 
     expect(find('market roots in the document:')).toBe('market roots in the document: 1')
@@ -39,7 +39,7 @@ describe('clientDiagnostics', () => {
     expect(find('market roots in the document:')).toBe('market roots in the document: 0')
 
     const root = document.createElement('div')
-    root.setAttribute('data-dsh-shelfry-root', '')
+    root.setAttribute('data-dsh-crate-root', '')
     document.body.append(root)
     expect(find('market roots in the document:')).toBe('market roots in the document: 1')
     expect(find('plugin cards rendered:')).toBe('plugin cards rendered: 0')
@@ -63,9 +63,9 @@ describe('clientDiagnostics', () => {
 
   it('shows a second portal container, and that the live one is not last (#384)', () => {
     const first = document.createElement('div')
-    first.setAttribute('data-dsh-shelfry-portal', '')
+    first.setAttribute('data-dsh-crate-portal', '')
     const second = document.createElement('div')
-    second.setAttribute('data-dsh-shelfry-portal', '')
+    second.setAttribute('data-dsh-crate-portal', '')
     document.body.append(first, second)
     expect(find('portal containers:')).toBe("portal containers: 2 (last one is body's last child: true)")
 

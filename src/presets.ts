@@ -6,7 +6,7 @@
  * on failure, auto-snapshots the profile (createProfileSnapshot), and only
  * then writes the bundle order and disable list.
  *
- * Presets persist in `<profile>/.dsh-shelfry/presets.json` (market-owned
+ * Presets persist in `<profile>/.dsh-crate/presets.json` (market-owned
  * state, like snapshots) — deliberately separate from state.json, whose
  * shape routes.ts owns.
  */
@@ -18,6 +18,7 @@ import { applyBundleOrder, mergeOrder, readBundleRules, readBundleStack, validat
 import { createProfileSnapshot, DEFAULT_MAX_SNAPSHOTS } from './snapshot.ts'
 import { trialValidate, type TrialDiff, type TrialIssue } from './trial.ts'
 import { logEvent } from './log.ts'
+import { stateDir, statePath } from './state.ts'
 
 /** Group-style name rule: letters/digits (incl. CJK), spaces, _, -; ≤ 40 chars, at least one non-space. */
 const PRESET_NAME_RE = /^[\p{L}\p{N}_ -]{1,40}$/u
@@ -29,7 +30,7 @@ const PRESET_NAME_RE = /^[\p{L}\p{N}_ -]{1,40}$/u
  * applying (issue #98 analysis: applyPreset self-disable guard). They are
  * filtered at save/import time and again at apply time (defense in depth).
  */
-const MARKET_SELF_NAMES = new Set(['dsh-shelfry'])
+const MARKET_SELF_NAMES = new Set(['dsh-crate'])
 
 /** Maximum presets stored per profile (quota — issue #98 analysis). */
 export const MAX_PRESETS = 50
@@ -77,7 +78,7 @@ export interface PresetResult {
 }
 
 function presetsFile(profileDir: string): string {
-  return join(profileDir, '.dsh-shelfry', 'presets.json')
+  return statePath(profileDir, 'presets.json')
 }
 
 function readPresets(profileDir: string): Preset[] {
@@ -96,7 +97,7 @@ function readPresets(profileDir: string): Preset[] {
 }
 
 function writePresets(profileDir: string, presets: Preset[]): void {
-  mkdirSync(join(profileDir, '.dsh-shelfry'), { recursive: true, mode: 0o700 })
+  mkdirSync(stateDir(profileDir), { recursive: true, mode: 0o700 })
   writeFileAtomic(presetsFile(profileDir), `${JSON.stringify({ presets }, null, 2)}\n`)
 }
 

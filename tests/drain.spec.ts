@@ -1006,7 +1006,7 @@ describe('DrainJournal', () => {
   it('reads back only well-formed terminal records', () => {
     const dir = mkdtempSync(join(tmpdir(), 'drain-journal-'))
     dirs.push(dir)
-    const file = join(dir, '.dsh-shelfry', 'drain.ndjson')
+    const file = join(dir, '.dsh-crate', 'drain.ndjson')
     const journal = new DrainJournal(file)
     journal.append({ at: 1, id: 'boot-drain-1', kind: 'update', name: 'dsh-loop', state: 'succeeded', agentsAtStart: 2, agentsAtEnd: 0 })
     journal.append({ at: 2, id: 'boot-drain-2', kind: 'uninstall', name: 'dsh-old', state: 'failed', agentsAtStart: 1, agentsAtEnd: 1 })
@@ -1027,8 +1027,8 @@ describe('DrainJournal', () => {
     // record written after it is not.
     const dir = mkdtempSync(join(tmpdir(), 'drain-journal-'))
     dirs.push(dir)
-    const file = join(dir, '.dsh-shelfry', 'drain.ndjson')
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
+    const file = join(dir, '.dsh-crate', 'drain.ndjson')
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
     const row = (id: string): DrainJournalRecord => ({
       at: 1, id, kind: 'update', name: 'dsh-example', state: 'succeeded', agentsAtStart: 0, agentsAtEnd: 0,
     })
@@ -1044,7 +1044,7 @@ describe('DrainJournal', () => {
   it('redacts home paths in the package name', () => {
     const dir = mkdtempSync(join(tmpdir(), 'drain-journal-'))
     dirs.push(dir)
-    const file = join(dir, '.dsh-shelfry', 'drain.ndjson')
+    const file = join(dir, '.dsh-crate', 'drain.ndjson')
     const home = homedir()
     const journal = new DrainJournal(file)
     journal.append({

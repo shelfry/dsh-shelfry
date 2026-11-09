@@ -79,7 +79,7 @@ import { restartAllowed } from './restart.ts'
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
 /** Namespace the card on the browser side keys itself to. */
-export const MARKET_SETTINGS_NS = 'dsh-shelfry'
+export const MARKET_SETTINGS_NS = 'dsh-crate'
 
 /**
  * What happened when the market offered its namespace to the host (#677).
@@ -148,7 +148,7 @@ function canRegister(service: SettingsService, ctx: Context): boolean {
   namespaceState = 'unsupported-by-host'
   const logger = (ctx as unknown as { logger?: (name: string) => { warn(message: string): void } }).logger
   try {
-    logger?.('dsh-shelfry').warn(
+    logger?.('dsh-crate').warn(
       'this host\'s settings service has no register() (dsh 0.1.7 derives settings from a plugin Config schema); '
       + 'the market keeps its composed configuration and shows no allowRestart switch on this host yet (#677)',
     )

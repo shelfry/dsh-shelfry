@@ -103,7 +103,7 @@ describe.skipIf(!dshAvailable())('web e2e: search clear controls and sticky head
     ['Themes', /^(主题|Themes)$/],
     ['Installed', /^(已安装|Installed)( \(\d+\))?$/],
   ] as const)('keeps the %s clear control accessible beside long text in narrow windows', async (_tab, name) => {
-    await page.locator('[data-dsh-shelfry-root]').getByRole('button', { name }).first().click()
+    await page.locator('[data-dsh-crate-root]').getByRole('button', { name }).first().click()
     const search = page.getByPlaceholder(/搜索插件|Search plugins|搜索收藏|Search favorites/)
     const clear = page.getByRole('button', { name: /^(清除搜索|Clear search)$/ })
     for (const width of [1200, 640]) {
@@ -157,7 +157,7 @@ describe.skipIf(!dshAvailable())('web e2e: search clear controls and sticky head
   })
 
   it.each([/^(发现|Discover)$/, /^(主题|Themes)$/])('clears empty filters in %s and returns keyboard focus', async tab => {
-    await page.locator('[data-dsh-shelfry-root]').getByRole('button', { name: tab }).first().click()
+    await page.locator('[data-dsh-crate-root]').getByRole('button', { name: tab }).first().click()
     const search = page.getByPlaceholder(/搜索插件|Search plugins/)
     await search.fill('no-such-plugin-empty-filter-recovery')
     const clear = page.getByRole('button', { name: /^(清除筛选|Clear filters)$/ })
@@ -180,7 +180,7 @@ describe.skipIf(!dshAvailable())('web e2e: search clear controls and sticky head
 
   it('keeps navigation and task controls inside a narrow panel', async () => {
     await page.setViewportSize({ width: 640, height: 800 })
-    const tabs = page.locator('[data-dsh-shelfry-root] [class$="_tabs"]').first()
+    const tabs = page.locator('[data-dsh-crate-root] [class$="_tabs"]').first()
     const stripBox = await tabs.boundingBox()
     expect(stripBox).not.toBeNull()
     for (const button of await tabs.getByRole('button').all()) {
@@ -204,7 +204,7 @@ describe.skipIf(!dshAvailable())('web e2e: search clear controls and sticky head
     }
     const tasks = tabs.getByRole('button', { name: /^(任务|Tasks)$/ })
     await tasks.click()
-    const panel = page.locator('[data-dsh-shelfry-root] [class$="_opPanel"]')
+    const panel = page.locator('[data-dsh-crate-root] [class$="_opPanel"]')
     await panel.waitFor()
     expect(await panel.evaluate(el => {
       const box = el.getBoundingClientRect()

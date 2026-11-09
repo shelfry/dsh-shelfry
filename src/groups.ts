@@ -99,7 +99,7 @@ export function setGroupMembers(
   for (const member of members) {
     if (typeof member !== 'string' || member === '' || seen.has(member)) continue
     // The market itself never participates in groups (#60 assumptions).
-    if (member === 'dsh-shelfry') continue
+    if (member === 'dsh-crate') continue
     seen.add(member)
     if (installed.has(member)) kept.push(member)
   }

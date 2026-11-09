@@ -602,7 +602,7 @@ export interface PluginCommandRuntime {
    * market's next one would be refused with `busy: true` (#1140).
    *
    * The official Desktop manager is the case: it holds `active`/`repairing`
-   * while its own install runs for minutes, and `/dsh-shelfry/status` reported
+   * while its own install runs for minutes, and `/dsh-crate/status` reported
    * `busy: false` the whole time because it only knew about the market's own
    * route flag. The client's queue then retried every 2s and re-showed the
    * "another operation is running" banner on each refusal. Absent means
@@ -752,7 +752,7 @@ export function killChild(child: ChildProcess): void {
   child.kill('SIGKILL')
 }
 
-/** The child of the operation currently running, for /dsh-shelfry/cancel. */
+/** The child of the operation currently running, for /dsh-crate/cancel. */
 let activeChild: ChildProcess | null = null
 let cancelRequested = false
 
@@ -1357,7 +1357,7 @@ export function runHostPnpm(
 export function runDshPlugin(profile: string, pluginArgs: string[]): Promise<InstallResult> {
   const { file, args, cwd, viaShell } = dshArgv()
   if (viaShell && !isCmdSafeProfileName(profile)) {
-    const error = `dsh-shelfry: profile name ${JSON.stringify(profile)} cannot cross the Windows cmd.exe fallback safely; relaunch DSH through its Node entry point, or use a profile name containing only letters, numbers, spaces, dots, underscores, and hyphens`
+    const error = `dsh-crate: profile name ${JSON.stringify(profile)} cannot cross the Windows cmd.exe fallback safely; relaunch DSH through its Node entry point, or use a profile name containing only letters, numbers, spaces, dots, underscores, and hyphens`
     logEvent('error', 'install', error)
     return Promise.resolve({ exitCode: 1, timedOut: false, stdout: '', stderr: error, cancelled: false })
   }
@@ -1446,12 +1446,12 @@ export function createDesktopPluginRuntime(
   timeoutMs = INSTALL_TIMEOUT_MS,
 ): DesktopPluginRuntime {
   if (!isAbsolute(activeProfileDir) || activeProfileDir.includes('\0')) {
-    throw new Error('dsh-shelfry: Desktop profile directory must be an absolute path without NUL')
+    throw new Error('dsh-crate: Desktop profile directory must be an absolute path without NUL')
   }
   if (!isAbsolute(invokingDir) || invokingDir.includes('\0')) {
-    throw new Error('dsh-shelfry: Desktop invoking directory must be an absolute path without NUL')
+    throw new Error('dsh-crate: Desktop invoking directory must be an absolute path without NUL')
   }
-  const owner = Symbol('dsh-shelfry desktop runtime')
+  const owner = Symbol('dsh-crate desktop runtime')
   let closed = false
 
   const runPlugin: PluginRunner = async (_profile, pluginArgs) => {
@@ -1460,7 +1460,7 @@ export function createDesktopPluginRuntime(
         exitCode: 127,
         timedOut: false,
         stdout: '',
-        stderr: 'dsh-shelfry: Desktop package runtime is disposed',
+        stderr: 'dsh-crate: Desktop package runtime is disposed',
         cancelled: false,
       }
     }
@@ -1572,7 +1572,7 @@ export function createDesktopPluginRuntime(
     activeDesktopOperation = active
     timer = setTimeout(() => {
       timedOut = true
-      abort.abort(new Error('dsh-shelfry: Desktop package operation timed out'))
+      abort.abort(new Error('dsh-crate: Desktop package operation timed out'))
       // The public handle owns an explicit process-tree cancellation path.
       // Use it as well as AbortSignal so a structurally compatible provider
       // that does not observe the signal cannot strand the route or teardown.

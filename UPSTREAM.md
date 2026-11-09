@@ -1,7 +1,7 @@
 # 上游同步规则
 
 上游仓库：`dsh-market/dsh-market`
-本地仓库：`shelfry/dsh-shelfry`（远端 `origin`）
+本地仓库：`dshcrate/dsh-crate`（远端 `origin`）
 
 原则：**不整包 merge，不照抄版本号，只按提交搬需要的东西。**
 
@@ -53,7 +53,7 @@ npm run build:client
 | `src/client/locales.ts` | 三语文案与品牌措辞，任何覆盖都要人工核对 |
 | `client/client.js` | 构建产物，搬完源码后跑 `npm run build:client` 重建 |
 | `locale/*.json` | 插件元信息，保留本地描述 |
-| `package.json` | 保留 `name: dsh-shelfry`、`version: 0.4.x`、`icon`、`repository`、`files` |
+| `package.json` | 保留 `name: dsh-crate`、`version: 0.5.x`、`icon`、`repository`、`files` |
 
 ## 保护机制
 

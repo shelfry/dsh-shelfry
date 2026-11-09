@@ -51,14 +51,14 @@ function writeBundle(base: string, name: string, version: string, patch: unknown
 
 /** Write the market state.json (disable list + groups). */
 function writeState(dir: string, disabled: string[]): void {
-  mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-  writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), JSON.stringify({ disabled, groups: {}, groupOrder: [] }))
+  mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+  writeFileSync(join(dir, '.dsh-crate', 'state.json'), JSON.stringify({ disabled, groups: {}, groupOrder: [] }))
 }
 
 /** Write a raw presets.json file. */
 function writePresetFile(dir: string, presets: unknown[]): void {
-  mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-  writeFileSync(join(dir, '.dsh-shelfry', 'presets.json'), JSON.stringify({ presets }))
+  mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+  writeFileSync(join(dir, '.dsh-crate', 'presets.json'), JSON.stringify({ presets }))
 }
 
 describe('savePreset', () => {
@@ -105,13 +105,13 @@ describe('savePreset', () => {
     expect(listPresets(dir)).toEqual([])
   })
 
-  it('persists the preset to .dsh-shelfry/presets.json with a sanitized disabled list', () => {
+  it('persists the preset to .dsh-crate/presets.json with a sanitized disabled list', () => {
     const dir = pdir()
     writeProfile(dir, ['alpha', 'beta'])
 
     expect(savePreset(dir, 'combo', ['beta', 'alpha'], ['p1', '', 42, 'p2'])).toEqual({ ok: true })
 
-    const file = join(dir, '.dsh-shelfry', 'presets.json')
+    const file = join(dir, '.dsh-crate', 'presets.json')
     expect(existsSync(file)).toBe(true)
     const stored = JSON.parse(readFileSync(file, 'utf8')) as {
       presets: { name: string; bundleOrder: string[]; disabled: string[]; createdAt: number }[]
@@ -142,8 +142,8 @@ describe('listPresets', () => {
     const dir = pdir()
     expect(listPresets(dir)).toEqual([])
 
-    mkdirSync(join(dir, '.dsh-shelfry'), { recursive: true })
-    writeFileSync(join(dir, '.dsh-shelfry', 'presets.json'), '{ nope')
+    mkdirSync(join(dir, '.dsh-crate'), { recursive: true })
+    writeFileSync(join(dir, '.dsh-crate', 'presets.json'), '{ nope')
     expect(listPresets(dir)).toEqual([])
   })
 })
@@ -183,7 +183,7 @@ describe('applyPreset', () => {
     // No write-back on rejection…
     expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(before)
     // …and the pre-change snapshot is only created after trial validation passes.
-    expect(existsSync(join(dir, '.dsh-shelfry', 'snapshots'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'snapshots'))).toBe(false)
   })
 
   it('applies a valid preset: snapshot, bundle order and disabled list', () => {
@@ -197,14 +197,14 @@ describe('applyPreset', () => {
     const result = applyPreset(dir, 'good')
     expect(result.ok).toBe(true)
     expect(typeof result.snapshot).toBe('string')
-    expect(existsSync(join(dir, '.dsh-shelfry', 'snapshots', `${result.snapshot}.json`))).toBe(true)
+    expect(existsSync(join(dir, '.dsh-crate', 'snapshots', `${result.snapshot}.json`))).toBe(true)
 
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
       dsh: { profile: { bundles: string[] } }
     }
     expect(manifest.dsh.profile.bundles).toEqual(['beta', 'alpha'])
 
-    const state = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as { disabled: string[] }
+    const state = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as { disabled: string[] }
     expect(state.disabled).toEqual(['new-disabled'])
   })
 
@@ -214,14 +214,14 @@ describe('applyPreset', () => {
     writeBundle(dir, 'alpha', '1.0.0', [{ insert: [{ id: 'alpha-entry', name: 'alpha' }] }])
     writeBundle(dir, 'beta', '1.0.0', [{ insert: [{ id: 'beta-entry', name: 'beta' }] }])
     writePresetFile(dir, [{ name: 'good', bundleOrder: ['beta', 'alpha'], disabled: [], createdAt: 1 }])
-    mkdirSync(join(dir, '.dsh-shelfry', 'state.json'))
+    mkdirSync(join(dir, '.dsh-crate', 'state.json'))
     const before = readFileSync(join(dir, 'package.json'), 'utf8')
 
     const result = applyPreset(dir, 'good')
     expect(result.ok).toBe(false)
-    expect(result.error).toContain('.dsh-shelfry/state.json could not be read')
+    expect(result.error).toContain('.dsh-crate/state.json could not be read')
     expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(before)
-    expect(existsSync(join(dir, '.dsh-shelfry', 'snapshots'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'snapshots'))).toBe(false)
   })
 
   it('treats malformed optional state as empty and records its absence before applying', () => {
@@ -230,17 +230,17 @@ describe('applyPreset', () => {
     writeBundle(dir, 'alpha', '1.0.0', [{ insert: [{ id: 'alpha-entry', name: 'alpha' }] }])
     writeBundle(dir, 'beta', '1.0.0', [{ insert: [{ id: 'beta-entry', name: 'beta' }] }])
     writePresetFile(dir, [{ name: 'good', bundleOrder: ['beta', 'alpha'], disabled: ['new-disabled'], createdAt: 1 }])
-    writeFileSync(join(dir, '.dsh-shelfry', 'state.json'), '{ broken')
+    writeFileSync(join(dir, '.dsh-crate', 'state.json'), '{ broken')
 
     const result = applyPreset(dir, 'good')
     expect(result.ok).toBe(true)
-    const state = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as { disabled: string[] }
+    const state = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as { disabled: string[] }
     expect(state.disabled).toEqual(['new-disabled'])
 
-    const snapshot = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'snapshots', `${result.snapshot}.json`), 'utf8')) as {
+    const snapshot = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'snapshots', `${result.snapshot}.json`), 'utf8')) as {
       files: Array<{ path: string; absent?: true }>
     }
-    expect(snapshot.files).toContainEqual({ path: '.dsh-shelfry/state.json', absent: true })
+    expect(snapshot.files).toContainEqual({ path: '.dsh-crate/state.json', absent: true })
   })
 
   it('reports missing presets and invalid names', () => {
@@ -268,8 +268,8 @@ describe('applyPreset', () => {
       noop: false,
     })
     // Pure read: nothing was written.
-    expect(existsSync(join(dir, '.dsh-shelfry', 'snapshots'))).toBe(false)
-    expect(existsSync(join(dir, '.dsh-shelfry', 'presets.json'))).toBe(true)
+    expect(existsSync(join(dir, '.dsh-crate', 'snapshots'))).toBe(false)
+    expect(existsSync(join(dir, '.dsh-crate', 'presets.json'))).toBe(true)
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { dsh: { profile: { bundles: string[] } } }
     expect(manifest.dsh.profile.bundles).toEqual(['alpha', 'beta'])
   })
@@ -292,7 +292,7 @@ describe('market self-disable guard (#98)', () => {
     const dir = pdir()
     writeProfile(dir, ['alpha'])
 
-    expect(savePreset(dir, 'combo', ['alpha'], ['dsh-shelfry', 'dsh-shelfry', 'x', 'x'])).toEqual({ ok: true })
+    expect(savePreset(dir, 'combo', ['alpha'], ['dsh-crate', 'dsh-crate', 'x', 'x'])).toEqual({ ok: true })
     const saved = listPresets(dir).find(p => p.name === 'combo')
     expect(saved?.disabled).toEqual(['x'])
   })
@@ -306,13 +306,13 @@ describe('market self-disable guard (#98)', () => {
     writeBundle(dir, 'alpha', '1.0.0', [{ insert: [{ id: 'alpha-entry', name: 'alpha' }] }])
     writeBundle(dir, 'beta', '1.0.0', [{ insert: [{ id: 'beta-entry', name: 'beta' }] }])
     writeState(dir, ['off-a'])
-    writePresetFile(dir, [{ name: 'guarded', bundleOrder: ['beta', 'alpha'], disabled: ['dsh-shelfry', 'dsh-shelfry', 'on-c'], createdAt: 1 }])
+    writePresetFile(dir, [{ name: 'guarded', bundleOrder: ['beta', 'alpha'], disabled: ['dsh-crate', 'dsh-crate', 'on-c'], createdAt: 1 }])
 
     const result = applyPreset(dir, 'guarded')
     expect(result.ok).toBe(true)
-    const state = JSON.parse(readFileSync(join(dir, '.dsh-shelfry', 'state.json'), 'utf8')) as { disabled: string[] }
+    const state = JSON.parse(readFileSync(join(dir, '.dsh-crate', 'state.json'), 'utf8')) as { disabled: string[] }
     expect(state.disabled).toEqual(['on-c'])
-    expect(state.disabled).not.toContain('dsh-shelfry')
+    expect(state.disabled).not.toContain('dsh-crate')
   })
 
   it('previewPreset excludes market self-names from the change diff', () => {
@@ -321,7 +321,7 @@ describe('market self-disable guard (#98)', () => {
     writeBundle(dir, 'alpha', '1.0.0', [{ insert: [{ id: 'alpha-entry', name: 'alpha' }] }])
     writeBundle(dir, 'beta', '1.0.0', [{ insert: [{ id: 'beta-entry', name: 'beta' }] }])
     writeState(dir, ['off-a'])
-    writePresetFile(dir, [{ name: 'preview-guard', bundleOrder: ['beta', 'alpha'], disabled: ['dsh-shelfry', 'on-c'], createdAt: 1 }])
+    writePresetFile(dir, [{ name: 'preview-guard', bundleOrder: ['beta', 'alpha'], disabled: ['dsh-crate', 'on-c'], createdAt: 1 }])
 
     const preview = previewPreset(dir, 'preview-guard')
     expect(preview.ok).toBe(true)

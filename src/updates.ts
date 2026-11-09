@@ -489,7 +489,7 @@ async function fetchJson(url: string): Promise<unknown> {
   // HTTP_PROXY, so on a machine whose route out is a local proxy every
   // update check silently took the slow path — or none at all.
   const res = await marketFetch(url, {
-    headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+    headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -724,7 +724,7 @@ async function remoteGitVersion(spec: string, region: Region): Promise<string | 
   for (const route of githubRoutesFor('raw', region)) {
     try {
       const res = await marketFetch(throughProxy(route, url), {
-        headers: { accept: 'application/json', 'user-agent': 'dsh-shelfry' },
+        headers: { accept: 'application/json', 'user-agent': 'dsh-crate' },
         signal: AbortSignal.timeout(RAW_VERSION_TIMEOUT_MS),
       })
       if (!res.ok) continue
