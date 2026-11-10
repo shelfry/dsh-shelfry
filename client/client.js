@@ -11472,7 +11472,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				}));
 			}, [data]);
 			(0, react.useEffect)(() => {
-				if (busyUrl === null && updatingName === null) {
+				if (busyUrl === null && updatingName === null && removingName === null) {
 					setHostBusy(false);
 					statusRef.current = {
 						...statusRef.current,
@@ -11582,6 +11582,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				applyDrainStatus,
 				busyUrl,
 				updatingName,
+				removingName,
 				data,
 				installed,
 				repoIdentities,
