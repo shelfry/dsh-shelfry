@@ -360,7 +360,9 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 			installedEmpty: "尚未安装社区插件，可前往「发现」页浏览",
 			marketGoneTitle: "插件箱子已停止运行",
 			marketGoneBody: "DSH 重新加载插件时把市场一起卸载了。重启 DSH 即可恢复；刚才的操作可能已经完成。",
-			marketGoneRecord: "市场已从 DSH 卸载，这次操作没有结果。重启 DSH 后可在「已安装」里确认。",
+			marketGoneRecord: "市场被 DSH 卸载了，这次操作没有等到结果。市场恢复后，到「已安装」里确认。",
+			marketGoneReconnecting: "正在重新连接…",
+			marketGoneReconnect: "重新连接",
 			loadFail: "插件目录加载失败，请稍后重试",
 			loadRetry: "重试",
 			installFail: "安装失败",
@@ -1152,7 +1154,9 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 			installedEmpty: "No community plugins yet — browse the Discover tab",
 			marketGoneTitle: "The plugin market stopped running",
 			marketGoneBody: "DSH unloaded the market while reloading plugins. Restart DSH to bring it back. The last operation may already have finished.",
-			marketGoneRecord: "The market was unloaded from DSH, so this operation has no result. After restarting, check Installed.",
+			marketGoneRecord: "DSH unloaded the market, so this operation got no result. Once the market is back, check Installed.",
+			marketGoneReconnecting: "Reconnecting…",
+			marketGoneReconnect: "Reconnect",
 			loadFail: "The plugin catalog failed to load. Try again later.",
 			loadRetry: "Retry",
 			installFail: "Install failed",
@@ -1944,7 +1948,9 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 			installedEmpty: "コミュニティプラグインはまだインストールされていません。「見つける」ページで探せます",
 			marketGoneTitle: "プラグインボックスが停止しました",
 			marketGoneBody: "DSH がプラグインを再読み込みした際に、マーケットも一緒にアンロードされました。DSH を再起動すれば復旧します。直前の操作は完了している可能性があります。",
-			marketGoneRecord: "マーケットが DSH からアンロードされたため、この操作の結果はありません。再起動後、「インストール済み」で確認してください。",
+			marketGoneRecord: "マーケットが DSH からアンロードされたため、この操作の結果は届きませんでした。マーケットが戻ったら、「インストール済み」で確認してください。",
+			marketGoneReconnecting: "再接続しています…",
+			marketGoneReconnect: "再接続",
 			loadFail: "プラグインカタログの読み込みに失敗しました。しばらくしてから再試行してください",
 			loadRetry: "再試行",
 			installFail: "インストールに失敗しました",
@@ -7808,6 +7814,9 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 		const HOST_DEPENDENCY_PREVIEW_LIMIT = 5;
 		/** After this long without a structured phase, the install line adds a note that waiting is normal (#1011). */
 		const SLOW_INSTALL_SECONDS = 90;
+		/** How long the page keeps asking for a market DSH unloaded, and how long one ask may take (#1151). */
+		const RECONNECT_BUDGET_MS = 9e4;
+		const RECONNECT_REQUEST_MS = 4e3;
 		const IGNORED_UPDATES_SESSION_KEY = "dshm-updates-ignored";
 		const UNAVAILABLE_HOST_COMPATIBILITY = {
 			status: "unknown",
@@ -10070,6 +10079,8 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 			* exactly why it owes the user this sentence instead of a spinner.
 			*/
 			const [marketGone, setMarketGone] = (0, react.useState)(false);
+			const [reconnecting, setReconnecting] = (0, react.useState)(true);
+			const [reconnectRound, setReconnectRound] = (0, react.useState)(0);
 			const [installed, setInstalledState] = (0, react.useState)(cachedInstalled ?? {});
 			const setInstalled = (0, react.useCallback)((value) => {
 				cachedInstalled = value;
@@ -11150,6 +11161,66 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					setLoadError(error instanceof Error ? error.message : String(error));
 				});
 			}, [noteMarketGone, t]);
+			/**
+			* Come back when the routes do (#1151).
+			*
+			* A 404 is how the page learns DSH unloaded the market, but DSH usually
+			* mounts it again within seconds: it reloads plugins around an install or
+			* an update, and the market is one of them. The page used to stay on "stopped"
+			* for good, so the user restarted DSH — which also killed whatever the host
+			* was still doing. Read-only on purpose: only `status` is asked, never a
+			* request that changes anything, and nothing that was in flight is replayed.
+			*/
+			(0, react.useEffect)(() => {
+				if (!marketGone) return;
+				setReconnecting(true);
+				const startedAt = Date.now();
+				let wait = 1e3;
+				let timer;
+				let inFlight;
+				let stopped = false;
+				const attempt = async () => {
+					inFlight = new AbortController();
+					const cutoff = setTimeout(() => inFlight?.abort(), RECONNECT_REQUEST_MS);
+					try {
+						const res = await fetch(api("/dsh-crate/status"), {
+							cache: "no-store",
+							signal: inFlight.signal
+						});
+						const status = res.ok ? await res.json() : null;
+						if (!stopped && status !== null && typeof status === "object" && typeof status.boot === "string") {
+							setMarketGone(false);
+							loadCatalog();
+							refreshInstalled();
+							return;
+						}
+					} catch {} finally {
+						clearTimeout(cutoff);
+					}
+					if (stopped) return;
+					if (Date.now() - startedAt >= RECONNECT_BUDGET_MS) {
+						setReconnecting(false);
+						return;
+					}
+					timer = setTimeout(() => {
+						attempt();
+					}, wait);
+					wait = Math.min(wait * 2, 5e3);
+				};
+				timer = setTimeout(() => {
+					attempt();
+				}, wait);
+				return () => {
+					stopped = true;
+					clearTimeout(timer);
+					inFlight?.abort();
+				};
+			}, [
+				marketGone,
+				reconnectRound,
+				loadCatalog,
+				refreshInstalled
+			]);
 			const loadHostCompatibility = (0, react.useCallback)(async (names) => {
 				const unique = [...new Set(names)].filter((name) => {
 					if (name === "" || hostCompatibilitySettled(name) || hostCompatibilityInFlight.has(name)) return false;
@@ -11616,36 +11687,20 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					root.style.removeProperty("--dshm-head-h");
 				};
 			}, [surface, themesFullscreen]);
-			const { plugins: pluginsAll, hostHiddenCount } = (0, react.useMemo)(() => {
-				if (data === null) return {
-					plugins: [],
-					hostHiddenCount: 0
-				};
+			const pluginsAll = (0, react.useMemo)(() => {
+				if (data === null) return [];
 				const query = {
 					category: cat,
 					query: q,
 					lang,
 					categories: data.categories,
 					sort: `${sortField}-${sortDir}`,
-					sinceDays: timeRange === "all" ? void 0 : TIME_RANGE_DAYS[timeRange],
-					hostCompatibility
+					sinceDays: timeRange === "all" ? void 0 : TIME_RANGE_DAYS[timeRange]
 				};
-				const unfiltered = visiblePlugins(data.plugins, {
+				return visiblePlugins(data.plugins, {
 					...query,
 					compatibleWithHost: false
 				});
-				if (!compatibleWithHost) return {
-					plugins: unfiltered,
-					hostHiddenCount: 0
-				};
-				const filtered = visiblePlugins(data.plugins, {
-					...query,
-					compatibleWithHost: true
-				});
-				return {
-					plugins: filtered,
-					hostHiddenCount: unfiltered.length - filtered.length
-				};
 			}, [
 				data,
 				q,
@@ -11653,27 +11708,62 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				lang,
 				sortField,
 				sortDir,
-				timeRange,
-				hostCompatibility,
-				compatibleWithHost
+				timeRange
 			]);
 			const pluginBlocked = (plugin) => blockAliases(plugin, matchInstalledName(plugin, installed, repoIdentities, data?.plugins, repoHints)).some((name) => blockedNameSet.has(name));
-			const installedBlocked = (name) => {
-				if (blockedNameSet.has(name)) return true;
-				if (data === null) return false;
-				const spec = installed[name];
-				if (spec === void 0) return false;
-				const entry = catalogEntryForInstalled(data.plugins, name, String(spec), repoIdentities[name], repoHints[name]);
-				return entry !== void 0 && blockAliases(entry, name).some((alias) => blockedNameSet.has(alias));
-			};
+			const installedBlocked = (0, react.useMemo)(() => {
+				const compute = (name) => {
+					if (blockedNameSet.has(name)) return true;
+					if (data === null) return false;
+					const spec = installed[name];
+					if (spec === void 0) return false;
+					const entry = catalogEntryForInstalled(data.plugins, name, String(spec), repoIdentities[name], repoHints[name]);
+					return entry !== void 0 && blockAliases(entry, name).some((alias) => blockedNameSet.has(alias));
+				};
+				const cache = /* @__PURE__ */ new Map();
+				return (name) => {
+					const hit = cache.get(name);
+					if (hit !== void 0) return hit;
+					const value = compute(name);
+					cache.set(name, value);
+					return value;
+				};
+			}, [
+				data,
+				blockedNameSet,
+				installed,
+				repoIdentities,
+				repoHints
+			]);
 			const blockToggleName = (aliases) => aliases.find((name) => blockedNameSet.has(name)) ?? aliases[0];
-			const plugins = (0, react.useMemo)(() => pluginsAll.filter((plugin) => !pluginBlocked(plugin)), [
+			const pluginsUnblocked = (0, react.useMemo)(() => pluginsAll.filter((plugin) => !pluginBlocked(plugin)), [
 				pluginsAll,
 				blockedNameSet,
 				installed,
 				repoIdentities,
 				data,
 				repoHints
+			]);
+			const { plugins, hostHiddenCount } = (0, react.useMemo)(() => {
+				if (!compatibleWithHost) return {
+					plugins: pluginsUnblocked,
+					hostHiddenCount: 0
+				};
+				const compatible = (plugin) => {
+					const key = hostCompatibilityKey(plugin);
+					return key === null || hostCompatibility[key]?.status !== "incompatible";
+				};
+				let hidden = 0;
+				for (const plugin of pluginsAll) if (!compatible(plugin)) hidden += 1;
+				return {
+					plugins: pluginsUnblocked.filter(compatible),
+					hostHiddenCount: hidden
+				};
+			}, [
+				pluginsAll,
+				pluginsUnblocked,
+				compatibleWithHost,
+				hostCompatibility
 			]);
 			const recentlyAdded = (0, react.useMemo)(() => data === null || tab !== "discover" || q.trim() !== "" || cat !== "all" || timeRange !== "all" || sortField !== "downloads" || sortDir !== "desc" ? [] : visiblePlugins(data.plugins, {
 				category: "all",
@@ -15291,10 +15381,22 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 						children: marketGone ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: Market_module_css_default.empty,
 							role: "alert",
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: t("marketGoneTitle") }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-								className: Market_module_css_default.spec,
-								children: t("marketGoneBody")
-							})]
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: t("marketGoneTitle") }) }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: Market_module_css_default.spec,
+									children: t("marketGoneBody")
+								}),
+								reconnecting ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: Market_module_css_default.spec,
+									children: t("marketGoneReconnecting")
+								}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									variant: "outline",
+									size: "sm",
+									onClick: () => setReconnectRound((round) => round + 1),
+									children: t("marketGoneReconnect")
+								}) })
+							]
 						}) : tab === "backup" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: Market_module_css_default.backupGrid,
 							children: [
@@ -15661,7 +15763,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 								})]
 							})),
 							plugins.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(EmptyResults, {
-								blocked: pluginsAll.length > 0,
+								blocked: pluginsAll.length > hostHiddenCount,
 								t,
 								onClear: data.plugins.length > 0 && (q !== "" || cat !== "all" || timeRange !== "all" || compatibleWithHost) ? () => {
 									setQ("");

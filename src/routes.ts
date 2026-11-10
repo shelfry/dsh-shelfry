@@ -852,6 +852,39 @@ export function mountMarketRoutes(
       `${name}: kept off by this market's own record, while ${homePatchPath} enables it — that layer is not the one the market writes, so the market will not follow it. Move the row into this profile's cordis.patch.yml to make it stick (#519)`)
   }
 
+  /**
+   * Replay one switched-off package at boot, carrier-safe.
+   *
+   * The disable list only names a package, while a CARRIER bundle's patch
+   * also rewires foreign rows: it disables stock rows or gives them an
+   * `inject:` for a service the bundle's own gate entry provides. Disabling
+   * every matching entry would stop that gate too (the gate entry's name is
+   * `<pkg>/<row>`, so it matches the package), and the foreign rows would
+   * wait forever for a service that no longer exists — every preset pending.
+   *
+   * While such a bundle still sits in dsh.profile.bundles (an interrupted or
+   * older toggle can leave the list and the stack out of sync), reconcile it
+   * the same way the live toggle route does: remove the whole bundle so its
+   * entire patch stops applying on the next composition. Ordinary packages
+   * keep the best-effort entry disable they always had.
+   *
+   * The bundle removal edits the manifest for the NEXT composition; the
+   * current process already loaded the bundle, which is the same restart
+   * contract a live carrier toggle already has.
+   */
+  async function replayDisabledPackage(name: string): Promise<void> {
+    const carrierRows = carrierRowIds(activeProfileDir, name)
+    if (carrierRows.length > 0
+      && declaresBundle(activeProfileDir, name)
+      && readProfileBundles(activeProfileDir).includes(name)) {
+      removeProfileBundle(activeProfileDir, name)
+      logEvent('info', 'boot',
+        `${name}: carrier removed from dsh.profile.bundles during boot replay (carrier rows: ${carrierRows.join(', ')}) — restart to finish; its gate is not disabled`)
+      return
+    }
+    if (await themes.setEntryDisabled(name, true)) logEvent('info', 'boot', `plugin kept off: ${name}`)
+  }
+
   // Client-only packages (dsh.client without dsh.bundle) are invisible to the
   // bundle layer in every boot; the market shim-mounts them so their client
   // bundles are actually served.
@@ -864,7 +897,7 @@ export function mountMarketRoutes(
     for (const name of [...disabled]) {
       if (followOutsideEnable(name)) continue
       noteHomeLayerConflict(name)
-      if (await themes.setEntryDisabled(name, true)) logEvent('info', 'boot', `plugin kept off: ${name}`)
+      await replayDisabledPackage(name)
     }
   })
 
@@ -874,7 +907,13 @@ export function mountMarketRoutes(
   host.on?.('internal/plugin', (payload) => {
     const fiber = payload as { entry?: { options?: { name?: string } } }
     const name = fiber.entry?.options?.name
-    if (name !== undefined && disabled.has(name) && !followOutsideEnable(name)) void themes.setEntryDisabled(name, true)
+    if (name === undefined || !disabled.has(name) || followOutsideEnable(name)) return
+    // A carrier is reconciled by removing its bundle for the next
+    // composition, not by disabling its entries. Pushing a matching entry
+    // back down here would stop the gate foreign rows inject and re-strand
+    // them in the running process; let the restart finish the switch.
+    if (carrierRowIds(activeProfileDir, name).length > 0 && declaresBundle(activeProfileDir, name)) return
+    void themes.setEntryDisabled(name, true)
   })
   let installing = false
   let restarting = false
@@ -3386,6 +3425,11 @@ export function mountMarketRoutes(
             sendJson(response, 200, { compatibleVersion: null, reason: 'installed-version-unknown' })
             return
           }
+          // The update route's own rule (#991): the Desktop moves a stable npm
+          // install only to a stable release, so a prerelease found here would
+          // be an enabled button that answers 409 (#1161).
+          const stableOnly = upgradeOnly && config.desktopHost === true && !SELF_NAMES.has(npmName)
+            && isStableReleaseVersion(currentVersion)
           const compatibleVersion = await findCompatibleVersion(
             npmName,
             host.version,
@@ -3393,6 +3437,7 @@ export function mountMarketRoutes(
             routesFor(region).npmRegistry,
             undefined,
             currentVersion,
+            stableOnly,
           )
           // A compatible version is only advice until the release-age gate
           // agrees: the dialog says "update to X", and clicking that used to
