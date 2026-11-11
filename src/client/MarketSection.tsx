@@ -3,7 +3,7 @@
  * /dsh-crate/* host routes, with install/update/uninstall flows and the
  * pending-restart bookkeeping in sessionStorage.
  */
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode, type Ref } from 'react'
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Button,
@@ -39,7 +39,7 @@ import {
 } from './icons.ts'
 import { HostCheckbox, HostSwitch, HostTag } from './optional-primitives.ts'
 import css from './Market.module.css'
-import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK, MARK_VIEW_BOX } from './market-mark.ts'
+import { MARK_FRAME, MARK_PATH_D, MARK_STROKE_WIDTH, MARK_VIEW_BOX } from './market-mark.ts'
 import { CommentsModal } from './CommentsModal.tsx'
 import { SearchInput } from './SearchInput.tsx'
 import { downloadStatistic, downloadStatsText, starStatsText } from './download-stats.ts'
@@ -1326,22 +1326,16 @@ export function resetMarketPortalHost(): void {
 }
 
 /**
- * Official-style market glyph: the shared block-grid brand mark converted to
- * the official monochrome icon form (16×16, fill="currentColor") so it
- * follows the active theme. Mirrors the settings-nav glyph used for the
- * "market" section id — both now draw the geometry in market-mark.ts, so the
- * nav entry and the section it opens cannot drift apart.
+ * 市场品牌标记：16 视口的线条箱子，描边跟随 `currentColor`。
  *
- * Two animated forms, differing in what they are for rather than in looks:
+ * `animated`（加载态）与 `ambient`（内容页标题）叠加同一条 3s 扫光；
+ * 菜单导航与包图标保持静态，分别由 `settings-nav-icon.ts` 的 mask 与
+ * `assets/logo.svg` 负责，所以这里不需要额外的静态分支。
  *
- * - `animated` — the loading state. Motion is the whole signal, so under
- *   `prefers-reduced-motion` it still moves, just without displacement.
- * - `ambient` — the section's own heading mark. Decoration, so the same
- *   preference stops it dead.
- *
- * Both draw the one timeline in the stylesheet: the grid breathes along the
- * diagonal and the block rides in behind that wave. They share `--dshm-cycle`
- * so the block cannot arrive after the wave it is supposed to follow.
+ * 扫光靠 mask 只落在箱体线条上：一条 25° 斜向的光带在 3s 里从左侧外扫到
+ * 右侧外（前 0.9s），其余 2.1s 停在画面外。渐变用 11 档 stop 近似高斯衰减
+ * （σ ≈ 1.83 单位，半高宽约图标宽度的 27%），边缘没有硬边、不要窄成一条线。
+ * `useId` 保证同页多个标记的 mask / gradient id 不冲突。
  */
 export function MarketLogo({ size = 16, style, animated = false, ambient = false }: {
   size?: number
@@ -1349,34 +1343,50 @@ export function MarketLogo({ size = 16, style, animated = false, ambient = false
   animated?: boolean
   ambient?: boolean
 }) {
-  const moving = animated || ambient
+  const sweeping = animated || ambient
+  const uid = useId().replace(/:/gu, '')
+  const maskId = `dshm-crate-mask-${uid}`
+  const sweepId = `dshm-crate-sweep-${uid}`
+  const glyph = (
+    <>
+      <rect x={MARK_FRAME.x} y={MARK_FRAME.y} width={MARK_FRAME.width} height={MARK_FRAME.height} />
+      <path d={MARK_PATH_D} />
+    </>
+  )
   return (
     <svg width={size} height={size} viewBox={`0 0 ${MARK_VIEW_BOX} ${MARK_VIEW_BOX}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={style}>
-      <g fill="currentColor">
-        {MARK_GRID_BLOCKS.map(block => (
-          <rect
-            key={`${block.x},${block.y}`}
-            className={moving ? css.logoCell : undefined}
-            style={moving ? { '--dshm-wave': block.wave } as CSSProperties : undefined}
-            x={block.x} y={block.y} width={MARK_BLOCK_SIZE} height={MARK_BLOCK_SIZE} rx={MARK_BLOCK_RADIUS}
-          />
-        ))}
+      <g fill="none" stroke="currentColor" strokeWidth={MARK_STROKE_WIDTH} strokeLinecap="butt" strokeLinejoin="miter">
+        {glyph}
       </g>
-      {/* The block being plugged in: OUTSIDE the grid's empty corner, offset
-          (+1.28, -1.27) and tilted 9deg, exactly as in assets/logo.svg. The
-          earlier icon sat it neatly in the empty slot, which reads as one
-          crooked tile rather than a block arriving — the whole idea of the
-          mark, and the reason it no longer matched the GitHub logo.
-
-          The tilt stays a presentation attribute even in the animated forms:
-          a CSS animation outranks it while running, and when the animation is
-          suppressed (reduced motion) the attribute is what leaves the block in
-          its drawn position instead of sitting square in the corner. */}
-      <rect
-        className={animated ? css.logoPlug : ambient ? css.logoPlugAmbient : undefined}
-        x={MARK_PLUG_BLOCK.x} y={MARK_PLUG_BLOCK.y} width={MARK_BLOCK_SIZE} height={MARK_BLOCK_SIZE} rx={MARK_BLOCK_RADIUS} fill="currentColor"
-        transform={`rotate(${MARK_PLUG_BLOCK.degrees} ${MARK_PLUG_BLOCK.originX} ${MARK_PLUG_BLOCK.originY})`}
-      />
+      {sweeping && (
+        <>
+          <defs>
+            <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width={MARK_VIEW_BOX} height={MARK_VIEW_BOX}>
+              <g fill="none" stroke="#fff" strokeWidth={MARK_STROKE_WIDTH} strokeLinecap="butt" strokeLinejoin="miter">
+                {glyph}
+              </g>
+            </mask>
+            <linearGradient id={sweepId} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#fff" stopOpacity="0" />
+              <stop offset="0.1" stopColor="#fff" stopOpacity="0.003" />
+              <stop offset="0.2" stopColor="#fff" stopOpacity="0.036" />
+              <stop offset="0.3" stopColor="#fff" stopOpacity="0.216" />
+              <stop offset="0.4" stopColor="#fff" stopOpacity="0.63" />
+              <stop offset="0.5" stopColor="#fff" stopOpacity="0.9" />
+              <stop offset="0.6" stopColor="#fff" stopOpacity="0.63" />
+              <stop offset="0.7" stopColor="#fff" stopOpacity="0.216" />
+              <stop offset="0.8" stopColor="#fff" stopOpacity="0.036" />
+              <stop offset="0.9" stopColor="#fff" stopOpacity="0.003" />
+              <stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <g mask={`url(#${maskId})`}>
+            <g className={css.logoSweep}>
+              <rect x="0" y="-8" width="11" height="32" fill={`url(#${sweepId})`} transform="rotate(25 8 8)" />
+            </g>
+          </g>
+        </>
+      )}
     </svg>
   )
 }

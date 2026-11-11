@@ -602,50 +602,20 @@
 .actWhy{margin-top:2px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px;color:var(--dsw-alias-label-secondary,#9ca3af);font-size:13px}
 .spin{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-brand-primary,#4f6ef7);animation:sp .8s linear infinite}
-/* 标记的两段动作共用一条时间轴。
-   格子沿对角线呼吸（`--dshm-wave` 是每格的行 + 列），飞块跟着波浪落进刚空出来的
-   右上角，停住，再在下一轮前退出。共用一个周期是关键：飞块要读成跟在波浪后面，
-   两条独立循环只要一条改了时长就会错开。`transform-box: fill-box` 让下面的位移以
-   这一格的用户单位计；飞块本身画在槽位里，动画负责把它从外侧推回、落位。
-   两段都只动 opacity 和 transform：没有滤镜，也不引起布局。 */
+/* 品牌标记：16 视口的线条箱子，颜色取容器上的 currentColor。
+   内容页标题与加载态叠加一条 3s 一次的扫光：25° 斜向、半高宽约图标 27% 的
+   高斯光带在 mask 内从左侧外扫到右侧外，0.9s 扫完（30% 处到位），其余 2.1s
+   停在画面外。只动 transform，没有滤镜，也不引起布局。 */
 .logoMark{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-brand-primary,#4f6ef7)}
-.logoCell,.logoPlug,.logoPlugAmbient{--dshm-cycle:2.8s}
-/* The loading form is the same gesture at a working pace. It is reporting that
-   something is happening, and the block rests for roughly a third of a cycle —
-   at the ambient 2.8s that rest reads as stuck. Only the pace differs; phases,
-   geometry and curve are shared, so the two forms cannot drift apart in shape. */
-.logoMark .logoCell,.logoMark .logoPlug{--dshm-cycle:2s}
-/* The cell's place on the diagonal, set per cell from market-mark.ts. Declared
-   here as well, because the stylesheet is where it is read: a variable that
-   exists only as an inline style is indistinguishable from a host variable that
-   does not exist, which is what tests/client/host-theme-vars.spec.ts guards. */
-.logoCell{--dshm-wave:0;animation:dshmMarkWave var(--dshm-cycle) cubic-bezier(.4,0,.2,1) infinite;animation-delay:calc(var(--dshm-wave) * 110ms)}
-.logoPlug,.logoPlugAmbient{transform-box:fill-box;transform-origin:50% 50%;animation:dshmMarkPlug var(--dshm-cycle) cubic-bezier(.4,0,.2,1) infinite}
-/* 暗下去的时间刻意很短。拖长到四分之一周期（普通“呼吸”循环的做法）会让大部分
-   格子在任一时刻都不满亮，18px 下整块一起发灰——读起来像加载骨架，而不是波浪。
-   每格占周期的十分之一、按 110ms 递进，暗带只有约两格宽，眼睛看到的是划过的
-   阴影，其余格子保持实心。 */
-@keyframes dshmMarkWave{
-  0%,100%{opacity:1}
-  6%{opacity:.5}
-  16%{opacity:1}
+.logoSweep{animation:dshmCrateSweep 3s linear infinite}
+@keyframes dshmCrateSweep{
+  0%{transform:translateX(-13px)}
+  30%,100%{transform:translateX(18px)}
 }
-/* 飞块跟在波浪后面：它要填的右上槽位是 `wave` 1，约 10% 处暗下去、20% 前回亮，
-   30% 时落位。22% 处多冲一点点（约十分之一个格），让它“落”进角落而不是停在上面，
-   然后保持到 62%，再在下一轮前抽走。 */
-@keyframes dshmMarkPlug{
-  0%,8%{transform:translate(1.35px,-1.35px) rotate(9deg)}
-  22%{transform:translate(-0.11px,0.11px) rotate(0)}
-  30%,62%{transform:translate(0,0) rotate(0)}
-  76%,100%{transform:translate(1.35px,-1.35px) rotate(9deg)}
-}
-/* A reader who asked for less motion gets a still mark — except in the loading
-   state, where motion is the signal and suppressing it would leave nothing to
-   say "working". There the block keeps its drawn position (the rect's own
-   transform attribute, which a running animation outranks) and breathes. */
+/* A reader who asked for less motion gets a still mark: the sweep is
+   decoration, and the loading row still carries its own text. */
 @media (prefers-reduced-motion: reduce){
-  .logoCell,.logoPlugAmbient{animation:none}
-  .logoPlug{animation:dshmPlugFade 1.5s ease-in-out infinite}
+  .logoSweep{display:none}
   .spin{animation:dshmPlugFade 1.5s ease-in-out infinite}
 }
 @keyframes dshmPlugFade{0%,100%{opacity:1}50%{opacity:.35}}

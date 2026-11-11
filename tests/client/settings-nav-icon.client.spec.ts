@@ -24,7 +24,7 @@ import {
   marketMaskUrl,
   navIconCss,
 } from '../../src/client/settings-nav-icon.ts'
-import { MARK_BLOCK_RADIUS, MARK_BLOCK_SIZE, MARK_GRID_BLOCKS, MARK_PLUG_BLOCK } from '../../src/client/market-mark.ts'
+import { MARK_FRAME, MARK_PATH_D, MARK_STROKE_WIDTH } from '../../src/client/market-mark.ts'
 
 /** The shell's own fallback glyph, as the row receives it. */
 const GEAR = '<svg class="VOzbGW_navIcon" viewBox="0 0 16 16"></svg>'
@@ -128,19 +128,17 @@ describe('settings nav glyph', () => {
     await flush()
 
     const svg = decodeURIComponent(marketMaskUrl().replace('data:image/svg+xml,', ''))
-    expect(svg.match(/<rect/g)).toHaveLength(MARK_GRID_BLOCKS.length + 1)
-    for (const block of MARK_GRID_BLOCKS) {
-      expect(svg).toContain(`<rect x="${block.x}" y="${block.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}" rx="${MARK_BLOCK_RADIUS}"/>`)
-    }
-    expect(svg).toContain(`x="${MARK_PLUG_BLOCK.x}" y="${MARK_PLUG_BLOCK.y}"`)
-    expect(svg).toContain(`transform="rotate(${MARK_PLUG_BLOCK.degrees} ${MARK_PLUG_BLOCK.originX} ${MARK_PLUG_BLOCK.originY})"`)
+    expect(svg.match(/<rect/gu)).toHaveLength(1)
+    expect(svg).toContain(`<rect x="${MARK_FRAME.x}" y="${MARK_FRAME.y}" width="${MARK_FRAME.width}" height="${MARK_FRAME.height}"/>`)
+    expect(svg).toContain(`<path d="${MARK_PATH_D}"/>`)
+    expect(svg).toContain(`stroke-width="${MARK_STROKE_WIDTH}"`)
 
     // And the section must not have gone back to carrying its own copy of the
     // numbers: a second copy is how the nav entry and the page it opens drift.
     const section = readFileSync(resolve('src/client/MarketSection.tsx'), 'utf8')
-    expect(section).toContain('MARK_GRID_BLOCKS')
-    expect(section).not.toContain('x="1.96"')
-    expect(section).not.toContain('x="10.74"')
+    expect(section).toContain('MARK_PATH_D')
+    expect(section).toContain('MARK_STROKE_WIDTH')
+    expect(section).not.toContain('M0.5 3.5H12.5M12.5')
   })
 
   it('leaves no marker and no stylesheet behind when the fiber goes away', async () => {

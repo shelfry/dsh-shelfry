@@ -1,37 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t">
   <title id="t">crate</title>
-  <!-- 品牌标记：四个方块，右上那一块会从外侧飞进来落位。
-       波浪按对角线依次变暗，飞块同时参与波浪，节奏与上游 dsh-market 一致。 -->
-  <style>
-    .cell{ animation: dshmWave 2.8s cubic-bezier(.4,0,.2,1) infinite; animation-delay: calc(var(--w) * 200ms); }
-    .plug{
-      transform-box: fill-box;
-      transform-origin: 50% 50%;
-      animation:
-        dshmWave 2.8s cubic-bezier(.4,0,.2,1) 200ms infinite,
-        dshmPlug 2.8s cubic-bezier(.4,0,.2,1) infinite;
-    }
-    @keyframes dshmWave{
-      0%,100%{ opacity: 1; }
-      6%{ opacity: .5; }
-      16%{ opacity: 1; }
-    }
-    @keyframes dshmPlug{
-      0%,8%{ transform: translate(12px,-12px) rotate(9deg); }
-      22%{ transform: translate(-1px,1px) rotate(0deg); }
-      30%,62%{ transform: translate(0,0) rotate(0deg); }
-      76%,100%{ transform: translate(12px,-12px) rotate(9deg); }
-    }
-    @media (prefers-reduced-motion: reduce){
-      .cell,.plug{ animation: none; }
-    }
-  </style>
-  <rect width="128" height="128" rx="28" fill="#f6f2ea"/>
-  <!-- 四格整体缩到 90%：飞块位移 12px 时外角仍留在圆角底板内。 -->
-  <g fill="#2b2620" transform="translate(6.4 6.4) scale(0.9)">
-    <rect class="cell" style="--w:0" x="16" y="16" width="44" height="44" rx="7"/>
-    <rect class="cell" style="--w:1" x="16" y="68" width="44" height="44" rx="7"/>
-    <rect class="cell" style="--w:2" x="68" y="68" width="44" height="44" rx="7"/>
-    <rect class="plug" x="68" y="16" width="44" height="44" rx="7"/>
+  <!-- 品牌标记：奶油圆角底板 + 线条箱体，与网站头部、favicon 同一套几何。
+       坐标沿用 16 视口，整体放大 6 倍落在 96×96 的安全区里。 -->
+  <rect width="128" height="128" rx="16" fill="#f6f2ea"/>
+  <g transform="translate(16 16) scale(6)" fill="none" stroke="#192c38" stroke-width="1.25" stroke-linecap="butt" stroke-linejoin="miter">
+    <rect x="0.5" y="0.5" width="15" height="15"/>
+    <path d="M0.5 3.5H12.5"/>
+    <path d="M12.5 0.5V12.5"/>
+    <path d="M3.5 12.5H15.5"/>
+    <path d="M3.5 3.5V15.5"/>
+    <path d="M6.5 3.5V12.5"/>
+    <path d="M9.5 3.5V12.5"/>
   </g>
 </svg>

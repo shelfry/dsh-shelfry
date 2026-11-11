@@ -168,19 +168,10 @@ describe('discover cards hover wash; Install fills on the button', () => {
 })
 
 /**
- * The animated mark is one gesture, not two animations (#964 follow-up).
- *
- * It has two parts — the grid's breath and the block that plugs into the empty
- * corner — and they only read as one thing because the block arrives *behind*
- * the wave. Give them independent durations and they drift apart within a
- * couple of cycles; then the block lands after the wave it is supposed to
- * follow, which is exactly the "two unrelated loops" the pairing exists to
- * avoid. So both halves take their duration from `--dshm-cycle` and neither may
- * restate it.
- *
- * The reduced-motion split is asserted for the opposite reason: the two forms
- * *must* differ there. The ambient mark is decoration and stops; the loading
- * mark is the only signal that something is happening, so it keeps breathing.
+ * The mark's sweep is a single 3s loop (#964 follow-up): a soft band crosses
+ * the crate in the first 0.9s and then stays off-canvas for the remaining
+ * 2.1s. One animation, so the content heading and the loading state cannot
+ * drift into two unrelated rhythms.
  */
 /**
  * Every rule in the file, with selector LISTS split apart, over the stylesheet
@@ -205,25 +196,19 @@ function animationValues(selector: string): string[] {
     .filter((value): value is string => value !== undefined)
 }
 
-describe('the animated mark keeps both halves on one clock', () => {
-  const halves = ['logoCell', 'logoPlug'] as const
-
-  it('takes the wave and the block from the same cycle variable', () => {
-    for (const half of halves) {
-      const declared = animationValues(half).filter(value => value.includes('dshmMark'))
-      expect(declared.length, `.${half} has no mark animation`).toBeGreaterThan(0)
-      for (const value of declared) expect(value).toContain('var(--dshm-cycle)')
-    }
+describe('the mark sweeps once every three seconds', () => {
+  it('declares one linear 3s sweep', () => {
+    const declared = animationValues('logoSweep')
+    expect(declared, '.logoSweep has no sweep animation').toContain('dshmCrateSweep 3s linear infinite')
   })
 
-  it('never restates the cycle as a literal on either half', () => {
-    const restated = halves
-      .flatMap(half => animationValues(half))
-      .filter(value => value.includes('dshmMark') && /\d*\.?\d+m?s\b/.test(value))
-    expect(restated).toEqual([])
+  it('keeps the band off-canvas between sweeps', () => {
+    expect(CSS).toContain('@keyframes dshmCrateSweep')
+    expect(CSS).toContain('transform:translateX(-13px)')
+    expect(CSS).toContain('30%,100%{transform:translateX(18px)}')
   })
 
-  it('stops the ambient form but keeps the loading form moving', () => {
+  it('hides the sweep when reduced motion is requested', () => {
     const start = CSS.indexOf('@media (prefers-reduced-motion: reduce)')
     expect(start, 'there is no reduced-motion block').toBeGreaterThan(-1)
     // to the end of that at-rule, by brace depth
@@ -234,7 +219,6 @@ describe('the animated mark keeps both halves on one clock', () => {
       else if (CSS[i] === '}') { depth -= 1; if (depth === 0) { end = i; break } }
     }
     const block = CSS.slice(start, end)
-    expect(block).toContain('.logoPlugAmbient{animation:none}')
-    expect(block).toMatch(/\.logoPlug\{animation:dshmPlugFade/)
+    expect(block).toContain('.logoSweep{display:none}')
   })
 })

@@ -1,5 +1,5 @@
 /**
- * The market's block mark in the settings navigation.
+ * The market's crate mark in the settings navigation.
  *
  * Hosts before dsh 0.2.2 pick nav glyphs from a closed list of section ids
  * (`models`, `agent-presets`, `plugins`) and fall back to the gear for every
@@ -28,10 +28,9 @@
  * module once those hosts are gone.
  */
 import {
-  MARK_BLOCK_RADIUS,
-  MARK_BLOCK_SIZE,
-  MARK_GRID_BLOCKS,
-  MARK_PLUG_BLOCK,
+  MARK_FRAME,
+  MARK_PATH_D,
+  MARK_STROKE_WIDTH,
   MARK_VIEW_BOX,
 } from './market-mark.ts'
 
@@ -57,21 +56,16 @@ export const NAV_ICON_SIZE = 16
  * The mark as standalone SVG for a CSS `mask-image`.
  *
  * Painted pure black on purpose: a mask reads alpha only, and the visible
- * colour comes from the element's `background-color: currentColor`. The
- * plug block carries its tilt without the animated variant's transform
- * classes — a mask cannot animate through CSS-module classes.
+ * colour comes from the element's `background-color: currentColor`. 菜单里的
+ * 图标保持静态——扫光只属于内容页标题与加载态（见 `MarketLogo`）。
  */
 export function marketMaskSvg(): string {
-  const blocks = MARK_GRID_BLOCKS
-    .map(block => `<rect x="${block.x}" y="${block.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}" rx="${MARK_BLOCK_RADIUS}"/>`)
-    .join('')
-  const plug = MARK_PLUG_BLOCK
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '
-    + `${MARK_VIEW_BOX} ${MARK_VIEW_BOX}" fill="#000">`
-    + `<g>${blocks}</g>`
-    + `<rect x="${plug.x}" y="${plug.y}" width="${MARK_BLOCK_SIZE}" height="${MARK_BLOCK_SIZE}"`
-    + ` rx="${MARK_BLOCK_RADIUS}" transform="rotate(${plug.degrees} ${plug.originX} ${plug.originY})"/>`
-    + '</svg>'
+    + `${MARK_VIEW_BOX} ${MARK_VIEW_BOX}" fill="none">`
+    + `<g fill="none" stroke="#000" stroke-width="${MARK_STROKE_WIDTH}" stroke-linecap="butt" stroke-linejoin="miter">`
+    + `<rect x="${MARK_FRAME.x}" y="${MARK_FRAME.y}" width="${MARK_FRAME.width}" height="${MARK_FRAME.height}"/>`
+    + `<path d="${MARK_PATH_D}"/>`
+    + '</g></svg>'
 }
 
 /** The mask URL for the mark (encoded at runtime, never hand-escaped). */

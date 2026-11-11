@@ -1,49 +1,31 @@
 /**
- * 品牌标记的几何定义，与 `assets/logo.svg` 的四格设计一致。
+ * 品牌标记的几何定义，与 `assets/logo.svg` 的箱子设计一致。
  *
  * 两个消费方共用同一份坐标，避免走样：
  *
- * - `MarketLogo`（MarketSection.tsx）渲染成普通 React SVG，颜色取 `currentColor`，
- *   动画版本再叠加波浪与飞块；
+ * - `MarketLogo`（MarketSection.tsx）渲染成普通 React SVG，颜色取 `currentColor`；
+ *   内容页标题与加载态再叠加一条扫光；
  * - `settings-nav-icon.ts` 序列化成 CSS mask，供设置导航图标使用（mask 不能取
  *   `currentColor`，所以需要独立的静态标记）。
  *
- * 标记是 2×2 四格：左上、左下、右下三格常驻，右上是待飞入的第四格。
+ * 标记是一个 16 视口的线条箱体：外框 + 一组内缩的横档/竖档 + 两块竖板。
  */
-
-/** 单格边长与圆角。 */
-export const MARK_BLOCK_SIZE = 4.95
-export const MARK_BLOCK_RADIUS = 0.7875
 
 /** 标记所在正方形的坐标系。 */
 export const MARK_VIEW_BOX = 16
 
 /**
- * 常驻的三个格子，按行优先排列。右上角留空，等第四块飞入。
- *
- * `wave` 是 2×2 网格里的对角线序号（行 + 列）。动画按它错开，让明暗沿对角线
- * 划过；空位是 `wave` 1，飞块的时序也按它对齐（见 `dshmMarkPlug`）。
+ * 描边宽度。坐标都落在 0.5 的偏移上，1.25 在 16px 下是一条实心线加一点边缘过渡；
+ * 放大到 18–26px 时仍保持同样的视觉重量。
  */
-export const MARK_GRID_BLOCKS: readonly {
-  readonly x: number
-  readonly y: number
-  readonly wave: number
-}[] = [
-  { x: 2.6, y: 2.6, wave: 0 },
-  { x: 2.6, y: 8.45, wave: 1 },
-  { x: 8.45, y: 8.45, wave: 2 },
-]
+export const MARK_STROKE_WIDTH = 1.25
+
+/** 外框：0.5 偏移，15 边长。 */
+export const MARK_FRAME = { x: 0.5, y: 0.5, width: 15, height: 15 } as const
 
 /**
- * 第四块：静止时落在右上角，与 `assets/logo.svg` 的落位帧一致；
- * 飞入前的位移由 CSS 动画负责，所以静态标记（导航 mask、非动画渲染）
- * 就是完整的 2×2 四格。
+ * 箱体其余线条：上横档、右竖档、下横档、左竖档，以及两块竖板。
+ * 合并成一条路径，React 与 mask 序列化共用同一个字符串。
  */
-export const MARK_PLUG_BLOCK = {
-  x: 8.45,
-  y: 2.6,
-  degrees: 0,
-  /** 旋转原点：飞块自身中心。 */
-  originX: 10.925,
-  originY: 5.075,
-} as const
+export const MARK_PATH_D
+  = 'M0.5 3.5H12.5M12.5 0.5V12.5M3.5 12.5H15.5M3.5 3.5V15.5M6.5 3.5V12.5M9.5 3.5V12.5'

@@ -13,10 +13,9 @@ import { describe, expect, it } from 'vitest'
 
 import { en, ja, zh } from '../src/client/locales.ts'
 import {
-  MARK_BLOCK_RADIUS,
-  MARK_BLOCK_SIZE,
-  MARK_GRID_BLOCKS,
-  MARK_PLUG_BLOCK,
+  MARK_FRAME,
+  MARK_PATH_D,
+  MARK_STROKE_WIDTH,
   MARK_VIEW_BOX,
 } from '../src/client/market-mark.ts'
 import {
@@ -184,22 +183,21 @@ describe('C. 品牌文案', () => {
 })
 
 describe('D. 视觉与几何', () => {
-  it('20. 四格标记的几何常量未走样', () => {
-    expect(MARK_BLOCK_SIZE).toBe(4.95)
-    expect(MARK_BLOCK_RADIUS).toBe(0.7875)
+  it('20. 箱子标记的几何常量未走样', () => {
     expect(MARK_VIEW_BOX).toBe(16)
-    expect(MARK_GRID_BLOCKS.map(block => [block.x, block.y, block.wave])).toEqual([
-      [2.6, 2.6, 0],
-      [2.6, 8.45, 1],
-      [8.45, 8.45, 2],
-    ])
-    expect(MARK_PLUG_BLOCK).toEqual({ x: 8.45, y: 2.6, degrees: 0, originX: 10.925, originY: 5.075 })
+    expect(MARK_STROKE_WIDTH).toBe(1.25)
+    expect(MARK_FRAME).toEqual({ x: 0.5, y: 0.5, width: 15, height: 15 })
+    expect(MARK_PATH_D).toBe(
+      'M0.5 3.5H12.5M12.5 0.5V12.5M3.5 12.5H15.5M3.5 3.5V15.5M6.5 3.5V12.5M9.5 3.5V12.5',
+    )
   })
 
-  it('21. 飞块动画仍由样式表提供', () => {
+  it('21. 内容页的扫光仍由样式表提供', () => {
     const css = readSrc('client/Market.module.css')
-    expect(css).toContain('@keyframes dshmMarkPlug')
-    expect(css).toContain('animation:dshmMarkPlug')
+    expect(css).toContain('@keyframes dshmCrateSweep')
+    expect(css).toContain('animation:dshmCrateSweep 3s linear infinite')
+    // 减少动态效果时扫光直接隐藏，不留一个停住的亮条。
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\{[^}]*\.logoSweep\{display:none\}/u)
   })
 
   it('22. 设置导航图标的标记与尺寸未变', () => {
@@ -212,11 +210,10 @@ describe('D. 视觉与几何', () => {
 
     const svg = marketMaskSvg()
     expect(svg).toContain(`viewBox="0 0 ${MARK_VIEW_BOX} ${MARK_VIEW_BOX}"`)
-    expect(svg.match(/<rect/gu)).toHaveLength(4)
-    for (const block of MARK_GRID_BLOCKS) {
-      expect(svg).toContain(`x="${block.x}"`)
-    }
-    expect(svg).toContain(`x="${MARK_PLUG_BLOCK.x}"`)
+    expect(svg.match(/<rect/gu)).toHaveLength(1)
+    expect(svg).toContain(`<rect x="${MARK_FRAME.x}" y="${MARK_FRAME.y}" width="${MARK_FRAME.width}" height="${MARK_FRAME.height}"/>`)
+    expect(svg).toContain(`<path d="${MARK_PATH_D}"/>`)
+    expect(svg).toContain(`stroke-width="${MARK_STROKE_WIDTH}"`)
   })
 })
 
