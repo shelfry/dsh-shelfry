@@ -45,12 +45,14 @@ export const NAV_ICON_MARKER = 'data-dsh-crate-nav-icon'
 export const NAV_ROW_SELECTOR = '[role="dialog"] nav button'
 
 /**
- * Glyph box in px. The shell renders every nav icon at this size and ships no
- * media query at all; the only thing that ever shrinks those icons is another
- * plugin's mobile stylesheet, which is not this module's business to
- * second-guess. So there is deliberately no narrow variant here.
+ * Glyph box in px. 比宿主默认的 16px 收小一档：线条箱体在同样行高下
+ * 视觉重量偏大，14px 与相邻菜单项更齐。The shell renders every nav icon at
+ * this size and ships no media query at all; the only thing that ever shrinks
+ * those icons is another plugin's mobile stylesheet, which is not this
+ * module's business to second-guess. So there is deliberately no narrow
+ * variant here.
  */
-export const NAV_ICON_SIZE = 16
+export const NAV_ICON_SIZE = 14
 
 /**
  * The mark as standalone SVG for a CSS `mask-image`.

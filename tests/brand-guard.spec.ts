@@ -202,7 +202,7 @@ describe('D. 视觉与几何', () => {
 
   it('22. 设置导航图标的标记与尺寸未变', () => {
     expect(NAV_ICON_MARKER).toBe('data-dsh-crate-nav-icon')
-    expect(NAV_ICON_SIZE).toBe(16)
+    expect(NAV_ICON_SIZE).toBe(14)
   })
 
   it('23. 导航掩膜复用同一份几何，且 logo 文件存在', () => {
@@ -263,10 +263,10 @@ describe('F. 导航图标定制', () => {
 
   it('31. 导航图标尺寸与掩膜样式未变', () => {
     const css = navIconCss('url(mask)')
-    expect(css).toContain('width: 16px')
-    expect(css).toContain('height: 16px')
+    expect(css).toContain('width: 14px')
+    expect(css).toContain('height: 14px')
     expect(css).toContain('background-color: currentColor')
-    expect(css).toContain('mask-size: 16px 16px')
+    expect(css).toContain('mask-size: 14px 14px')
   })
 
   it('32. 只给本插件行打标记，其余行清除', () => {

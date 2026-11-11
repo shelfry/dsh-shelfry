@@ -18617,8 +18617,8 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				`[${NAV_ICON_MARKER}]::before {`,
 				`  content: '';`,
 				`  flex: none;`,
-				`  width: 16px;`,
-				`  height: 16px;`,
+				`  width: 14px;`,
+				`  height: 14px;`,
 				`  background-color: currentColor;`,
 				`  -webkit-mask-image: url("${maskUrl}");`,
 				`  mask-image: url("${maskUrl}");`,
@@ -18626,8 +18626,8 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				`  mask-repeat: no-repeat;`,
 				`  -webkit-mask-position: center;`,
 				`  mask-position: center;`,
-				`  -webkit-mask-size: 16px 16px;`,
-				`  mask-size: 16px 16px;`,
+				`  -webkit-mask-size: 14px 14px;`,
+				`  mask-size: 14px 14px;`,
 				`}`
 			].join("\n");
 		}
@@ -18894,7 +18894,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				const off = ctx.slots.register({
 					name: "settings.section.icon",
 					id: "market"
-				}, (owner = {}) => (0, react.createElement)(MarketLogo, { size: owner.size ?? 16 }));
+				}, (owner = {}) => (0, react.createElement)(MarketLogo, { size: owner.size ?? 14 }));
 				return typeof off === "function" ? off : () => {};
 			});
 			if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t("nav"));

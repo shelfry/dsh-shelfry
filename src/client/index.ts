@@ -185,7 +185,7 @@ function mountMarket(ctx: MarketClientContext): void {
     const off = ctx.slots.register({
       name: 'settings.section.icon',
       id: 'market',
-    }, (owner: { size?: number } = {}) => h(MarketLogo, { size: owner.size ?? 16 }))
+    }, (owner: { size?: number } = {}) => h(MarketLogo, { size: owner.size ?? 14 }))
     return typeof off === 'function' ? off as () => void : () => {}
   })
   if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t('nav'))
