@@ -18894,7 +18894,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				const off = ctx.slots.register({
 					name: "settings.section.icon",
 					id: "market"
-				}, (owner = {}) => (0, react.createElement)(MarketLogo, { size: owner.size ?? 14 }));
+				}, () => (0, react.createElement)(MarketLogo, { size: 14 }));
 				return typeof off === "function" ? off : () => {};
 			});
 			if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t("nav"));
@@ -18982,7 +18982,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					order: 1,
 					label: () => t("nav"),
 					locale: NS
-				}, ((owner = {}) => (0, react.createElement)(MarketLogo, { size: owner.size ?? 16 })));
+				}, (() => (0, react.createElement)(MarketLogo, { size: 14 })));
 				return () => {
 					if (layout?.panelInfo.getSnapshot().activePanelId === "dsh-crate") layout.selectPanel(null);
 					if (typeof offRow === "function") offRow();

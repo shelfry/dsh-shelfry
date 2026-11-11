@@ -61,7 +61,8 @@ describe('settings nav icon on dsh 0.2.2 (#1115)', () => {
 
     const icon = iconOf(registrations)
     expect(icon?.options.id).toBe('market')
-    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 20 }))
+    // 宿主传 20 也只画 14：菜单标记的尺寸由插件固定，避免宿主默认值把它撑大。
+    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 14 }))
     expect(document.head.querySelector(STYLESHEET)).toBeNull()
   })
 
