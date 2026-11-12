@@ -1777,7 +1777,7 @@ describe('dropReleaseAgeExcludes with keepVersion, the update side (#1093)', () 
     const dir = workspace(original)
 
     expect(dropReleaseAgeExcludes('web', 'typescript', undefined, '1.1.0')).toEqual([])
-    expect(dropReleaseAgeExcludes('web', 'dshmarket', undefined, '1.1.0')).toEqual([])
+    expect(dropReleaseAgeExcludes('web', 'dsh-crate', undefined, '1.1.0')).toEqual([])
     expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(original)
   })
 

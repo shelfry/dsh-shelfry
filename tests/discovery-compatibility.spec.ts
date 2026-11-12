@@ -253,7 +253,7 @@ describe('DiscoveryManifestIndex', () => {
   it('keeps a whole catalog-sized scan cached, not just its last 5,000 (#1170)', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     directories.push(directory)
-    const cache = join(directory, '.dsh-market', 'discovery.json')
+    const cache = join(directory, '.dsh-crate', 'discovery.json')
     const names = Array.from({ length: 5_300 }, (_, i) => `plugin-${String(i)}`)
     let clock = 1_000
     const fetcher = async (): Promise<Response> => new Response(JSON.stringify({ version: '1.0.0' }), { status: 200 })
@@ -525,10 +525,10 @@ describe('host core packages declared as ordinary dependencies', () => {
     // from becoming a thousand registry requests.
     const directory = mkdtempSync(join(tmpdir(), 'dshm-discovery-'))
     temporary.push(directory)
-    const cache = join(directory, '.dsh-market', 'discovery.json')
-    mkdirSync(join(directory, '.dsh-market'), { recursive: true })
+    const cache = join(directory, '.dsh-crate', 'discovery.json')
+    mkdirSync(join(directory, '.dsh-crate'), { recursive: true })
     writeFileSync(cache, JSON.stringify({
-      schema: 'dsh-market/discovery-compatibility-cache/v1',
+      schema: 'dsh-crate/discovery-compatibility-cache/v1',
       entries: {
         'plugin-a': {
           checkedAt: 1_000,

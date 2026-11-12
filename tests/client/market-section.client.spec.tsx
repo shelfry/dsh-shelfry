@@ -4762,7 +4762,7 @@ describe('#60 groups view', () => {
     }
     expect(expand).toHaveProperty('disabled', true)
     expect(screen.getByText('dsh-loop')).toBeTruthy()
-    expect(fetchCalls.filter(call => call.path === '/dsh-market/groups' || call.path === '/dsh-market/toggle')).toEqual([])
+    expect(fetchCalls.filter(call => call.path === '/dsh-crate/groups' || call.path === '/dsh-crate/toggle')).toEqual([])
   })
 
   it('reveals search matches inside bulk-collapsed groups and restores folding when search clears (#1129)', async () => {
@@ -10249,17 +10249,17 @@ describe('when DSH has unloaded the market (#962)', () => {
       let uninstallStarted = false
       vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url).split('?')[0]
-        if (path === '/dsh-market/uninstall') {
+        if (path === '/dsh-crate/uninstall') {
           uninstallStarted = true
           return new Promise<Response>(() => {})
         }
-        if (path === '/dsh-market/status' && uninstallStarted) return Promise.resolve(new Response('', { status: 404 }))
+        if (path === '/dsh-crate/status' && uninstallStarted) return Promise.resolve(new Response('', { status: 404 }))
         const payload =
-          path === '/dsh-market/registry' ? { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' }
-          : path === '/dsh-market/installed' ? { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] }
-          : path === '/dsh-market/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } }
-          : path === '/dsh-market/updates' ? { updates: {} }
-          : path === '/dsh-market/discovery-compatibility' ? { hostVersion: '0.1.2-alpha.2', plugins: {} }
+          path === '/dsh-crate/registry' ? { source: 'live', registry: REGISTRY, hostVersion: '0.1.2-alpha.2' }
+          : path === '/dsh-crate/installed' ? { profile: 'web', installed: { 'dsh-loop': '^1.0.0' }, live: [], disabled: [], groups: {}, groupOrder: [], favorites: [], blocked: [] }
+          : path === '/dsh-crate/status' ? { active: false, pnpm: true, boot: 'boot-1', restart: true, installed: { 'dsh-loop': '^1.0.0' } }
+          : path === '/dsh-crate/updates' ? { updates: {} }
+          : path === '/dsh-crate/discovery-compatibility' ? { hostVersion: '0.1.2-alpha.2', plugins: {} }
           : null
         if (payload === null) return Promise.reject(new Error(`unstubbed fetch: ${String(url)}`))
         return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))

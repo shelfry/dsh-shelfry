@@ -27,7 +27,7 @@ describe.skipIf(!dshAvailable()).sequential('web e2e: bulk group controls (#1129
     expect(response.status, `fixture setup: ${path}`).toBe(200)
     expect(await response.json()).toMatchObject({ ok: true })
   }
-  const market = () => page.locator('[data-dsh-market-root]:visible').last()
+  const market = () => page.locator('[data-dsh-crate-root]:visible').last()
   const groupToggles = () => market().locator('[class*="groupHead"] > button[aria-expanded]')
   const screenshot = async (name: string): Promise<void> => {
     if (!SCREENSHOTS) return
@@ -38,11 +38,11 @@ describe.skipIf(!dshAvailable()).sequential('web e2e: bulk group controls (#1129
   beforeAll(async () => {
     scaffold = await launchMarketScaffold({ fixtures: ['fixture-a', 'fixture-b'] })
     for (const name of [A, B]) {
-      await post('/dsh-market/install', { url: `https://github.com/dshm-e2e/${name}` })
+      await post('/dsh-crate/install', { url: `https://github.com/dshm-e2e/${name}` })
     }
     for (const [name, members] of [['Daily work', [A]], ['Review', [B]], ['Empty group', []]] as const) {
-      await post('/dsh-market/groups', { action: 'create', name })
-      if (members.length > 0) await post('/dsh-market/groups', { action: 'set-members', name, members })
+      await post('/dsh-crate/groups', { action: 'create', name })
+      if (members.length > 0) await post('/dsh-crate/groups', { action: 'set-members', name, members })
     }
     browser = await chromium.launch({ executablePath: process.env.DSHM_E2E_BROWSER_EXECUTABLE || undefined })
     page = await browser.newPage({ viewport: { width: 1500, height: 950 }, colorScheme: 'light' })

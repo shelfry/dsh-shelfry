@@ -2931,7 +2931,7 @@ describe('update flow — no npm publishing required', () => {
     // notice on screen through page reloads, DSH restarts and a market
     // upgrade, with no `update-reinstalled` in the log.
     fake.npm['@changfenhuang/dsh-genui'] = { latest: '1.4.0', versions: { '1.4.0': { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] } } }
-    const first = await bed.dispatch('POST', '/dsh-market/install', { url: 'https://github.com/omdsh-dev/dsh-genui' })
+    const first = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-genui' })
     expect(first.json.ok).toBe(true)
 
     // Reach the record the way the reporter did — a cancel mid-swap, which
@@ -2940,21 +2940,21 @@ describe('update flow — no npm publishing required', () => {
     fake.npm['@changfenhuang/dsh-genui'].versions['1.5.0'] = { manifest: { dsh: {}, main: 'lib/index.js' }, artifacts: ['lib/index.js'] }
     fake.cancelNext = true
     fake.cancelClears = { name: '@changfenhuang/dsh-genui', cleared: ['package.json', 'lib/index.js'] }
-    const cancelledRun = await bed.dispatch('POST', '/dsh-market/update', { name: '@changfenhuang/dsh-genui' })
+    const cancelledRun = await bed.dispatch('POST', '/dsh-crate/update', { name: '@changfenhuang/dsh-genui' })
     expect(cancelledRun.json).toMatchObject({ ok: false, cancelled: true })
-    const broken = (await bed.dispatch('GET', '/dsh-market/installed')).json.brokenPlugins as Record<string, unknown>
+    const broken = (await bed.dispatch('GET', '/dsh-crate/installed')).json.brokenPlugins as Record<string, unknown>
     expect(broken['@changfenhuang/dsh-genui']).toBeTruthy()
 
     // Reinstalling from the market is the designed way out of that notice.
-    const again = await bed.dispatch('POST', '/dsh-market/install', { url: 'https://github.com/omdsh-dev/dsh-genui' })
+    const again = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/omdsh-dev/dsh-genui' })
     expect(again.json.ok).toBe(true)
-    const after = (await bed.dispatch('GET', '/dsh-market/installed')).json.brokenPlugins as Record<string, unknown>
+    const after = (await bed.dispatch('GET', '/dsh-crate/installed')).json.brokenPlugins as Record<string, unknown>
     expect(after['@changfenhuang/dsh-genui']).toBeUndefined()
     // The clear ran with the PACKAGE key, which is what `update-reinstalled`
     // names — the pre-fix run logged nothing at all, because
     // clearBrokenPlugin() returned before writing anything.
-    expect((await bed.dispatch('GET', '/dsh-market/logs')).text).toContain('update-reinstalled')
-    expect((await bed.dispatch('GET', '/dsh-market/logs')).text).toContain('@changfenhuang/dsh-genui: installed again')
+    expect((await bed.dispatch('GET', '/dsh-crate/logs')).text).toContain('update-reinstalled')
+    expect((await bed.dispatch('GET', '/dsh-crate/logs')).text).toContain('@changfenhuang/dsh-genui: installed again')
   })
 
   it('leaves an ordinary cancel alone when the previous build can still load (#663)', async () => {
@@ -3062,7 +3062,7 @@ describe('update flow — no npm publishing required', () => {
     ].join('\n'))
     advanceNpmLatest('1.2.0')
 
-    const r = await bed.dispatch('POST', '/dsh-market/update', { name: 'dsh-loop' })
+    const r = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop' })
 
     expect(r.status).toBe(200)
     expect(r.json.ok).toBe(true)
@@ -7801,7 +7801,7 @@ describe('a `disabled: !!js` guard survives the toggle (#1175)', () => {
     const plain = entry(`${tui}/storage`, 'dsh-tui-storage', true)
     bed.loaderEntries.push(guarded, plain)
 
-    const on = await bed.dispatch('POST', '/dsh-market/toggle', { name: tui, enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: tui, enabled: true })
 
     expect(on.status).toBe(200)
     // A carrier switch always lands on the next composition, and the reply
@@ -7832,7 +7832,7 @@ describe('a `disabled: !!js` guard survives the toggle (#1175)', () => {
     const guarded = entry(`${ordinary}/extra`, 'dsh-guarded-extra', true)
     bed.loaderEntries.push(plain, guarded)
 
-    const on = await bed.dispatch('POST', '/dsh-market/toggle', { name: ordinary, enabled: true })
+    const on = await bed.dispatch('POST', '/dsh-crate/toggle', { name: ordinary, enabled: true })
 
     expect(on.status).toBe(200)
     // The row the environment keeps off stays off; the rest of the package
@@ -10337,7 +10337,7 @@ describe('a pinned install is judged on its own release, not on latest (#581)', 
     // disabled the dialog's Update button for an update that works.
     const pkg = { dsh: {}, main: 'lib/index.js' }
     fake.npm['dsh-loop'] = { latest: '1.0.0', versions: { '1.0.0': { manifest: pkg, artifacts: ['lib/index.js'] }, '1.2.0': { manifest: pkg, artifacts: ['lib/index.js'] } } }
-    expect((await bed.dispatch('POST', '/dsh-market/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })).status).toBe(200)
+    expect((await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })).status).toBe(200)
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\n')
     fake.npm['dsh-loop'].latest = '1.2.0'
     fake.releaseHold = { mature: '1.0.0', strict: true }
@@ -10358,9 +10358,9 @@ describe('a pinned install is judged on its own release, not on latest (#581)', 
       return new Response('{}', { status: 404 })
     }))
 
-    const found = await bed.dispatch('POST', '/dsh-market/find-compatible', { npmName: 'dsh-loop', upgradeOnly: true })
+    const found = await bed.dispatch('POST', '/dsh-crate/find-compatible', { npmName: 'dsh-loop', upgradeOnly: true })
     expect(found.json).toMatchObject({ compatibleVersion: '1.2.0', maturity: null })
-    const updated = await bed.dispatch('POST', '/dsh-market/update', { name: 'dsh-loop', compatVersion: '1.2.0' })
+    const updated = await bed.dispatch('POST', '/dsh-crate/update', { name: 'dsh-loop', compatVersion: '1.2.0' })
     expect(updated.status, JSON.stringify(updated.json)).toBe(200)
     expect(installedSpec('dsh-loop')).toBe('^1.2.0')
 
@@ -10368,7 +10368,7 @@ describe('a pinned install is judged on its own release, not on latest (#581)', 
     bed.dispose()
     bed = createTestbed({ desktopHost: true })
     writeFileSync(join(fake.profileDir, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 1440\nminimumReleaseAgeIgnoreMissingTime: false\n')
-    const onDesktop = await bed.dispatch('POST', '/dsh-market/find-compatible', { npmName: 'dsh-loop' })
+    const onDesktop = await bed.dispatch('POST', '/dsh-crate/find-compatible', { npmName: 'dsh-loop' })
     expect(onDesktop.json.maturity).toMatchObject({ version: '1.2.0', held: true, installable: false })
   })
 
@@ -10387,7 +10387,7 @@ describe('a pinned install is judged on its own release, not on latest (#581)', 
       },
     } as never)
 
-    const answer = await bed.dispatch('POST', '/dsh-market/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
+    const answer = await bed.dispatch('POST', '/dsh-crate/install', { url: 'https://github.com/o/dsh-loop', version: '1.0.0' })
     expect(answer.status, JSON.stringify(answer.json)).toBe(200)
     expect(answer.json).toMatchObject({ ok: true, marketReloaded: true })
     expect(installedSpec('dsh-loop')).toBe('^1.0.0')
