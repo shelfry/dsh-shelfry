@@ -18956,7 +18956,10 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				const off = ctx.slots.register({
 					name: "settings.section.icon",
 					id: "market"
-				}, () => (0, react.createElement)(MarketLogo, { size: 14 }));
+				}, () => (0, react.createElement)(MarketLogo, {
+					size: 16,
+					inset: 1
+				}));
 				return typeof off === "function" ? off : () => {};
 			});
 			if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t("nav"));

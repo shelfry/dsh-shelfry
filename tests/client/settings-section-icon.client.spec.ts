@@ -62,8 +62,8 @@ describe('settings nav icon on dsh 0.2.2 (#1115)', () => {
 
     const icon = iconOf(registrations)
     expect(icon?.options.id).toBe('market')
-    // 设置菜单保持 14px 满幅：宿主传 20 也忽略，内缩版在该菜单里会显得偏小。
-    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 14 }))
+    // 宿主传 20 也只按 16 槽位画：字形内缩 1，实际 14px，位置居中。
+    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 16, inset: 1 }))
     expect(document.head.querySelector(STYLESHEET)).toBeNull()
   })
 

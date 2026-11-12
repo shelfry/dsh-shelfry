@@ -185,8 +185,9 @@ function mountMarket(ctx: MarketClientContext): void {
     const off = ctx.slots.register({
       name: 'settings.section.icon',
       id: 'market',
-    // 设置导航保持 14px 满幅：内缩版把字形收到 12，比相邻菜单小、图文间隙也变大。
-    }, () => h(MarketLogo, { size: 14 }))
+    // 设置导航与侧边栏一致：16 槽位 + 字形内缩 1，字形仍 14px 但居中，
+    // 左边缘与相邻菜单图标齐平；设置菜单 14px 满幅时还会向左多出 2px。
+    }, () => h(MarketLogo, { size: 16, inset: 1 }))
     return typeof off === 'function' ? off as () => void : () => {}
   })
   if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t('nav'))
