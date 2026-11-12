@@ -62,15 +62,16 @@ describe('settings nav icon on dsh 0.2.2 (#1115)', () => {
 
     const icon = iconOf(registrations)
     expect(icon?.options.id).toBe('market')
-    // 宿主传 20 也只按 16 槽位画：字形内缩 1，实际 14px，位置居中。
-    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 16, inset: 1 }))
+    // 宿主传 20 也只按 16 槽位画：字形按 14/16 缩放，视觉大小与 14px 满幅相同。
+    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 16, inset: 1.4375 }))
     expect(document.head.querySelector(STYLESHEET)).toBeNull()
   })
 
   it('inset 把字形收进 16 槽位中心，默认不缩放', () => {
-    const inset = renderToStaticMarkup(createElement(MarketLogo, { size: 16, inset: 2 }))
-    expect(inset).toContain('scale(0.8)')
-    expect(renderToStaticMarkup(createElement(MarketLogo, { size: 16 }))).not.toContain('scale(0.8)')
+    // 1.4375 → 缩放 0.875，墨迹大小与 14px 满幅一致，这是菜单图标的既定基线。
+    const inset = renderToStaticMarkup(createElement(MarketLogo, { size: 16, inset: 1.4375 }))
+    expect(inset).toContain('scale(0.875)')
+    expect(renderToStaticMarkup(createElement(MarketLogo, { size: 16 }))).not.toContain('scale(0.875)')
   })
 
   it('keeps the stand-in glyph on hosts that have no icon slot', () => {

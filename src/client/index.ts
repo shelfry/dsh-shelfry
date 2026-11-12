@@ -185,9 +185,10 @@ function mountMarket(ctx: MarketClientContext): void {
     const off = ctx.slots.register({
       name: 'settings.section.icon',
       id: 'market',
-    // 设置导航与侧边栏一致：16 槽位 + 字形内缩 1，字形仍 14px 但居中，
-    // 左边缘与相邻菜单图标齐平；设置菜单 14px 满幅时还会向左多出 2px。
-    }, () => h(MarketLogo, { size: 16, inset: 1 }))
+    // 设置导航与侧边栏一致：16 槽位 + 内缩 1.4375，字形缩放按 14/16 走，
+    // 墨迹仍是 13.78px（与 14px 满幅的视觉大小相同），整体右移居中，
+    // 左边缘与相邻菜单图标齐平。
+    }, () => h(MarketLogo, { size: 16, inset: 1.4375 }))
     return typeof off === 'function' ? off as () => void : () => {}
   })
   if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t('nav'))
@@ -320,7 +321,7 @@ function mountMarket(ctx: MarketClientContext): void {
       order: SIDEBAR_PANEL_ORDER,
       label: () => t('nav'),
       locale: NS,
-    }, (() => h(MarketLogo, { size: 16, inset: 1 })) as () => unknown)
+    }, (() => h(MarketLogo, { size: 16, inset: 1.4375 })) as () => unknown)
     return () => {
       // Leave the page before its panel goes: a selection pointing at a key
       // that no longer exists would strand the main column on nothing.

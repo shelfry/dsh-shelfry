@@ -18958,7 +18958,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					id: "market"
 				}, () => (0, react.createElement)(MarketLogo, {
 					size: 16,
-					inset: 1
+					inset: 1.4375
 				}));
 				return typeof off === "function" ? off : () => {};
 			});
@@ -19049,7 +19049,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					locale: NS
 				}, (() => (0, react.createElement)(MarketLogo, {
 					size: 16,
-					inset: 1
+					inset: 1.4375
 				})));
 				return () => {
 					if (layout?.panelInfo.getSnapshot().activePanelId === "dsh-crate") layout.selectPanel(null);
