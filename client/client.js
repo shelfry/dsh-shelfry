@@ -8959,11 +8959,12 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 		* （σ ≈ 1.83 单位，半高宽约图标宽度的 27%），边缘没有硬边、不要窄成一条线。
 		* `useId` 保证同页多个标记的 mask / gradient id 不冲突。
 		*/
-		function MarketLogo({ size = 16, style, animated = false, ambient = false }) {
+		function MarketLogo({ size = 16, style, animated = false, ambient = false, inset = 0 }) {
 			const sweeping = animated || ambient;
 			const uid = (0, react.useId)().replace(/:/gu, "");
 			const maskId = `dshm-crate-mask-${uid}`;
 			const sweepId = `dshm-crate-sweep-${uid}`;
+			const glyphTransform = inset > 0 ? `translate(8 8) scale(${(16 - inset * 2) / 15}) translate(-8 -8)` : void 0;
 			const glyph = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("rect", {
 				x: MARK_FRAME.x,
 				y: MARK_FRAME.y,
@@ -8984,6 +8985,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					strokeWidth: MARK_STROKE_WIDTH,
 					strokeLinecap: "butt",
 					strokeLinejoin: "miter",
+					transform: glyphTransform,
 					children: glyph
 				}), sweeping && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("defs", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("mask", {
 					id: maskId,
@@ -8998,6 +9000,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 						strokeWidth: 1.25,
 						strokeLinecap: "butt",
 						strokeLinejoin: "miter",
+						transform: glyphTransform,
 						children: glyph
 					})
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("linearGradient", {
@@ -14937,7 +14940,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 									className: Market_module_css_default.titleRow,
 									children: [
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(MarketLogo, {
-											size: 18,
+											size: 15,
 											ambient: true,
 											style: { flexShrink: 0 }
 										}),
@@ -18894,7 +18897,10 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				const off = ctx.slots.register({
 					name: "settings.section.icon",
 					id: "market"
-				}, () => (0, react.createElement)(MarketLogo, { size: 14 }));
+				}, () => (0, react.createElement)(MarketLogo, {
+					size: 16,
+					inset: 2
+				}));
 				return typeof off === "function" ? off : () => {};
 			});
 			if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t("nav"));

@@ -1337,16 +1337,22 @@ export function resetMarketPortalHost(): void {
  * （σ ≈ 1.83 单位，半高宽约图标宽度的 27%），边缘没有硬边、不要窄成一条线。
  * `useId` 保证同页多个标记的 mask / gradient id 不冲突。
  */
-export function MarketLogo({ size = 16, style, animated = false, ambient = false }: {
+export function MarketLogo({ size = 16, style, animated = false, ambient = false, inset = 0 }: {
   size?: number
   style?: CSSProperties
   animated?: boolean
   ambient?: boolean
+  inset?: number
 }) {
   const sweeping = animated || ambient
   const uid = useId().replace(/:/gu, '')
   const maskId = `dshm-crate-mask-${uid}`
   const sweepId = `dshm-crate-sweep-${uid}`
+  // 宿主菜单图标在 16 槽位里四周留 2，箱子是满幅的；不内缩会比兄弟项大一圈、
+  // 左边缘也更靠左。inset 只把字形按比例收进槽位中心，svg 占位尺寸不变。
+  const glyphTransform = inset > 0
+    ? `translate(${MARK_VIEW_BOX / 2} ${MARK_VIEW_BOX / 2}) scale(${(MARK_VIEW_BOX - inset * 2) / (MARK_VIEW_BOX - 1)}) translate(-${MARK_VIEW_BOX / 2} -${MARK_VIEW_BOX / 2})`
+    : undefined
   const glyph = (
     <>
       <rect x={MARK_FRAME.x} y={MARK_FRAME.y} width={MARK_FRAME.width} height={MARK_FRAME.height} />
@@ -1355,14 +1361,14 @@ export function MarketLogo({ size = 16, style, animated = false, ambient = false
   )
   return (
     <svg width={size} height={size} viewBox={`0 0 ${MARK_VIEW_BOX} ${MARK_VIEW_BOX}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={style}>
-      <g fill="none" stroke="currentColor" strokeWidth={MARK_STROKE_WIDTH} strokeLinecap="butt" strokeLinejoin="miter">
+      <g fill="none" stroke="currentColor" strokeWidth={MARK_STROKE_WIDTH} strokeLinecap="butt" strokeLinejoin="miter" transform={glyphTransform}>
         {glyph}
       </g>
       {sweeping && (
         <>
           <defs>
             <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width={MARK_VIEW_BOX} height={MARK_VIEW_BOX}>
-              <g fill="none" stroke="#fff" strokeWidth={MARK_STROKE_WIDTH} strokeLinecap="butt" strokeLinejoin="miter">
+              <g fill="none" stroke="#fff" strokeWidth={MARK_STROKE_WIDTH} strokeLinecap="butt" strokeLinejoin="miter" transform={glyphTransform}>
                 {glyph}
               </g>
             </mask>
@@ -7517,7 +7523,7 @@ export function MarketSection(props: MarketSectionProps) {
         {surface !== 'plugins' && (
         <div className={css.headTop}>
         <div className={css.titleRow}>
-          <MarketLogo size={18} ambient style={{ flexShrink: 0 }} />
+          <MarketLogo size={15} ambient style={{ flexShrink: 0 }} />
           <h2 className={css.title}>{t('nav')}</h2>
           <p className={css.sub}>{t('subtitle')}</p>
           </div>

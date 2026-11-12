@@ -8,6 +8,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { apply } from '../../src/client/index.ts'
 import { MarketLogo } from '../../src/client/MarketSection.tsx'
 
@@ -61,9 +62,15 @@ describe('settings nav icon on dsh 0.2.2 (#1115)', () => {
 
     const icon = iconOf(registrations)
     expect(icon?.options.id).toBe('market')
-    // 宿主传 20 也只画 14：菜单标记的尺寸由插件固定，避免宿主默认值把它撑大。
-    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 14 }))
+    // 宿主传 20 也只按 16 槽位画：字形内缩 2，实际 ink 12，与相邻菜单图标同宽。
+    expect(icon?.render({ size: 20 })).toEqual(createElement(MarketLogo, { size: 16, inset: 2 }))
     expect(document.head.querySelector(STYLESHEET)).toBeNull()
+  })
+
+  it('inset 把字形收进 16 槽位中心，默认不缩放', () => {
+    const inset = renderToStaticMarkup(createElement(MarketLogo, { size: 16, inset: 2 }))
+    expect(inset).toContain('scale(0.8)')
+    expect(renderToStaticMarkup(createElement(MarketLogo, { size: 16 }))).not.toContain('scale(0.8)')
   })
 
   it('keeps the stand-in glyph on hosts that have no icon slot', () => {
