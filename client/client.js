@@ -14942,7 +14942,10 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(MarketLogo, {
 											size: 15,
 											ambient: true,
-											style: { flexShrink: 0 }
+											style: {
+												flexShrink: 0,
+												transform: "translateX(2px)"
+											}
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h2", {
 											className: Market_module_css_default.title,
@@ -18897,10 +18900,7 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 				const off = ctx.slots.register({
 					name: "settings.section.icon",
 					id: "market"
-				}, () => (0, react.createElement)(MarketLogo, {
-					size: 16,
-					inset: 2
-				}));
+				}, () => (0, react.createElement)(MarketLogo, { size: 14 }));
 				return typeof off === "function" ? off : () => {};
 			});
 			if (!hostPaintsNavIcon) stopNavStandIn = installSettingsNavIcon(ctx, () => t("nav"));
@@ -18988,7 +18988,10 @@ window.__ModuleLoader__.load({ id: "dsh-crate", factory: (require) => {
 					order: 1,
 					label: () => t("nav"),
 					locale: NS
-				}, (() => (0, react.createElement)(MarketLogo, { size: 14 })));
+				}, (() => (0, react.createElement)(MarketLogo, {
+					size: 16,
+					inset: 1
+				})));
 				return () => {
 					if (layout?.panelInfo.getSnapshot().activePanelId === "dsh-crate") layout.selectPanel(null);
 					if (typeof offRow === "function") offRow();

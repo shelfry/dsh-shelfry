@@ -7523,7 +7523,7 @@ export function MarketSection(props: MarketSectionProps) {
         {surface !== 'plugins' && (
         <div className={css.headTop}>
         <div className={css.titleRow}>
-          <MarketLogo size={15} ambient style={{ flexShrink: 0 }} />
+          <MarketLogo size={15} ambient style={{ flexShrink: 0, transform: 'translateX(2px)' }} />
           <h2 className={css.title}>{t('nav')}</h2>
           <p className={css.sub}>{t('subtitle')}</p>
           </div>
